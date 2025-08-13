@@ -321,13 +321,8 @@ internal class AstGenerator
 			json = JsonConvert.SerializeObject(wrapper, settings);
 			return !hasErrors;
 		}
-		catch (Exception ex)
+		catch (Exception)
 		{
-			// Log error but don't throw - this is expected for invalid code
-			// if (ex.Message.Contains("Unicode") || ex.Message.Contains("encoding"))
-			// {
-			// Unicode/encoding issues are common in decompiled code
-			// }
 			return false;
 		}
 	}
