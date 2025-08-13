@@ -50,6 +50,38 @@ internal class AssetProcessor
 				return 0;
 			}
 
+			if (_options.ExportBundles)
+			{
+				if (!_options.Silent)
+				{
+					Logger.Info("Exporting asset bundles...");
+				}
+				var bundleStopwatch = Stopwatch.StartNew();
+				var bundleExporter = new BundleInfoExporter(_options);
+				bundleExporter.ExportBundleInfo(gameData);
+				bundleStopwatch.Stop();
+				if (_options.Verbose)
+				{
+					Logger.Info($"Bundle export completed in {bundleStopwatch.Elapsed:mm\\:ss\\.fff}");
+				}
+			}
+
+			if (_options.ExportCollections)
+			{
+				if (!_options.Silent)
+				{
+					Logger.Info("Exporting asset collections...");
+				}
+				var collectionStopwatch = Stopwatch.StartNew();
+				var collectionExporter = new CollectionInfoExporter(_options);
+				collectionExporter.ExportCollectionInfo(gameData);
+				collectionStopwatch.Stop();
+				if (_options.Verbose)
+				{
+					Logger.Info($"Collection export completed in {collectionStopwatch.Elapsed:mm\\:ss\\.fff}");
+				}
+			}
+
 			// Process asset types
 			if (_options.ExportScenes)
 			{

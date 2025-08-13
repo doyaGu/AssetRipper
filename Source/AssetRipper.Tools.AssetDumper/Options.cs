@@ -13,6 +13,14 @@ internal class Options
 		HelpText = "Output directory for extracted data")]
 	public string OutputPath { get; set; } = "./output";
 
+	[Option("bundles", Required = false, Default = true,
+		HelpText = "Export asset bundles")]
+	public bool ExportBundles { get; set; } = true;
+
+	[Option("collections", Required = false, Default = true,
+		HelpText = "Export asset collections (Resources, Addressables, etc.)")]
+	public bool ExportCollections { get; set; } = true;
+
 	[Option("scenes", Required = false, Default = true,
 		HelpText = "Export scene hierarchy and asset data")]
 	public bool ExportScenes { get; set; } = true;
