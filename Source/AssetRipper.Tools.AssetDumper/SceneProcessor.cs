@@ -33,7 +33,7 @@ internal class SceneProcessor
 	private void GenerateSceneJsonWithHierarchy(GameData gameData)
 	{
 		string scenesOutputPath = Path.Combine(_options.OutputPath, _options.ScenesOutputFolder);
-		Directory.CreateDirectory(scenesOutputPath);
+		ExportHelper.EnsureDirectoryExists(scenesOutputPath);
 
 		var scenesToProcess = gameData.GameBundle.Scenes.AsEnumerable();
 
@@ -64,9 +64,14 @@ internal class SceneProcessor
 
 	private void ProcessSingleScene(SceneDefinition scene, string scenesOutputPath)
 	{
-		SceneHierarchyObject? hierarchy = scene.Assets
-			.OfType<SceneHierarchyObject>()
-			.FirstOrDefault();
+		SceneHierarchyObject? hierarchy = null;
+
+		foreach (AssetCollection collection in scene.Collections)
+		{
+			hierarchy = collection.OfType<SceneHierarchyObject>().FirstOrDefault();
+			if (hierarchy != null)
+				break;
+		}
 
 		if (hierarchy != null)
 		{
@@ -80,21 +85,27 @@ internal class SceneProcessor
 
 	private void GenerateHierarchicalSceneJson(SceneHierarchyObject hierarchy, string outputPath, string sceneName)
 	{
-		string safeName = SanitizeFileName(sceneName);
+		string safeName = ExportHelper.SanitizeFileName(sceneName);
 		string sceneOutputPath = Path.Combine(outputPath, safeName);
-		Directory.CreateDirectory(sceneOutputPath);
+		ExportHelper.EnsureDirectoryExists(sceneOutputPath);
 
 		try
 		{
 			ExportSceneMetadata(hierarchy, sceneOutputPath, sceneName);
-			ExportAssetsByType(hierarchy, sceneOutputPath);
 			ExportHierarchyStructure(hierarchy, sceneOutputPath);
+			ExportGameObjects(hierarchy, sceneOutputPath);
+			ExportComponents(hierarchy, sceneOutputPath);
 			ExportManagers(hierarchy, sceneOutputPath);
+			ExportPrefabInstances(hierarchy, sceneOutputPath);
 
 			if (hierarchy.SceneRoots != null)
 			{
 				ExportSceneRoots(hierarchy.SceneRoots, sceneOutputPath);
 			}
+
+			ExportStrippedAssets(hierarchy.StrippedAssets, sceneOutputPath);
+			ExportHiddenAssets(hierarchy.HiddenAssets, sceneOutputPath);
+			ExportDependencies(hierarchy.FetchDependencies(), sceneOutputPath);
 		}
 		catch (Exception ex)
 		{
@@ -104,51 +115,42 @@ internal class SceneProcessor
 
 	private void ExportSceneMetadata(SceneHierarchyObject hierarchy, string outputPath, string sceneName)
 	{
-		var metadata = new Dictionary<string, object>
-		{
-			["name"] = sceneName,
-			["collection"] = hierarchy.Collection.Name,
-			["path"] = $"Assets/Scenes/{sceneName}.unity",
-			["assetCount"] = hierarchy.Assets.Count(),
-			["gameObjectCount"] = hierarchy.GameObjects.Count,
-			["componentCount"] = hierarchy.Components.Count,
-			["exportedAt"] = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ")
-		};
+		var metadata = ExportHelper.CreateBasicMetadata(sceneName, "Scene");
+
+		// Add scene-specific metadata
+		metadata["pathID"] = hierarchy.PathID;
+		metadata["classID"] = hierarchy.ClassID;
+		metadata["className"] = hierarchy.ClassName;
+
+		metadata["sceneGuid"] = hierarchy.Scene.GUID.ToString();
+		metadata["scenePath"] = hierarchy.Scene.Path;
+		metadata["sceneCollectionCount"] = hierarchy.Scene.Collections.Count;
+
+		metadata["collection"] = hierarchy.Collection.Name;
+		metadata["version"] = hierarchy.Collection.Version.ToString();
+		metadata["platform"] = hierarchy.Collection.Platform.ToString();
+		metadata["endianType"] = hierarchy.Collection.EndianType.ToString();
+
+		metadata["assetCount"] = hierarchy.Assets.Count();
+		metadata["gameObjectCount"] = hierarchy.GameObjects.Count;
+		metadata["componentCount"] = hierarchy.Components.Count;
+		metadata["managerCount"] = hierarchy.Managers.Count;
+		metadata["prefabInstanceCount"] = hierarchy.PrefabInstances.Count;
+
+		metadata["hasSceneRoots"] = hierarchy.SceneRoots != null;
+		metadata["rootGameObjectCount"] = hierarchy.GetRoots().Count();
+		metadata["strippedAssetCount"] = hierarchy.StrippedAssets.Count;
+		metadata["hiddenAssetCount"] = hierarchy.HiddenAssets.Count;
 
 		string metadataFile = Path.Combine(outputPath, "metadata.json");
 		WriteJsonFile(metadata, metadataFile);
-	}
-
-	private void ExportAssetsByType(SceneHierarchyObject hierarchy, string outputPath)
-	{
-		var assetsByType = hierarchy.Assets
-			.GroupBy(asset => asset.GetType().Name)
-			.ToDictionary(g => g.Key, g => g.ToList());
-
-		string assetsDir = Path.Combine(outputPath, "assets");
-		Directory.CreateDirectory(assetsDir);
-
-		foreach (var (typeName, assets) in assetsByType)
-		{
-			try
-			{
-				List<object> serializedAssets = SerializeAssetsWithMetadata(assets);
-				string safeTypeName = SanitizeFileName(typeName);
-				string typeFile = Path.Combine(assetsDir, $"{safeTypeName}.json");
-				WriteJsonFile(serializedAssets, typeFile);
-			}
-			catch (Exception ex)
-			{
-				Logger.Warning(LogCategory.Export, $"Error exporting assets of type {typeName}: {ex.Message}");
-			}
-		}
 	}
 
 	private void ExportHierarchyStructure(SceneHierarchyObject hierarchy, string outputPath)
 	{
 		try
 		{
-			List<object> hierarchyData = BuildGameObjectHierarchyWithSchema(hierarchy.GetRoots().ToList());
+			List<object> hierarchyData = BuildGameObjectHierarchy(hierarchy.GetRoots().ToList());
 			string hierarchyFile = Path.Combine(outputPath, "hierarchy.json");
 			WriteJsonFile(hierarchyData, hierarchyFile);
 		}
@@ -158,20 +160,79 @@ internal class SceneProcessor
 		}
 	}
 
+	private void ExportGameObjects(SceneHierarchyObject hierarchy, string outputPath)
+	{
+		if (hierarchy.GameObjects.Count == 0) return;
+
+		try
+		{
+			List<Dictionary<string, object>> gameObjectsData = hierarchy.GameObjects
+				.Select(SerializeAssetWithMetadata)
+				.ToList();
+
+			string gameObjectsFile = Path.Combine(outputPath, "gameObjects.json");
+			WriteJsonFile(gameObjectsData, gameObjectsFile);
+		}
+		catch (Exception ex)
+		{
+			Logger.Warning(LogCategory.Export, $"Error exporting game objects: {ex.Message}");
+		}
+	}
+
+	private void ExportComponents(SceneHierarchyObject hierarchy, string outputPath)
+	{
+		if (hierarchy.Components.Count == 0) return;
+
+		try
+		{
+			List<Dictionary<string, object>> componentData = hierarchy.Components
+				.Select(SerializeAssetWithMetadata)
+				.ToList();
+
+			string componentFile = Path.Combine(outputPath, "components.json");
+			WriteJsonFile(componentData, componentFile);
+		}
+		catch (Exception ex)
+		{
+			Logger.Warning(LogCategory.Export, $"Error exporting components: {ex.Message}");
+		}
+	}
+
 	private void ExportManagers(SceneHierarchyObject hierarchy, string outputPath)
 	{
-		if (hierarchy.Managers.Count > 0)
+		if (hierarchy.Managers.Count == 0) return;
+
+		try
 		{
-			try
-			{
-				List<object> managersData = SerializeAssetsWithMetadata(hierarchy.Managers.Cast<IUnityObjectBase>().ToList());
-				string managersFile = Path.Combine(outputPath, "managers.json");
-				WriteJsonFile(managersData, managersFile);
-			}
-			catch (Exception ex)
-			{
-				Logger.Warning(LogCategory.Export, $"Error exporting managers: {ex.Message}");
-			}
+			List<Dictionary<string, object>> managersData = hierarchy.Managers
+				.Select(SerializeAssetWithMetadata)
+				.ToList();
+
+			string managersFile = Path.Combine(outputPath, "managers.json");
+			WriteJsonFile(managersData, managersFile);
+		}
+		catch (Exception ex)
+		{
+			Logger.Warning(LogCategory.Export, $"Error exporting managers: {ex.Message}");
+		}
+	}
+
+	private void ExportPrefabInstances(SceneHierarchyObject hierarchy, string outputPath)
+	{
+		if (hierarchy.PrefabInstances.Count == 0) return;
+
+		try
+		{
+			List<Dictionary<string, object>> prefabData = hierarchy.PrefabInstances
+				.Select(SerializeAssetWithMetadata)
+				.ToList();
+
+			string prefabFile = Path.Combine(outputPath, "prefabInstances.json");
+			WriteJsonFile(prefabData, prefabFile);
+		}
+		catch (Exception ex)
+		{
+			Logger.Warning(LogCategory.Export, $"Error exporting prefab instances: {ex.Message}");
 		}
 	}
 
@@ -189,34 +250,78 @@ internal class SceneProcessor
 		}
 	}
 
-	private void WriteJsonFile(object data, string filePath)
+	private void ExportStrippedAssets(HashSet<IUnityObjectBase> strippedAssets, string outputPath)
 	{
+		if (strippedAssets.Count == 0) return;
+
 		try
 		{
-			string json = JsonConvert.SerializeObject(data, _jsonSettings);
-			File.WriteAllText(filePath, json);
+			var strippedData = strippedAssets
+				.Select(SerializeAssetWithMetadata)
+				.ToList();
+
+			string strippedFile = Path.Combine(outputPath, "stripped_assets.json");
+			WriteJsonFile(strippedData, strippedFile);
 		}
 		catch (Exception ex)
 		{
-			Logger.Error(LogCategory.Export, $"Failed to write JSON file {filePath}: {ex.Message}");
+			Logger.Warning(LogCategory.Export, $"Error exporting stripped assets: {ex.Message}");
 		}
 	}
 
-	private List<object> SerializeAssetsWithMetadata<T>(IReadOnlyList<T> assets) where T : IUnityObjectBase
+	private void ExportHiddenAssets(HashSet<IUnityObjectBase> hiddenAssets, string outputPath)
 	{
-		var resolvedAssets = new List<object>();
-		foreach (T asset in assets)
+		if (hiddenAssets.Count == 0) return;
+
+		try
+		{
+			var hiddenData = hiddenAssets
+				.Select(SerializeAssetWithMetadata)
+				.ToList();
+
+			string hiddenFile = Path.Combine(outputPath, "hidden_assets.json");
+			WriteJsonFile(hiddenData, hiddenFile);
+		}
+		catch (Exception ex)
+		{
+			Logger.Warning(LogCategory.Export, $"Error exporting hidden assets: {ex.Message}");
+		}
+	}
+
+	private void ExportDependencies(IEnumerable<(string, PPtr)> dependencies, string outputPath)
+	{
+		var dependencyData = new List<object>();
+
+		foreach ((string fieldName, PPtr pptr) in dependencies)
 		{
 			try
 			{
-				resolvedAssets.Add(SerializeAssetWithMetadata(asset));
+				var dependencyInfo = new Dictionary<string, object>
+				{
+					["fieldName"] = fieldName,
+					["fileID"] = pptr.FileID,
+					["pathID"] = pptr.PathID,
+					["isNull"] = pptr.IsNull
+				};
+
+				dependencyData.Add(dependencyInfo);
 			}
 			catch (Exception ex)
 			{
-				Logger.Warning(LogCategory.Export, $"Error serializing asset {asset.PathID}: {ex.Message}");
+				Logger.Warning(LogCategory.Export, $"Error processing dependency {fieldName}: {ex.Message}");
 			}
 		}
-		return resolvedAssets;
+
+		if (dependencyData.Count > 0)
+		{
+			string dependenciesFile = Path.Combine(outputPath, "dependencies.json");
+			WriteJsonFile(dependencyData, dependenciesFile);
+		}
+	}
+
+	private void WriteJsonFile(object data, string filePath)
+	{
+		ExportHelper.WriteJsonFile(data, filePath, _jsonSettings);
 	}
 
 	private Dictionary<string, object> SerializeAssetWithMetadata(IUnityObjectBase asset)
@@ -227,22 +332,18 @@ internal class SceneProcessor
 
 		var result = new Dictionary<string, object>
 		{
+			["collection"] = asset.Collection.Name,
 			["pathID"] = asset.PathID,
 			["classID"] = asset.ClassID,
-			["className"] = asset.GetType().Name,
+			["className"] = asset.ClassName,
+			["bestName"] = asset.GetBestName(),
 			["data"] = assetData
 		};
-
-		if (_options.IncludeAssetMetadata)
-		{
-			result["exportedAt"] = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ");
-			result["collection"] = asset.Collection.Name;
-		}
 
 		return result;
 	}
 
-	private static List<object> BuildGameObjectHierarchyWithSchema(IEnumerable<IGameObject> gameObjects)
+	private static List<object> BuildGameObjectHierarchy(IEnumerable<IGameObject> gameObjects)
 	{
 		var hierarchyData = new List<object>();
 
@@ -252,30 +353,15 @@ internal class SceneProcessor
 			{
 				var gameObjectData = new Dictionary<string, object>
 				{
-					["pathID"] = gameObject.PathID,
 					["name"] = gameObject.Name.String,
-					["classID"] = gameObject.ClassID
+					["collection"] = gameObject.Collection.Name,
+					["pathID"] = gameObject.PathID,
 				};
 
-				var componentRefs = new List<object>();
-				foreach (var componentPtr in gameObject.FetchComponents())
+				var children = gameObject.GetChildren();
+				if (children.Any())
 				{
-					if (componentPtr.TryGetAsset(gameObject.Collection, out var component) && component != null)
-					{
-						componentRefs.Add(new Dictionary<string, object>
-						{
-							["pathID"] = component.PathID,
-							["classID"] = component.ClassID,
-							["className"] = component.GetType().Name
-						});
-					}
-				}
-				gameObjectData["componentRefs"] = componentRefs;
-
-				var children = gameObject.GetChildren().ToList();
-				if (children.Count > 0)
-				{
-					gameObjectData["children"] = BuildGameObjectHierarchyWithSchema(children);
+					gameObjectData["children"] = BuildGameObjectHierarchy(children);
 				}
 
 				hierarchyData.Add(gameObjectData);
@@ -287,12 +373,6 @@ internal class SceneProcessor
 		}
 
 		return hierarchyData;
-	}
-
-	private static string SanitizeFileName(string fileName)
-	{
-		var invalidChars = Path.GetInvalidFileNameChars();
-		return string.Concat(fileName.Where(c => !invalidChars.Contains(c)));
 	}
 
 	private sealed class JsonWalker : DefaultJsonWalker
