@@ -24,10 +24,11 @@ internal class ScriptMetadataDumper
 	{
 		Logger.Info(LogCategory.Export, "Exporting script metadata...");
 
-		string scriptsOutputPath = Path.Combine(_options.OutputPath, "Scripts");
-		Directory.CreateDirectory(scriptsOutputPath);
+		string scriptsOutputPath = Path.Combine(_options.OutputPath, "ScriptMetadata");
+		ExportHelper.EnsureDirectoryExists(scriptsOutputPath);
 
 		ExportScriptsByCollection(gameData, scriptsOutputPath);
+		ExportScriptsOverview(gameData, scriptsOutputPath);
 	}
 
 	private void ExportScriptsByCollection(GameData gameData, string outputPath)
@@ -46,6 +47,9 @@ internal class ScriptMetadataDumper
 
 		Logger.Info(LogCategory.Export, $"Found scripts in {scriptsByCollection.Count} collections");
 
+		string collectionsDir = Path.Combine(outputPath, "Collections");
+		ExportHelper.EnsureDirectoryExists(collectionsDir);
+
 		foreach (var (collection, scripts) in scriptsByCollection)
 		{
 			try
@@ -53,22 +57,77 @@ internal class ScriptMetadataDumper
 				var collectionScriptData = new Dictionary<string, object>
 				{
 					["collectionName"] = collection.Name,
-					["collectionPath"] = collection.FilePath,
+					["collectionFilePath"] = collection.FilePath,
 					["collectionVersion"] = collection.Version.ToString(),
+					["collectionPlatform"] = collection.Platform.ToString(),
 					["scriptCount"] = scripts.Count,
 					["scripts"] = scripts.Select(DumpScriptMetadata).ToList()
 				};
 
-				string safeCollectionName = SanitizeFileName(collection.Name);
-				string collectionFile = Path.Combine(outputPath, $"{safeCollectionName}.json");
+				string safeCollectionName = ExportHelper.SanitizeFileName(collection.Name);
+				string collectionFile = Path.Combine(collectionsDir, $"{safeCollectionName}.json");
 				WriteJsonFile(collectionScriptData, collectionFile);
 
-				Logger.Info(LogCategory.Export, $"Exported {scripts.Count} scripts from collection: {collection.Name}");
+				Logger.Debug(LogCategory.Export, $"Exported {scripts.Count} scripts from collection: {collection.Name}");
 			}
 			catch (Exception ex)
 			{
 				Logger.Warning(LogCategory.Export, $"Error exporting scripts from collection {collection.Name}: {ex.Message}");
 			}
+		}
+	}
+
+	private void ExportScriptsOverview(GameData gameData, string outputPath)
+	{
+		try
+		{
+			var allScripts = new List<IMonoScript>();
+			var assemblies = new HashSet<string>();
+			var namespaces = new HashSet<string>();
+			var classNames = new HashSet<string>();
+
+			foreach (AssetCollection collection in gameData.GameBundle.FetchAssetCollections())
+			{
+				var scripts = collection.OfType<IMonoScript>().ToList();
+				allScripts.AddRange(scripts);
+
+				foreach (var script in scripts)
+				{
+					assemblies.Add(script.GetAssemblyNameFixed());
+					if (!string.IsNullOrEmpty(script.Namespace.String))
+					{
+						namespaces.Add(script.Namespace.String);
+					}
+					classNames.Add(script.ClassName_R.String);
+				}
+			}
+
+			var overview = new Dictionary<string, object>
+			{
+				["totalScripts"] = allScripts.Count,
+				["totalAssemblies"] = assemblies.Count,
+				["totalNamespaces"] = namespaces.Count,
+				["totalUniqueClassNames"] = classNames.Count,
+				["assemblies"] = assemblies.OrderBy(a => a).ToList(),
+				["topNamespaces"] = namespaces
+					.Where(ns => !string.IsNullOrEmpty(ns))
+					.GroupBy(ns => ns.Split('.')[0])
+					.OrderByDescending(g => g.Count())
+					.Take(10)
+					.Select(g => new { Namespace = g.Key, Count = g.Count() })
+					.ToList(),
+				["scriptsByAssembly"] = allScripts
+					.GroupBy(s => s.GetAssemblyNameFixed())
+					.ToDictionary(g => g.Key, g => g.Count()),
+				["exportedAt"] = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ")
+			};
+
+			string overviewFile = Path.Combine(outputPath, "ScriptsOverview.json");
+			WriteJsonFile(overview, overviewFile);
+		}
+		catch (Exception ex)
+		{
+			Logger.Warning(LogCategory.Export, $"Error creating scripts overview: {ex.Message}");
 		}
 	}
 
@@ -79,17 +138,15 @@ internal class ScriptMetadataDumper
 			// Basic asset metadata  
 			["pathID"] = script.PathID,
 			["classID"] = script.ClassID,
-			["className"] = script.GetType().Name,
+			["className"] = script.ClassName,
 
 			// Script-specific metadata  
-			["assemblyName"] = script.AssemblyName.String,
-			["assemblyNameFixed"] = script.GetAssemblyNameFixed(),
+			["assemblyName"] = script.GetAssemblyNameFixed(),
 			["namespace"] = script.Namespace.String,
-			["scriptClassName"] = script.ClassName_R.String,
 			["fullName"] = script.GetFullName(),
 			["executionOrder"] = script.ExecutionOrder,
 
-			// Calculated identifiers  
+			// Calculated identifiers
 			["scriptGuid"] = ScriptHashing.CalculateScriptGuid(script).ToString(),
 			["assemblyGuid"] = ScriptHashing.CalculateAssemblyGuid(script).ToString(),
 			["scriptFileID"] = ScriptHashing.CalculateScriptFileID(script),
@@ -103,13 +160,7 @@ internal class ScriptMetadataDumper
 		if (script.Has_PropertiesHash_Hash128_5())
 		{
 			var hash = script.GetPropertiesHash();
-			metadata["propertiesHash"] = new Dictionary<string, object>
-			{
-				["bytes0"] = hash.Bytes__0,
-				["bytes1"] = hash.Bytes__1,
-				["bytes2"] = hash.Bytes__2,
-				["bytes3"] = hash.Bytes__3
-			};
+			metadata["propertiesHash"] = hash.ToString();
 		}
 
 		return metadata;
@@ -117,20 +168,6 @@ internal class ScriptMetadataDumper
 
 	private void WriteJsonFile(object data, string filePath)
 	{
-		try
-		{
-			string json = JsonConvert.SerializeObject(data, _jsonSettings);
-			File.WriteAllText(filePath, json);
-		}
-		catch (Exception ex)
-		{
-			Logger.Error(LogCategory.Export, $"Failed to write JSON file {filePath}: {ex.Message}");
-		}
-	}
-
-	private static string SanitizeFileName(string fileName)
-	{
-		var invalidChars = Path.GetInvalidFileNameChars();
-		return string.Concat(fileName.Where(c => !invalidChars.Contains(c)));
+		ExportHelper.WriteJsonFile(data, filePath, _jsonSettings);
 	}
 }
