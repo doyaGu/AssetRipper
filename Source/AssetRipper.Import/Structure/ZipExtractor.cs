@@ -1,6 +1,7 @@
 ﻿using AssetRipper.Import.Logging;
-using AssetRipper.IO.Files.Utils;
-using ICSharpCode.SharpZipLib.Zip;
+using AssetRipper.IO.Files;
+using SharpCompress.Archives.Zip;
+using SharpCompress.Readers;
 
 namespace AssetRipper.Import.Structure;
 
@@ -9,6 +10,7 @@ public static class ZipExtractor
 	private const string ZipExtension = ".zip";
 	private const string ApkExtension = ".apk";
 	private const string ApksExtension = ".apks";
+	private const string ApkPlusExtension = ".apk+";
 	private const string ObbExtension = ".obb";
 	private const string XapkExtension = ".xapk";
 	private const string VpkExtension = ".vpk"; //PS Vita
@@ -32,6 +34,7 @@ public static class ZipExtractor
 					result.Add(ExtractZip(path));
 					break;
 				case ApksExtension:
+				case ApkPlusExtension:
 				case XapkExtension:
 					result.Add(ExtractXapk(path));
 					break;
@@ -50,7 +53,7 @@ public static class ZipExtractor
 			return zipFilePath;
 		}
 
-		string outputDirectory = TemporaryFileStorage.CreateTemporaryFolder();
+		string outputDirectory = LocalFileSystem.Instance.Directory.CreateTemporary();
 		DecompressZipArchive(zipFilePath, outputDirectory);
 		return outputDirectory;
 	}
@@ -62,8 +65,8 @@ public static class ZipExtractor
 			return xapkFilePath;
 		}
 
-		string intermediateDirectory = TemporaryFileStorage.CreateTemporaryFolder();
-		string outputDirectory = TemporaryFileStorage.CreateTemporaryFolder();
+		string intermediateDirectory = LocalFileSystem.Instance.Directory.CreateTemporary();
+		string outputDirectory = LocalFileSystem.Instance.Directory.CreateTemporary();
 		DecompressZipArchive(xapkFilePath, intermediateDirectory);
 		foreach (string filePath in Directory.GetFiles(intermediateDirectory))
 		{
@@ -78,8 +81,13 @@ public static class ZipExtractor
 	private static void DecompressZipArchive(string zipFilePath, string outputDirectory)
 	{
 		Logger.Info(LogCategory.Import, $"Decompressing files...{Environment.NewLine}\tFrom: {zipFilePath}{Environment.NewLine}\tTo: {outputDirectory}");
-		FastZip zipper = new FastZip();
-		zipper.ExtractZip(zipFilePath, outputDirectory, null);
+		using ZipArchive archive = ZipArchive.Open(zipFilePath);
+		using IReader reader = archive.ExtractAllEntries();
+		reader.WriteAllToDirectory(outputDirectory, new SharpCompress.Common.ExtractionOptions()
+		{
+			ExtractFullPath = true,
+			Overwrite = true
+		});
 	}
 
 	private static string? GetFileExtension(string path)

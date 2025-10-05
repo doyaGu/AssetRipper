@@ -1,4 +1,5 @@
 ﻿using AssetRipper.Assets;
+using AssetRipper.Export.Configuration;
 using AssetRipper.Export.Modules.Shaders.Exporters;
 using AssetRipper.Export.Modules.Shaders.Exporters.DirectX;
 using AssetRipper.Export.Modules.Shaders.Exporters.USCDirectX;
@@ -10,7 +11,6 @@ using AssetRipper.Export.Modules.Shaders.UltraShaderConverter.DirectXDisassemble
 using AssetRipper.Export.Modules.Shaders.UltraShaderConverter.DirectXDisassembler.Blocks;
 using AssetRipper.Export.Modules.Shaders.UltraShaderConverter.UShader.DirectX;
 using AssetRipper.Export.Modules.Shaders.UltraShaderConverter.USIL;
-using AssetRipper.Export.UnityProjects.Configuration;
 using AssetRipper.Import.Logging;
 using AssetRipper.SourceGenerated.Classes.ClassID_48;
 using AssetRipper.SourceGenerated.Extensions;
@@ -33,19 +33,18 @@ public sealed class USCShaderExporter : ShaderExporterBase
 
 	public override bool Export(IExportContainer container, IUnityObjectBase asset, string path, FileSystem fileSystem)
 	{
-		using Stream fileStream = fileSystem.File.Create(path);
 		try
 		{
+			using Stream fileStream = fileSystem.File.Create(path);
 			ExportBinary((IShader)asset, fileStream, ShaderExporterInstantiator);
-			return true;
 		}
 		catch (Exception ex)
 		{
 			Logger.Error(ex);
-			fileStream.Position = 0;
+			using Stream fileStream = fileSystem.File.Create(path);
 			DummyShaderTextExporter.ExportShader((IShader)asset, new InvariantStreamWriter(fileStream));
-			return false;
 		}
+		return true;
 	}
 
 	private static ShaderTextExporter ShaderExporterInstantiator(GPUPlatform graphicApi)
