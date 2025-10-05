@@ -1,7 +1,8 @@
 ﻿using AssetRipper.Export.UnityProjects;
-using AssetRipper.Export.UnityProjects.Configuration;
+using AssetRipper.Export.Configuration;
 using AssetRipper.Import.Logging;
 using AssetRipper.Import.Structure.Assembly;
+using AssetRipper.IO.Files;
 using AssetRipper.Processing;
 using System.Diagnostics;
 
@@ -36,9 +37,9 @@ internal class AssetProcessor
 			}
 
 			string[] inputPaths = { _options.InputPath };
-			var settings = new LibraryConfiguration();
+			var settings = new FullConfiguration();
 			var exportHandler = new ExportHandler(settings);
-			var gameData = exportHandler.LoadAndProcess(inputPaths);
+			var gameData = exportHandler.LoadAndProcess(inputPaths, LocalFileSystem.Instance);
 
 			// Create output directory
 			Directory.CreateDirectory(_options.OutputPath);

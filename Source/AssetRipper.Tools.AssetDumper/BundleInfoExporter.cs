@@ -114,7 +114,7 @@ internal class BundleInfoExporter
 			["assetCount"] = collection.Assets.Count,
 			["dependencyCount"] = collection.Dependencies.Count,
 			["isScene"] = collection.IsScene,
-			["sceneName"] = collection.Scene?.Name
+			["sceneName"] = collection.Scene?.Name ?? string.Empty
 		}).ToList();
 	}
 

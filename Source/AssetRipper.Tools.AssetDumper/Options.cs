@@ -31,15 +31,15 @@ internal class Options
 
 	[Option("assemblies", Required = false, Default = false,
 		HelpText = "Export raw assembly DLL files")]
-	public bool ExportAssemblies { get; set; } = true;
+	public bool ExportAssemblies { get; set; } = false;
 
 	[Option('s', "scripts", Required = false, Default = false,
 		HelpText = "Export decompiled C# scripts")]
-	public bool ExportScripts { get; set; } = true;
+	public bool ExportScripts { get; set; } = false;
 
 	[Option('a', "ast", Required = false, Default = false,
 		HelpText = "Generate AST from decompiled scripts")]
-	public bool GenerateAst { get; set; } = true;
+	public bool GenerateAst { get; set; } = false;
 
 	[Option('v', "verbose", Required = false, Default = false,
 		HelpText = "Enable verbose logging output")]
