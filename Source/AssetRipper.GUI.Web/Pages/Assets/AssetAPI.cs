@@ -32,7 +32,6 @@ using AssetRipper.Yaml;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using SharpGLTF.Scenes;
-using SharpGLTF.Schema2;
 using System.Globalization;
 using System.Runtime.InteropServices;
 
@@ -109,7 +108,7 @@ internal static class AssetAPI
 	{
 		IImageTexture texture => texture.CheckAssetIntegrity(),
 		SpriteInformationObject spriteInformationObject => spriteInformationObject.Texture.CheckAssetIntegrity(),
-		ISprite sprite => sprite.TryGetTexture()?.CheckAssetIntegrity() ?? false,
+		ISprite sprite => SpriteConverter.Supported(sprite),
 		ITerrainData terrainData => terrainData.Heightmap.Heights.Count > 0,
 		_ => false,
 	};
@@ -132,7 +131,7 @@ internal static class AssetAPI
 
 		static DirectBitmap SpriteToBitmap(ISprite sprite)
 		{
-			return sprite.TryGetTexture() is { } spriteTexture ? TextureToBitmap(spriteTexture) : DirectBitmap.Empty;
+			return SpriteConverter.TryConvertToBitmap(sprite, out DirectBitmap bitmap) ? bitmap : DirectBitmap.Empty;
 		}
 	}
 
@@ -165,7 +164,7 @@ internal static class AssetAPI
 	#region Audio
 	public static string GetAudioUrl(AssetPath path, string? extension = null)
 	{
-		return $"{Urls.Audio}?{GetPathQuery(path)}";
+		return $"{Urls.Audio}?{GetPathQuery(path)}{GetExtensionQuerySuffix(extension)}";
 	}
 
 	public static Task GetAudioData(HttpContext context)
@@ -182,15 +181,19 @@ internal static class AssetAPI
 		}
 		else if (AudioClipDecoder.TryDecode(clip, out byte[]? decodedAudioData, out string? extension, out _))
 		{
-			if (extension is "ogg")
+			if (context.Request.Query.TryGetValue(Extension, out string? desiredExtension))
 			{
-				byte[] wavData = AudioConverter.OggToWav(decodedAudioData);
-				if (wavData.Length > 0)
+				if (extension is "ogg" && desiredExtension is "wav")
 				{
-					decodedAudioData = wavData;
-					extension = "wav";
+					byte[] wavData = AudioConverter.OggToWav(decodedAudioData);
+					if (wavData.Length > 0)
+					{
+						decodedAudioData = wavData;
+						extension = "wav";
+					}
 				}
 			}
+
 			return Results.Bytes(decodedAudioData, $"audio/{extension}").ExecuteAsync(context);
 		}
 		else
