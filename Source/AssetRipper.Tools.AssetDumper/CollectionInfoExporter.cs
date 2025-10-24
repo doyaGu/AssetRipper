@@ -1,4 +1,7 @@
-﻿using AssetRipper.Assets.Collections;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using AssetRipper.Assets.Collections;
 using AssetRipper.Import.Logging;
 using AssetRipper.Processing;
 using Newtonsoft.Json;
@@ -27,7 +30,10 @@ internal class CollectionInfoExporter
 		Logger.Info(LogCategory.Export, $"Processing {allCollections.Count} collections");
 
 		ExportCollectionsOverview(allCollections, collectionOutputPath);
-		ExportDetailedCollections(allCollections, collectionOutputPath);
+		var indexEntries = ExportDetailedCollections(allCollections, collectionOutputPath);
+		WriteCollectionsIndex(collectionOutputPath, indexEntries);
+		var addressablesExporter = new AddressablesInfoExporter(_options);
+		addressablesExporter.ExportAddressablesReport(allCollections);
 	}
 
 	private void ExportCollectionsOverview(List<AssetCollection> collections, string outputPath)
@@ -60,23 +66,31 @@ internal class CollectionInfoExporter
 		WriteJsonFile(overview, overviewFile);
 	}
 
-	private void ExportDetailedCollections(List<AssetCollection> collections, string outputPath)
+	private List<Dictionary<string, object>> ExportDetailedCollections(List<AssetCollection> collections, string outputPath)
 	{
+		var indexEntries = new List<Dictionary<string, object>>(collections.Count);
+		var allocatedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
 		foreach (AssetCollection collection in collections)
 		{
 			try
 			{
-				ExportSingleCollectionDetails(collection, outputPath);
+				string fileName = ExportSingleCollectionDetails(collection, outputPath, allocatedNames);
+				indexEntries.Add(CreateCollectionIndexEntry(collection, fileName));
 			}
 			catch (Exception ex)
 			{
 				Logger.Error(LogCategory.Export, $"Error exporting collection {collection.Name}: {ex.Message}");
 			}
 		}
+
+		return indexEntries;
 	}
 
-	private void ExportSingleCollectionDetails(AssetCollection collection, string outputPath)
+	private string ExportSingleCollectionDetails(AssetCollection collection, string outputPath, HashSet<string> allocatedNames)
 	{
+		string collectionId = ExportHelper.ComputeCollectionId(collection);
+
 		var detailedInfo = new Dictionary<string, object>
 		{
 			// Basic info
@@ -94,6 +108,8 @@ internal class CollectionInfoExporter
 			// Asset info
 			["assetCount"] = collection.Assets.Count,
 			["assetTypes"] = CreateAssetTypes(collection),
+			["collectionId"] = collectionId,
+			["assets"] = CreateAssetInventory(collection, collectionId),
 
 			// Dependencies info
 			["dependencyCount"] = collection.Dependencies.Count,
@@ -128,8 +144,22 @@ internal class CollectionInfoExporter
 		}
 
 		string collectionName = ExportHelper.SanitizeFileName(collection.Name);
-		string collectionFile = Path.Combine(outputPath, $"{collectionName}.json");
+		if (string.IsNullOrWhiteSpace(collectionName))
+		{
+			collectionName = "collection";
+		}
+
+		string fileName = $"{collectionName}.json";
+		if (!allocatedNames.Add(fileName))
+		{
+			fileName = $"{collectionName}_{collectionId}.json";
+			allocatedNames.Add(fileName);
+		}
+
+		string collectionFile = Path.Combine(outputPath, fileName);
 		WriteJsonFile(detailedInfo, collectionFile);
+
+		return fileName;
 	}
 
     private Dictionary<string, object> CreateCollectionSummary(AssetCollection collection)
@@ -145,7 +175,8 @@ internal class CollectionInfoExporter
             ["dependencyCount"] = collection.Dependencies.Count,
             ["isScene"] = collection.IsScene,
             ["sceneName"] = collection.Scene != null ? collection.Scene.Name : string.Empty,
-            ["bundleName"] = collection.Bundle.Name
+            ["bundleName"] = collection.Bundle.Name,
+            ["collectionId"] = ExportHelper.ComputeCollectionId(collection)
         };
     }
 
@@ -168,6 +199,42 @@ internal class CollectionInfoExporter
                 }
             );
     }
+
+	private List<Dictionary<string, object>> CreateAssetInventory(AssetCollection collection, string collectionId)
+	{
+		string bundleName = collection.Bundle.Name;
+		string collectionFlags = collection.Flags.ToString();
+		string collectionFilePath = collection.FilePath ?? string.Empty;
+		string collectionVersion = collection.Version.ToString();
+		string collectionPlatform = collection.Platform.ToString();
+		bool isScene = collection.IsScene;
+
+		var assets = new List<Dictionary<string, object>>(collection.Assets.Count);
+		foreach (var asset in collection.Assets.Values)
+		{
+			var entry = new Dictionary<string, object>
+			{
+				["collectionId"] = collectionId,
+				["collectionName"] = collection.Name,
+				["bundleName"] = bundleName,
+				["collectionFlags"] = collectionFlags,
+				["collectionFilePath"] = collectionFilePath,
+				["collectionVersion"] = collectionVersion,
+				["collectionPlatform"] = collectionPlatform,
+				["isSceneCollection"] = isScene,
+				["assetBundleName"] = asset.AssetBundleName ?? string.Empty,
+				["pathID"] = asset.PathID,
+				["name"] = asset.GetBestName(),
+				["originalPath"] = asset.OriginalPath ?? string.Empty,
+				["classID"] = asset.ClassID,
+				["className"] = asset.ClassName
+			};
+
+			assets.Add(entry);
+		}
+
+		return assets;
+	}
 
 	private List<Dictionary<string, object>> CreateDependenciesSummary(AssetCollection collection)
 	{
@@ -206,5 +273,31 @@ internal class CollectionInfoExporter
 	private void WriteJsonFile(object data, string filePath)
 	{
 		ExportHelper.WriteJsonFile(data, filePath, _jsonSettings);
+	}
+
+	private void WriteCollectionsIndex(string outputPath, List<Dictionary<string, object>> indexEntries)
+	{
+		var indexDocument = new Dictionary<string, object>
+		{
+			["exportedAt"] = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ"),
+			["collectionCount"] = indexEntries.Count,
+			["collections"] = indexEntries
+		};
+
+		string indexFile = Path.Combine(outputPath, "index.json");
+		WriteJsonFile(indexDocument, indexFile);
+	}
+
+	private Dictionary<string, object> CreateCollectionIndexEntry(AssetCollection collection, string fileName)
+	{
+		return new Dictionary<string, object>
+		{
+			["collectionId"] = ExportHelper.ComputeCollectionId(collection),
+			["name"] = collection.Name,
+			["file"] = fileName,
+			["bundleName"] = collection.Bundle.Name,
+			["flags"] = collection.Flags.ToString(),
+			["assetCount"] = collection.Assets.Count
+		};
 	}
 }

@@ -1,4 +1,4 @@
-﻿using AssetRipper.Export.UnityProjects;
+using AssetRipper.Export.UnityProjects;
 using AssetRipper.Export.Configuration;
 using AssetRipper.Import.Logging;
 using AssetRipper.Import.Structure.Assembly;
@@ -38,7 +38,7 @@ internal class AssetProcessor
 
 			string[] inputPaths = { _options.InputPath };
 			var settings = new FullConfiguration();
-			var exportHandler = new ExportHandler(settings);
+			var exportHandler = new AssetDumperExportHandler(settings);
 			var gameData = exportHandler.LoadAndProcess(inputPaths, LocalFileSystem.Instance);
 
 			// Create output directory
@@ -76,6 +76,8 @@ internal class AssetProcessor
 				var collectionStopwatch = Stopwatch.StartNew();
 				var collectionExporter = new CollectionInfoExporter(_options);
 				collectionExporter.ExportCollectionInfo(gameData);
+				var resourceExporter = new ResourceInfoExporter(_options);
+				resourceExporter.ExportResources(gameData);
 				collectionStopwatch.Stop();
 				if (_options.Verbose)
 				{

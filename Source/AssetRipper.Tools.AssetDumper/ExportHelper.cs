@@ -1,4 +1,5 @@
-﻿using AssetRipper.Import.Logging;
+﻿using AssetRipper.Assets.Collections;
+using AssetRipper.Import.Logging;
 using Newtonsoft.Json;
 
 namespace AssetRipper.Tools.AssetDumper;
@@ -48,5 +49,44 @@ internal static class ExportHelper
 			["type"] = type,
 			["exportedAt"] = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ")
 		};
+	}
+
+	public static string ComputeCollectionId(AssetCollection collection)
+	{
+		if (collection is null)
+		{
+			throw new ArgumentNullException(nameof(collection));
+		}
+
+		string bundleName = collection.Bundle?.Name ?? string.Empty;
+		string filePath = collection.FilePath ?? string.Empty;
+		string version = collection.Version.ToString();
+		string platform = collection.Platform.ToString();
+		string flags = collection.Flags.ToString();
+		string compositeKey = string.Join("|", new[]
+		{
+			collection.Name ?? string.Empty,
+			filePath,
+			bundleName,
+			version,
+			platform,
+			flags
+		});
+
+		return ComputeStableHash(compositeKey);
+	}
+
+	public static string ComputeStableHash(string value)
+	{
+		unchecked
+		{
+			uint hash = 2166136261;
+			foreach (char c in value)
+			{
+				hash ^= c;
+				hash *= 16777619;
+			}
+			return hash.ToString("X8");
+		}
 	}
 }

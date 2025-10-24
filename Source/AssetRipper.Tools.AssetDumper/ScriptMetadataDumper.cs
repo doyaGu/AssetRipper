@@ -1,4 +1,7 @@
-﻿using AssetRipper.Assets.Collections;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using AssetRipper.Assets.Collections;
 using AssetRipper.Export.UnityProjects.Scripts;
 using AssetRipper.Import.Logging;
 using AssetRipper.Import.Structure.Assembly;
@@ -27,16 +30,15 @@ internal class ScriptMetadataDumper
 		string scriptsOutputPath = Path.Combine(_options.OutputPath, "ScriptMetadata");
 		ExportHelper.EnsureDirectoryExists(scriptsOutputPath);
 
-		ExportScriptsByCollection(gameData, scriptsOutputPath);
-		ExportScriptsOverview(gameData, scriptsOutputPath);
+		var allCollections = gameData.GameBundle.FetchAssetCollections().ToList();
+		ExportScriptsByCollection(allCollections, scriptsOutputPath);
+		ExportScriptsOverview(allCollections, scriptsOutputPath);
 	}
 
-	private void ExportScriptsByCollection(GameData gameData, string outputPath)
+	private void ExportScriptsByCollection(IReadOnlyList<AssetCollection> collections, string outputPath)
 	{
 		var scriptsByCollection = new Dictionary<AssetCollection, List<IMonoScript>>();
-
-		// Collect all MonoScript assets from all collections  
-		foreach (AssetCollection collection in gameData.GameBundle.FetchAssetCollections())
+		foreach (AssetCollection collection in collections)
 		{
 			var scripts = collection.OfType<IMonoScript>().ToList();
 			if (scripts.Count > 0)
@@ -45,39 +47,84 @@ internal class ScriptMetadataDumper
 			}
 		}
 
-		Logger.Info(LogCategory.Export, $"Found scripts in {scriptsByCollection.Count} collections");
-
+		int totalDiscovered = scriptsByCollection.Sum(kvp => kvp.Value.Count);
 		string collectionsDir = Path.Combine(outputPath, "Collections");
 		ExportHelper.EnsureDirectoryExists(collectionsDir);
 
+		var indexEntries = new Dictionary<string, List<Dictionary<string, object>>>(StringComparer.Ordinal);
+		int totalExported = 0;
+
 		foreach (var (collection, scripts) in scriptsByCollection)
 		{
+			var scriptEntries = new List<Dictionary<string, object>>();
+
+			foreach (var script in scripts)
+			{
+				try
+				{
+					scriptEntries.Add(DumpScriptMetadata(script));
+				}
+				catch (Exception ex)
+				{
+					Logger.Warning(LogCategory.Export, $"Failed to export metadata for script {script.GetFullName()}: {ex.Message}");
+					scriptEntries.Add(BuildFallbackMetadata(script));
+				}
+			}
+
+			totalExported += scriptEntries.Count;
 			try
 			{
-				var collectionScriptData = new Dictionary<string, object>
+				string collectionId = ExportHelper.ComputeCollectionId(collection);
+				string fileName = $"{collectionId}.json";
+				string collectionFile = Path.Combine(collectionsDir, fileName);
+
+				var collectionDocument = BuildCollectionScriptDocument(collection, collectionId, scriptEntries, scripts.Count);
+				WriteJsonFile(collectionDocument, collectionFile);
+
+				if (!indexEntries.TryGetValue(collection.Name, out var entriesForName))
 				{
-					["collectionName"] = collection.Name,
-					["collectionFilePath"] = collection.FilePath,
-					["collectionVersion"] = collection.Version.ToString(),
-					["collectionPlatform"] = collection.Platform.ToString(),
-					["scriptCount"] = scripts.Count,
-					["scripts"] = scripts.Select(DumpScriptMetadata).ToList()
-				};
+					entriesForName = new List<Dictionary<string, object>>();
+					indexEntries[collection.Name] = entriesForName;
+				}
 
-				string safeCollectionName = ExportHelper.SanitizeFileName(collection.Name);
-				string collectionFile = Path.Combine(collectionsDir, $"{safeCollectionName}.json");
-				WriteJsonFile(collectionScriptData, collectionFile);
+				entriesForName.Add(new Dictionary<string, object>
+				{
+					["collectionId"] = collectionId,
+					["bundleName"] = collection.Bundle?.Name ?? string.Empty,
+					["file"] = fileName,
+					["scriptCount"] = scriptEntries.Count,
+					["discoveredScriptCount"] = scripts.Count,
+					["flags"] = collection.Flags.ToString(),
+					["platform"] = collection.Platform.ToString(),
+					["version"] = collection.Version.ToString()
+				});
 
-				Logger.Debug(LogCategory.Export, $"Exported {scripts.Count} scripts from collection: {collection.Name}");
+				Logger.Info(LogCategory.Export, $"Exported {scriptEntries.Count}/{scripts.Count} MonoScripts for collection '{collection.Name}' (collectionId={collectionId})");
 			}
 			catch (Exception ex)
 			{
 				Logger.Warning(LogCategory.Export, $"Error exporting scripts from collection {collection.Name}: {ex.Message}");
 			}
 		}
+
+		Logger.Info(
+			LogCategory.Export,
+			$"Found {totalDiscovered} MonoScript assets across {indexEntries.Count} collections; exported {totalExported} metadata entries");
+
+		var indexDocument = new Dictionary<string, object>
+		{
+			["exportedAt"] = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ"),
+			["collectionCount"] = indexEntries.Count,
+			["discoveredScriptCount"] = totalDiscovered,
+			["exportedScriptCount"] = totalExported,
+			["collections"] = indexEntries
+		};
+
+		string indexFile = Path.Combine(collectionsDir, "index.json");
+		WriteJsonFile(indexDocument, indexFile);
 	}
 
-	private void ExportScriptsOverview(GameData gameData, string outputPath)
+	private void ExportScriptsOverview(IReadOnlyList<AssetCollection> collections, string outputPath)
 	{
 		try
 		{
@@ -86,7 +133,7 @@ internal class ScriptMetadataDumper
 			var namespaces = new HashSet<string>();
 			var classNames = new HashSet<string>();
 
-			foreach (AssetCollection collection in gameData.GameBundle.FetchAssetCollections())
+			foreach (AssetCollection collection in collections)
 			{
 				var scripts = collection.OfType<IMonoScript>().ToList();
 				allScripts.AddRange(scripts);
@@ -147,13 +194,18 @@ internal class ScriptMetadataDumper
 			["executionOrder"] = script.ExecutionOrder,
 
 			// Calculated identifiers
-			["scriptGuid"] = ScriptHashing.CalculateScriptGuid(script).ToString(),
-			["assemblyGuid"] = ScriptHashing.CalculateAssemblyGuid(script).ToString(),
-			["scriptFileID"] = ScriptHashing.CalculateScriptFileID(script),
+			["scriptGuid"] = SafeCompute(() => ScriptHashing.CalculateScriptGuid(script).ToString(), string.Empty, script, "script guid"),
+			["assemblyGuid"] = SafeCompute(() => ScriptHashing.CalculateAssemblyGuid(script).ToString(), string.Empty, script, "assembly guid"),
+			["scriptFileID"] = SafeCompute(() => ScriptHashing.CalculateScriptFileID(script), 0, script, "script file id"),
 
 			// Collection information  
-			["collection"] = script.Collection.Name,
-			["collectionFlags"] = script.Collection.Flags.ToString()
+			["collection"] = script.Collection?.Name ?? string.Empty,
+			["collectionFlags"] = script.Collection?.Flags.ToString() ?? string.Empty,
+			["collectionId"] = script.Collection is not null ? ExportHelper.ComputeCollectionId(script.Collection) : string.Empty,
+			["collectionFilePath"] = script.Collection?.FilePath ?? string.Empty,
+			["collectionVersion"] = script.Collection?.Version.ToString() ?? string.Empty,
+			["collectionPlatform"] = script.Collection?.Platform.ToString() ?? string.Empty,
+			["bundleName"] = script.Collection?.Bundle?.Name ?? string.Empty
 		};
 
 		// Add properties hash if available  
@@ -166,8 +218,81 @@ internal class ScriptMetadataDumper
 		return metadata;
 	}
 
+	private Dictionary<string, object> BuildFallbackMetadata(IMonoScript script)
+	{
+		return new Dictionary<string, object>
+		{
+			["pathID"] = script.PathID,
+			["classID"] = script.ClassID,
+			["className"] = script.ClassName,
+			["assemblyName"] = script.GetAssemblyNameFixed(),
+			["namespace"] = script.Namespace.String,
+			["fullName"] = script.GetFullName(),
+			["executionOrder"] = script.ExecutionOrder,
+			["scriptGuid"] = string.Empty,
+			["assemblyGuid"] = string.Empty,
+			["scriptFileID"] = 0,
+			["collection"] = script.Collection?.Name ?? string.Empty,
+			["collectionFlags"] = script.Collection?.Flags.ToString() ?? string.Empty,
+			["collectionId"] = script.Collection is not null ? ExportHelper.ComputeCollectionId(script.Collection) : string.Empty,
+			["collectionFilePath"] = script.Collection?.FilePath ?? string.Empty,
+			["collectionVersion"] = script.Collection?.Version.ToString() ?? string.Empty,
+			["collectionPlatform"] = script.Collection?.Platform.ToString() ?? string.Empty,
+			["bundleName"] = script.Collection?.Bundle?.Name ?? string.Empty
+		};
+	}
+
 	private void WriteJsonFile(object data, string filePath)
 	{
 		ExportHelper.WriteJsonFile(data, filePath, _jsonSettings);
+	}
+
+	private static Dictionary<string, object> BuildCollectionScriptDocument(
+		AssetCollection collection,
+		string collectionId,
+		List<Dictionary<string, object>> scriptEntries,
+		int discoveredCount)
+	{
+		var document = new Dictionary<string, object>
+		{
+			["collectionId"] = collectionId,
+			["collection"] = new Dictionary<string, object>
+			{
+				["name"] = collection.Name,
+				["filePath"] = collection.FilePath ?? string.Empty,
+				["bundleName"] = collection.Bundle?.Name ?? string.Empty,
+				["version"] = collection.Version.ToString(),
+				["platform"] = collection.Platform.ToString(),
+				["flags"] = collection.Flags.ToString()
+			},
+			["scriptCount"] = scriptEntries.Count,
+			["discoveredScriptCount"] = discoveredCount,
+			["scripts"] = scriptEntries
+		};
+
+		if (collection.IsScene && collection.Scene is not null)
+		{
+			document["scene"] = new Dictionary<string, object>
+			{
+				["name"] = collection.Scene.Name,
+				["path"] = collection.Scene.Path,
+				["guid"] = collection.Scene.GUID.ToString()
+			};
+		}
+
+		return document;
+	}
+
+	private static T SafeCompute<T>(Func<T> computation, T fallback, IMonoScript script, string context)
+	{
+		try
+		{
+			return computation();
+		}
+		catch (Exception ex)
+		{
+			Logger.Warning(LogCategory.Export, $"Failed to compute {context} for script {script.GetFullName()}: {ex.Message}");
+			return fallback;
+		}
 	}
 }
