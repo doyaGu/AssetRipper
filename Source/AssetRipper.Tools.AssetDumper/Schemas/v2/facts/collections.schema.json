@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.assetripper.dev/assetdump/v2/facts/collections.schema.json",
+  "title": "AssetDump v2 Collections Facts",
+  "description": "Per-collection metadata describing Unity SerializedFiles and embedded built-in resources.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "collectionId",
+    "name",
+    "platform",
+    "unityVersion",
+    "formatVersion",
+    "endian"
+  ],
+  "properties": {
+    "collectionId": {
+      "$ref": "https://schemas.assetripper.dev/assetdump/v2/core.schema.json#/$defs/CollectionID"
+    },
+    "name": {
+      "type": "string",
+      "description": "Primary filename (e.g., sharedassets1.assets)."
+    },
+    "bundleName": {
+      "type": "string",
+      "description": "Bundle name when sourced from an AssetBundle."
+    },
+    "platform": {
+      "type": "string",
+      "description": "Unity build target/platform string."
+    },
+    "unityVersion": {
+      "type": "string",
+      "description": "Unity player/editor version that produced the SerializedFile."
+    },
+    "formatVersion": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "SerializedFile header format version controlling table layout and offset width."
+    },
+    "endian": {
+      "type": "string",
+      "enum": [
+        "LittleEndian",
+        "BigEndian"
+      ]
+    },
+    "flags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Optional flag set derived from Unity SerializedFile header."
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "uri": {
+          "type": "string",
+          "description": "Optional URI describing the physical source of the collection."
+        },
+        "offset": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "size": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "unity": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "builtInClassification": {
+          "type": "string",
+          "enum": [
+            "BUILTIN-EXTRA",
+            "BUILTIN-DEFAULT",
+            "BUILTIN-EDITOR"
+          ],
+          "description": "Stable identifier assigned to Unity built-in resources."
+        }
+      }
+    }
+  }
+}

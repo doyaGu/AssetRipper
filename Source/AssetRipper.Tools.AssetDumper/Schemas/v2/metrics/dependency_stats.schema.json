@@ -1,0 +1,105 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.assetripper.dev/assetdump/v2/metrics/dependency_stats.schema.json",
+  "title": "AssetDump v2 Metric: Dependency Statistics",
+  "description": "Graph-level metrics for asset dependencies, including degree distribution and health indicators.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "edges",
+    "degree",
+    "health"
+  ],
+  "properties": {
+    "edges": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "total",
+        "averagePerAsset"
+      ],
+      "properties": {
+        "total": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total number of dependency edges in the graph"
+        },
+        "averagePerAsset": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Average number of edges per asset"
+        }
+      }
+    },
+    "degree": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "outgoing",
+        "incoming"
+      ],
+      "properties": {
+        "outgoing": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "average",
+            "max"
+          ],
+          "properties": {
+            "average": {
+              "type": "number",
+              "minimum": 0,
+              "description": "Average out-degree (references made by assets)"
+            },
+            "max": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Maximum out-degree observed"
+            }
+          }
+        },
+        "incoming": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "average",
+            "max"
+          ],
+          "properties": {
+            "average": {
+              "type": "number",
+              "minimum": 0,
+              "description": "Average in-degree (references to assets)"
+            },
+            "max": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Maximum in-degree observed"
+            }
+          }
+        }
+      }
+    },
+    "health": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "isolatedAssets",
+        "totalAssets"
+      ],
+      "properties": {
+        "isolatedAssets": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of assets with no incoming or outgoing references"
+        },
+        "totalAssets": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total number of assets in the dependency graph"
+        }
+      }
+    }
+  }
+}

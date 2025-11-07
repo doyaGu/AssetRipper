@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.assetripper.dev/assetdump/v2/metrics/asset_distribution.schema.json",
+  "title": "AssetDump v2 Metric: Asset Distribution",
+  "description": "Statistics on asset distribution grouped by class type, including counts and size metrics.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "summary",
+    "byClass"
+  ],
+  "properties": {
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "totalAssets",
+        "totalBytes",
+        "uniqueClasses"
+      ],
+      "properties": {
+        "totalAssets": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total number of assets across all classes"
+        },
+        "totalBytes": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total bytes occupied by all assets"
+        },
+        "uniqueClasses": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of unique asset classes found"
+        }
+      }
+    },
+    "byClass": {
+      "type": "array",
+      "description": "Per-class distribution statistics, sorted by count descending",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "classId",
+          "className",
+          "count",
+          "totalBytes",
+          "averageBytes"
+        ],
+        "properties": {
+          "classId": {
+            "type": "integer",
+            "description": "Unity ClassID (e.g., 1=GameObject, 114=MonoBehaviour)"
+          },
+          "className": {
+            "type": "string",
+            "description": "Human-readable class name"
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Number of assets of this class"
+          },
+          "totalBytes": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Total bytes occupied by assets of this class"
+          },
+          "averageBytes": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Average bytes per asset of this class"
+          }
+        }
+      }
+    }
+  }
+}

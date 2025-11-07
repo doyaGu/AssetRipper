@@ -1,0 +1,120 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.assetripper.dev/assetdump/v2/primary/scripts.schema.json",
+  "title": "AssetDump Script Records",
+  "description": "Schema describing per-line script records emitted by the scripts NDJSON domain.",
+  "$ref": "#/$defs/ScriptRecord",
+  "$defs": {
+    "ScriptRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "domain",
+        "collectionId",
+        "collection",
+        "bundleName",
+        "platform",
+        "version",
+        "pathID",
+        "classID",
+        "className",
+        "fullName",
+        "assemblyName",
+        "scriptGuid",
+        "executionOrder"
+      ],
+      "properties": {
+        "domain": { "type": "string", "const": "scripts" },
+        "collectionId": { "$ref": "../core.schema.json#/$defs/CollectionID" },
+        "collection": { "type": "string" },
+        "bundleName": { "type": "string" },
+        "platform": { "type": "string" },
+        "version": { "type": "string" },
+        "flags": { "type": "string" },
+        "file": { "type": "string" },
+        "pathID": { "type": "integer" },
+        "classID": { "type": "integer" },
+        "className": { "type": "string" },
+        "namespace": { "type": "string" },
+        "fullName": { "type": "string" },
+        "assemblyName": { "type": "string" },
+        "assemblyGuid": { "$ref": "../core.schema.json#/$defs/UnityGuid" },
+        "scriptGuid": { "$ref": "../core.schema.json#/$defs/UnityGuid" },
+        "scriptFileId": { "type": "integer" },
+        "executionOrder": { "type": "integer" },
+        "propertiesHash": { "type": "string" },
+        "behaviour": { "$ref": "#/$defs/BehaviourInfo" }
+      }
+    },
+    "BehaviourInfo": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status"],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["ManagerUnavailable", "Resolved", "ResolutionFailed", "Unresolved"]
+        },
+        "message": { "type": "string" },
+        "type": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "fullName",
+            "namespace",
+            "name",
+            "isPrimitive",
+            "isEngineStruct",
+            "isEnginePointer"
+          ],
+          "properties": {
+            "fullName": { "type": "string" },
+            "namespace": { "type": "string" },
+            "name": { "type": "string" },
+            "primitiveKind": { "type": "string" },
+            "isPrimitive": { "type": "boolean" },
+            "isEngineStruct": { "type": "boolean" },
+            "isEnginePointer": { "type": "boolean" },
+            "maxDepth": { "type": "integer" },
+            "fields": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["name", "arrayDepth", "align", "isArray", "type"],
+                "properties": {
+                  "name": { "type": "string" },
+                  "arrayDepth": { "type": "integer", "minimum": 0 },
+                  "align": { "type": "boolean" },
+                  "isArray": { "type": "boolean" },
+                  "type": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "fullName",
+                      "namespace",
+                      "name",
+                      "primitiveKind",
+                      "isPrimitive",
+                      "isEngineStruct",
+                      "isEnginePointer"
+                    ],
+                    "properties": {
+                      "fullName": { "type": "string" },
+                      "namespace": { "type": "string" },
+                      "name": { "type": "string" },
+                      "primitiveKind": { "type": "string" },
+                      "isPrimitive": { "type": "boolean" },
+                      "isEngineStruct": { "type": "boolean" },
+                      "isEnginePointer": { "type": "boolean" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

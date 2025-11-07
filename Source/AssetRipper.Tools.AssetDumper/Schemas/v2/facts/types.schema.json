@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.assetripper.dev/assetdump/v2/facts/types.schema.json",
+  "title": "AssetDump v2 Types Dictionary",
+  "description": "Mapping between classKey and Unity ClassID/ClassName pairs shared across assets.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "classKey",
+    "classId",
+    "className"
+  ],
+  "properties": {
+    "classKey": {
+      "type": "integer",
+      "description": "Stable integer identifier assigned by the exporter."
+    },
+    "classId": {
+      "type": "integer",
+      "description": "Unity ClassID (114 = MonoBehaviour, etc.)."
+    },
+    "className": {
+      "type": "string",
+      "description": "Unity type name."
+    },
+    "scriptTypeIndex": {
+      "type": "integer"
+    },
+    "isStripped": {
+      "type": "boolean"
+    },
+    "notes": {
+      "type": "string"
+    }
+  }
+}

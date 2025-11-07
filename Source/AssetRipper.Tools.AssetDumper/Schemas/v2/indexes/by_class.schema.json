@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.assetripper.dev/assetdump/v2/indexes/by_class.schema.json",
+  "title": "AssetDump v2 Index: Assets By Class",
+  "description": "Secondary index listing AssetPK references grouped by classKey.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "classKey",
+    "assets"
+  ],
+  "properties": {
+    "classKey": {
+      "type": "integer"
+    },
+    "assets": {
+      "type": "array",
+      "items": {
+        "$ref": "https://schemas.assetripper.dev/assetdump/v2/core.schema.json#AssetPK"
+      }
+    },
+    "count": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Optional cached count of assets for convenience."
+    }
+  }
+}

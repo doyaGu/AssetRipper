@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.assetripper.dev/assetdump/v2/core.schema.json",
+  "title": "AssetDump v2 Core Definitions",
+  "description": "Shared schema fragments reused across AssetDump v2 Facts, Relations, Indexes and Metrics documents.",
+  "$comment": "The root schema describes the canonical AssetPK structure and exposes it via the #AssetPK anchor.",
+  "$defs": {
+    "CollectionID": {
+      "type": "string",
+      "description": "Stable identifier for a serialized collection (e.g., sharedassets1.assets, BUILTIN-EXTRA).",
+      "minLength": 1,
+      "pattern": "^[A-Z0-9:_-]{2,}$"
+    },
+    "StableKey": {
+      "type": "string",
+      "description": "Deterministic key '<collectionId>:<pathId>' used for ordered indexing.",
+  "pattern": "^[A-Z0-9:_-]+:-?\\d+$"
+    },
+    "Timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "UTC timestamp in extended ISO-8601 form (e.g., 2025-11-02T13:30:00Z)."
+    },
+    "UnityGuid": {
+      "type": "string",
+      "description": "32 hex characters (or canonical GUID) produced by Unity tooling.",
+      "pattern": "^([0-9A-Fa-f]{32}|[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12})$"
+    },
+    "CompressionCodec": {
+      "type": "string",
+      "enum": [
+        "none",
+        "gzip",
+        "zstd",
+        "zstd-seekable"
+      ],
+      "description": "Supported compression codecs for AssetDump shards."
+    },
+    "NonEmptyString": {
+      "type": "string",
+      "minLength": 1
+    },
+    "AssetRef": {
+      "$anchor": "AssetRef",
+      "type": "object",
+      "description": "Structured reference to a Unity asset using collectionId + pathId.",
+      "additionalProperties": false,
+      "required": [
+        "collectionId",
+        "pathId"
+      ],
+      "properties": {
+        "collectionId": {
+          "$ref": "#/$defs/CollectionID"
+        },
+        "pathId": {
+          "type": "integer",
+          "description": "Unity m_PathID within the referenced collection."
+        }
+      }
+    },
+    "NullableAssetRef": {
+      "$anchor": "NullableAssetRef",
+      "description": "Optional Unity asset reference; null denotes unresolved or intentionally empty edges.",
+      "anyOf": [
+        {
+          "$ref": "#AssetRef"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "$anchor": "AssetPK",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "collectionId",
+    "pathId"
+  ],
+  "properties": {
+    "collectionId": {
+      "$ref": "#/$defs/CollectionID"
+    },
+    "pathId": {
+      "type": "integer",
+      "description": "Unity m_PathID that uniquely identifies an object inside the owning collection."
+    }
+  }
+}

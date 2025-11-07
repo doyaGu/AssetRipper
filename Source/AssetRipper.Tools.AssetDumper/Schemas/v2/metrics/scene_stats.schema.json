@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.assetripper.dev/assetdump/v2/metrics/scene_stats.schema.json",
+  "title": "AssetDump v2 Metric: Scene Statistics",
+  "description": "Derived statistics for Unity scenes (counts of GameObjects, Components, etc.).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "scene",
+    "counts"
+  ],
+  "properties": {
+    "scene": {
+      "$ref": "https://schemas.assetripper.dev/assetdump/v2/core.schema.json#AssetPK"
+    },
+    "counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "gameObjects",
+        "components"
+      ],
+      "properties": {
+        "gameObjects": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "components": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "prefabInstances": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "managers": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "notes": {
+      "type": "string"
+    }
+  }
+}

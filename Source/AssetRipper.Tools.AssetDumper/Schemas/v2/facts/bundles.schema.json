@@ -1,0 +1,148 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.assetripper.dev/assetdump/v2/facts/bundles.schema.json",
+  "title": "AssetDump v2 Bundle Metadata Facts",
+  "description": "Per-bundle metadata capturing hierarchy relationships, collection coverage, and aggregate counters.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "pk",
+    "name",
+    "bundleType",
+    "isRoot",
+    "hierarchyDepth",
+    "hierarchyPath",
+    "directCollectionCount",
+    "totalCollectionCount",
+    "directSceneCollectionCount",
+    "totalSceneCollectionCount",
+    "directChildBundleCount",
+    "totalChildBundleCount",
+    "directResourceCount",
+    "totalResourceCount",
+    "directFailedFileCount",
+    "totalFailedFileCount",
+    "directAssetCount",
+    "totalAssetCount"
+  ],
+  "properties": {
+    "pk": {
+      "type": "string",
+      "pattern": "^[A-F0-9]{8}$",
+      "description": "Stable identifier for the bundle node derived from its lineage path."
+    },
+    "name": {
+      "type": "string",
+      "description": "Bundle display name."
+    },
+    "bundleType": {
+      "type": "string",
+      "description": "Runtime type name of the bundle (GameBundle, ProcessedBundle, etc.)."
+    },
+    "parentPk": {
+      "type": "string",
+      "pattern": "^[A-F0-9]{8}$",
+      "description": "Stable identifier of the parent bundle when present."
+    },
+    "isRoot": {
+      "type": "boolean",
+      "description": "True when the bundle represents the root game bundle."
+    },
+    "hierarchyDepth": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Depth within the bundle hierarchy (root = 0)."
+    },
+    "hierarchyPath": {
+      "type": "string",
+      "description": "Human readable path constructed from ancestor bundle names."
+    },
+    "collectionIds": {
+      "type": "array",
+      "items": {
+        "$ref": "https://schemas.assetripper.dev/assetdump/v2/core.schema.json#/$defs/CollectionID"
+      },
+      "uniqueItems": true,
+      "description": "Direct collection identifiers hosted by this bundle."
+    },
+    "resources": {
+      "type": "array",
+      "description": "Direct resource files referenced by the bundle.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Resource file name."
+          },
+          "filePath": {
+            "type": "string",
+            "description": "Original file path for the resource when known."
+          }
+        }
+      }
+    },
+    "directCollectionCount": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Number of collections directly attached to the bundle."
+    },
+    "totalCollectionCount": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Number of collections contained within the bundle subtree."
+    },
+    "directSceneCollectionCount": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Scene collections directly attached to the bundle."
+    },
+    "totalSceneCollectionCount": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Scene collections contained within the bundle subtree."
+    },
+    "directChildBundleCount": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Immediate child bundle count."
+    },
+    "totalChildBundleCount": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Total descendant bundle count."
+    },
+    "directResourceCount": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Resource files directly attached to the bundle."
+    },
+    "totalResourceCount": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Resource files across the bundle subtree."
+    },
+    "directFailedFileCount": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Failed files captured directly on the bundle."
+    },
+    "totalFailedFileCount": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Failed files within the bundle subtree."
+    },
+    "directAssetCount": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Asset count across collections directly attached to the bundle."
+    },
+    "totalAssetCount": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Asset count across the bundle subtree."
+    }
+  }
+}

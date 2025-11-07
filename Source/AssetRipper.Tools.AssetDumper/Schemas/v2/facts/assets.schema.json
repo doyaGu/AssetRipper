@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.assetripper.dev/assetdump/v2/facts/assets.schema.json",
+  "title": "AssetDump v2 Asset Facts",
+  "description": "Per-asset facts capturing identity, class information and serialized data slices.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "pk",
+    "classKey",
+    "data"
+  ],
+  "properties": {
+    "pk": {
+      "$ref": "https://schemas.assetripper.dev/assetdump/v2/core.schema.json#AssetPK"
+    },
+    "classKey": {
+      "type": "integer",
+      "description": "Join key into facts/types.ndjson."
+    },
+    "name": {
+      "type": "string",
+      "description": "Best-effort asset name (Unity m_Name or derived)."
+    },
+    "unity": {
+      "type": "object",
+      "description": "Unity serialization metadata; all fields optional for version flexibility.",
+      "additionalProperties": false,
+      "properties": {
+        "classId": {
+          "type": "integer",
+          "description": "Unity ClassID (e.g., 1 = GameObject, 114 = MonoBehaviour)."
+        },
+        "typeId": {
+          "type": "integer",
+          "description": "SerializedType.TypeID when available."
+        },
+        "serializedTypeIndex": {
+          "type": "integer"
+        },
+        "scriptTypeIndex": {
+          "type": "integer"
+        },
+        "isStripped": {
+          "type": "boolean"
+        }
+      }
+    },
+    "data": {
+      "description": "Serialized Unity object payload emitted inline as JSON.",
+      "type": ["object", "array", "string", "number", "boolean", "null"]
+    },
+    "hash": {
+      "type": "string",
+      "description": "Optional content hash (e.g., sha1:<hex>)."
+    }
+  }
+}

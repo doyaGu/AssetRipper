@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.assetripper.dev/assetdump/v2/relations/asset_dependencies.schema.json",
+  "title": "AssetDump v2 Asset Dependency Relations",
+  "description": "Edges representing Unity PPtr references between assets.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "from",
+    "to",
+    "edge"
+  ],
+  "properties": {
+    "from": {
+      "$ref": "https://schemas.assetripper.dev/assetdump/v2/core.schema.json#AssetPK"
+    },
+    "to": {
+      "$ref": "https://schemas.assetripper.dev/assetdump/v2/core.schema.json#AssetPK"
+    },
+    "edge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "serializedRef",
+            "weakRef",
+            "fileRef"
+          ]
+        },
+        "field": {
+          "type": "string",
+          "description": "Serialized field holding the reference (e.g., m_Material)."
+        },
+        "optional": {
+          "type": "boolean",
+          "default": false
+        }
+      }
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "Resolved",
+        "Missing",
+        "External",
+        "SelfReference"
+      ],
+      "description": "Optional diagnostic state for exporters that capture resolution results."
+    },
+    "notes": {
+      "type": "string"
+    }
+  }
+}
