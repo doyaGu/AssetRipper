@@ -173,6 +173,98 @@ public class Options
 		HelpText = "Skip self-referential dependencies")]
 	public bool SkipSelfRefs { get; set; } = true;
 
+	/// <summary>
+	/// Apply a configuration preset to simplify common use cases.
+	/// </summary>
+	public void ApplyPreset(ConfigPreset preset)
+	{
+		switch (preset)
+		{
+			case ConfigPreset.Development:
+				// Fast iteration for development
+				Verbose = true;
+				IncrementalProcessing = true;
+				ExportMetrics = true;
+				ParallelDegree = 0; // Auto
+				Compression = "none";
+				ValidateSchema = false;
+				ExportIndexes = false;
+				break;
+
+			case ConfigPreset.Production:
+				// Optimized for production exports
+				Verbose = false;
+				Silent = false;
+				IncrementalProcessing = false; // Full export
+				ExportMetrics = true;
+				ParallelDegree = 0; // Auto
+				Compression = "zstd"; // Good compression with speed
+				ValidateSchema = true;
+				ExportIndexes = true;
+				EnableIndex = true;
+				CompactJson = true;
+				break;
+
+			case ConfigPreset.Debug:
+				// Detailed debugging information
+				Verbose = true;
+				TraceDependencies = true;
+				IncrementalProcessing = false;
+				ExportMetrics = true;
+				ParallelDegree = 1; // Sequential for debugging
+				Compression = "none";
+				ValidateSchema = true;
+				ExportIndexes = true;
+				IncludeAssetMetadata = true;
+				MinimalOutput = false;
+				FileTimeoutSeconds = 120; // Longer timeout
+				break;
+
+			case ConfigPreset.Minimal:
+				// Minimal output size
+				Silent = true;
+				ExportMetrics = false;
+				ExportScriptMetadata = false;
+				ExportBundleMetadata = false;
+				ExportScenes = false;
+				ExportIndexes = false;
+				MinimalOutput = true;
+				MinimalDeps = true;
+				CompactJson = true;
+				Compression = "zstd";
+				IgnoreNullValues = true;
+				break;
+
+			case ConfigPreset.Analysis:
+				// Optimized for static analysis
+				ExportScripts = true;
+				GenerateAst = true;
+				ExportScriptMetadata = true;
+				ExportRelations = true;
+				ExportMetrics = true;
+				ExportIndexes = true;
+				EnableIndex = true;
+				Verbose = false;
+				Silent = false;
+				Compression = "gzip"; // Good compatibility
+				break;
+		}
+	}
+
+	/// <summary>
+	/// Get a preset configuration by name.
+	/// </summary>
+	public static Options CreateWithPreset(ConfigPreset preset, string inputPath, string? outputPath = null)
+	{
+		var options = new Options
+		{
+			InputPath = inputPath,
+			OutputPath = outputPath ?? "./output"
+		};
+		options.ApplyPreset(preset);
+		return options;
+	}
+
 	[Usage(ApplicationAlias = "AssetDumper")]
 	public static IEnumerable<Example> Examples
 	{
