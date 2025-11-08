@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using System.IO.Compression;
 using AssetRipper.Tools.AssetDumper.Constants;
 using AssetRipper.Tools.AssetDumper.Models;
 using Newtonsoft.Json;
@@ -208,25 +209,56 @@ internal sealed class ShardedNdjsonWriter : IDisposable
 			return;
 		}
 
-		string compressedRelativePath = OutputPathHelper.NormalizeRelativePath(relativePath + ".zst");
+		// Determine compression file extension and method
+		string compressionExtension = _compressionKind == CompressionKind.Gzip ? ".gz" : ".zst";
+		string compressedRelativePath = OutputPathHelper.NormalizeRelativePath(relativePath + compressionExtension);
 		string compressedAbsolutePath = OutputPathHelper.ResolveAbsolutePath(_outputRoot, compressedRelativePath);
 		Directory.CreateDirectory(Path.GetDirectoryName(compressedAbsolutePath)!);
 
 		using (FileStream inputStream = File.OpenRead(absolutePath))
 		using (FileStream outputStream = File.Create(compressedAbsolutePath))
 		{
-			CompressToZstd(inputStream, outputStream);
+			if (_compressionKind == CompressionKind.Gzip)
+			{
+				CompressToGzip(inputStream, outputStream);
+			}
+			else
+			{
+				CompressToZstd(inputStream, outputStream);
+			}
 		}
 
 		descriptor.UncompressedBytes = descriptor.Bytes;
 		descriptor.Bytes = new FileInfo(compressedAbsolutePath).Length;
 		descriptor.Shard = compressedRelativePath;
-		descriptor.Compression = _compressionKind == CompressionKind.ZstdSeekable ? "zstd-seekable" : "zstd";
-		descriptor.FrameSize = _compressionKind == CompressionKind.ZstdSeekable ? _seekableFrameSize : null;
+		
+		// Set compression metadata
+		if (_compressionKind == CompressionKind.Gzip)
+		{
+			descriptor.Compression = "gzip";
+			descriptor.FrameSize = null;
+		}
+		else
+		{
+			descriptor.Compression = _compressionKind == CompressionKind.ZstdSeekable ? "zstd-seekable" : "zstd";
+			descriptor.FrameSize = _compressionKind == CompressionKind.ZstdSeekable ? _seekableFrameSize : null;
+		}
+		
 		descriptor.Sha256 = ComputeSha256(compressedAbsolutePath);
 
 		File.Delete(absolutePath);
 
+	}
+
+	private void CompressToGzip(Stream input, Stream output)
+	{
+		byte[] buffer = new byte[ExportConstants.FileBufferSize];
+		
+		using (GZipStream gzipStream = new GZipStream(output, CompressionLevel.Optimal, leaveOpen: true))
+		{
+			CopyStream(input, gzipStream, buffer);
+			gzipStream.Flush();
+		}
 	}
 
 	private void CompressToZstd(Stream input, Stream output)

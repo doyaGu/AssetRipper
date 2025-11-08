@@ -31,6 +31,9 @@ public sealed class AssetDependencyRelationsExporter
     private readonly JsonSerializerSettings _jsonSettings;
     private readonly CompressionKind _compressionKind;
     private readonly bool _enableIndex;
+    
+    // Dependency resolution cache to improve performance
+    private readonly Dictionary<(string collectionId, long pathId), bool> _assetExistenceCache = new();
 
     public AssetDependencyRelationsExporter(Options options, CompressionKind compressionKind, bool enableIndex)
     {

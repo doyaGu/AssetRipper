@@ -235,8 +235,7 @@ public sealed class ExportOrchestrator
 				return CompressionKind.ZstdSeekable;
 			case "gzip":
 			case "gz":
-				Logger.Warning("Gzip compression is not currently supported. Falling back to no compression.");
-				return CompressionKind.None;
+				return CompressionKind.Gzip;
 			default:
 				Logger.Warning($"Unknown compression codec '{compression}'. Falling back to no compression.");
 				return CompressionKind.None;

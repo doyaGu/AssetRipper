@@ -59,4 +59,9 @@ public enum ErrorCode
 	/// Game data loading failed.
 	/// </summary>
 	GameDataLoadError = 10,
+
+	/// <summary>
+	/// Operation completed with partial success (some items succeeded, some failed).
+	/// </summary>
+	PartialSuccess = 11,
 }

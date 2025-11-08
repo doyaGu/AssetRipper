@@ -4,5 +4,6 @@ public enum CompressionKind
 {
 	None,
 	Zstd,
-	ZstdSeekable
+	ZstdSeekable,
+	Gzip
 }
