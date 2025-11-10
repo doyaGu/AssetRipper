@@ -1,7 +1,9 @@
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Reflection;
 using System.Text;
+using AssetRipper.Assets.Bundles;
 using AssetRipper.Assets.Collections;
 using AssetRipper.IO.Files;
 using AssetRipper.IO.Files.SerializedFiles;
@@ -43,11 +45,11 @@ public sealed class CollectionFactsExporter
 			throw new ArgumentNullException(nameof(gameData));
 		}
 
-		IEnumerable<SerializedAssetCollection> serializedCollections = gameData.GameBundle
+		IEnumerable<AssetCollection> supportedCollections = gameData.GameBundle
 			.FetchAssetCollections()
-			.OfType<SerializedAssetCollection>();
+			.Where(static collection => collection is SerializedAssetCollection or ProcessedAssetCollection);
 
-		List<CollectionFactRecord> records = serializedCollections
+		List<CollectionFactRecord> records = supportedCollections
 			.Select(CreateRecord)
 			.Where(static record => record is not null)
 			.Select(static record => record!)
@@ -90,7 +92,7 @@ public sealed class CollectionFactsExporter
 		return result;
 	}
 
-	private CollectionFactRecord? CreateRecord(SerializedAssetCollection collection)
+	private CollectionFactRecord? CreateRecord(AssetCollection collection)
 	{
 		if (collection is null)
 		{
@@ -105,7 +107,48 @@ public sealed class CollectionFactsExporter
 		string? friendlyName = BuildFriendlyName(collection);
 		string? flagsRaw = BuildFlagsRaw(collection.Flags);
 		bool? isSceneCollection = collection.IsScene ? true : null;
-		int? formatVersion = ResolveFormatVersion(collection);
+		int? formatVersion = collection is SerializedAssetCollection serialized
+			? ResolveFormatVersion(serialized)
+			: null;
+
+		// New: Build BundleRef
+		BundleRef bundleRef = BuildBundleRef(collection.Bundle);
+
+		// New: Build SceneRef (if applicable)
+		SceneRef? sceneRef = collection.IsScene ? BuildSceneRef(collection.Scene!) : null;
+
+		// New: Calculate collection index
+		int? collectionIndex = null;
+		for (int i = 0; i < collection.Bundle.Collections.Count; i++)
+		{
+			if (collection.Bundle.Collections[i] == collection)
+			{
+				collectionIndex = i;
+				break;
+			}
+		}
+
+		// New: Build dependencies list
+		List<string> dependencies = new List<string>(collection.Dependencies.Count);
+		Dictionary<string, int>? dependencyIndices = null;
+		for (int i = 0; i < collection.Dependencies.Count; i++)
+		{
+			AssetCollection? dep = collection.Dependencies[i];
+			if (dep != null)
+			{
+				string depId = ExportHelper.ComputeCollectionId(dep);
+				dependencies.Add(depId);
+				dependencyIndices ??= new Dictionary<string, int>();
+				dependencyIndices[depId] = i;
+			}
+			else
+			{
+				dependencies.Add(string.Empty); // null dependency placeholder
+			}
+		}
+
+		// New: Asset count
+		int assetCount = collection.Count;
 
 		return new CollectionFactRecord
 		{
@@ -121,11 +164,18 @@ public sealed class CollectionFactsExporter
 			FlagsRaw = flagsRaw,
 			Flags = flags,
 			IsSceneCollection = isSceneCollection,
+			Bundle = bundleRef,
+			Scene = sceneRef,
+			CollectionIndex = collectionIndex,
+			Dependencies = dependencies,
+			DependencyIndices = dependencyIndices,
+			AssetCount = assetCount,
 			Source = source,
 			Unity = unity
 		};
 	}
 
+	[UnconditionalSuppressMessage("Trimming", "IL2070", Justification = "FormatVersion accessed via reflection on the runtime type to surface schema metadata.")]
 	private static int? ResolveFormatVersion(SerializedAssetCollection collection)
 	{
 		PropertyInfo? property = collection.GetType().GetProperty("FormatVersion", BindingFlags.Public | BindingFlags.Instance);
@@ -184,7 +234,7 @@ public sealed class CollectionFactsExporter
 		return path.Replace('\\', '/');
 	}
 
-	private static string? BuildFriendlyName(SerializedAssetCollection collection)
+	private static string? BuildFriendlyName(AssetCollection collection)
 	{
 		if (collection.Scene is not { } scene)
 		{
@@ -381,7 +431,7 @@ public sealed class CollectionFactsExporter
 		};
 	}
 
-	private static CollectionUnityRecord? BuildUnityRecord(SerializedAssetCollection collection)
+	private static CollectionUnityRecord? BuildUnityRecord(AssetCollection collection)
 	{
 		string? classification = ResolveBuiltInClassification(collection.Name);
 		return classification is null
@@ -413,5 +463,39 @@ public sealed class CollectionFactsExporter
 		}
 
 		return null;
+	}
+
+	private static BundleRef BuildBundleRef(Bundle bundle)
+	{
+		List<Bundle> lineage = new List<Bundle>();
+		Bundle? current = bundle;
+		while (current != null)
+		{
+			lineage.Insert(0, current);
+			current = current.Parent;
+		}
+
+		string bundlePk = ComputeBundleStableKey(lineage);
+		return new BundleRef
+		{
+			BundlePk = bundlePk,
+			BundleName = bundle.Name
+		};
+	}
+
+	private static string ComputeBundleStableKey(List<Bundle> lineage)
+	{
+		string composite = string.Join("|", lineage.Select(static b => $"{b.GetType().FullName}:{b.Name}"));
+		return ExportHelper.ComputeStableHash(composite);
+	}
+
+	private static SceneRef BuildSceneRef(SceneDefinition scene)
+	{
+		return new SceneRef
+		{
+			SceneGuid = scene.GUID.ToString(),
+			SceneName = scene.Name,
+			ScenePath = scene.Path
+		};
 	}
 }

@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.assetripper.dev/assetdump/v2/relations/bundle_hierarchy.schema.json",
+  "title": "Bundle Hierarchy Edges",
+  "description": "Parent-child relationships between bundles.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["parentPk", "childPk", "childIndex"],
+  "properties": {
+    "parentPk": {
+      "type": "string",
+      "pattern": "^[A-F0-9]{8}$",
+      "description": "Stable PK of the parent bundle."
+    },
+    "childPk": {
+      "type": "string",
+      "pattern": "^[A-F0-9]{8}$",
+      "description": "Stable PK of the child bundle."
+    },
+    "childIndex": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Index of the child in the parent's child list."
+    },
+    "childName": {
+      "type": "string",
+      "description": "Name of the child bundle (for readability)."
+    }
+  }
+}

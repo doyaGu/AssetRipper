@@ -44,6 +44,24 @@ public sealed class CollectionFactRecord
 	[JsonProperty("isSceneCollection", NullValueHandling = NullValueHandling.Ignore)]
 	public bool? IsSceneCollection { get; set; }
 
+	[JsonProperty("bundle")]
+	public BundleRef Bundle { get; set; } = new();
+
+	[JsonProperty("scene", NullValueHandling = NullValueHandling.Ignore)]
+	public SceneRef? Scene { get; set; }
+
+	[JsonProperty("collectionIndex", NullValueHandling = NullValueHandling.Ignore)]
+	public int? CollectionIndex { get; set; }
+
+	[JsonProperty("dependencies")]
+	public List<string> Dependencies { get; set; } = new();
+
+	[JsonProperty("dependencyIndices", NullValueHandling = NullValueHandling.Ignore)]
+	public Dictionary<string, int>? DependencyIndices { get; set; }
+
+	[JsonProperty("assetCount")]
+	public int AssetCount { get; set; }
+
 	[JsonProperty("source", NullValueHandling = NullValueHandling.Ignore)]
 	public CollectionSourceRecord? Source { get; set; }
 

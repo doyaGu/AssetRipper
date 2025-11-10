@@ -28,6 +28,18 @@ public sealed class BundleMetadataRecord
 	[JsonProperty("hierarchyPath")]
 	public string HierarchyPath { get; set; } = string.Empty;
 
+	[JsonProperty("childBundlePks", NullValueHandling = NullValueHandling.Ignore)]
+	public List<string>? ChildBundlePks { get; set; }
+
+	[JsonProperty("childBundleNames", NullValueHandling = NullValueHandling.Ignore)]
+	public List<string>? ChildBundleNames { get; set; }
+
+	[JsonProperty("bundleIndex", NullValueHandling = NullValueHandling.Ignore)]
+	public int? BundleIndex { get; set; }
+
+	[JsonProperty("ancestorPath", NullValueHandling = NullValueHandling.Ignore)]
+	public List<string>? AncestorPath { get; set; }
+
 	[JsonProperty("collectionIds", NullValueHandling = NullValueHandling.Ignore)]
 	public List<string>? CollectionIds { get; set; }
 

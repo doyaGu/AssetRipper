@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.assetripper.dev/assetdump/v2/relations/collection_dependencies.schema.json",
+  "title": "Collection Dependency Edges",
+  "description": "Records collection-level dependencies (AssetCollection.Dependencies).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["sourceCollection", "dependencyIndex", "targetCollection"],
+  "properties": {
+    "sourceCollection": {
+      "$ref": "../core.schema.json#/$defs/CollectionID",
+      "description": "The collection declaring the dependency."
+    },
+    "dependencyIndex": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Index in the source collection's dependency list (0 is self)."
+    },
+    "targetCollection": {
+      "anyOf": [
+        { "$ref": "../core.schema.json#/$defs/CollectionID" },
+        { "type": "null" }
+      ],
+      "description": "The target collection; null if unresolved."
+    },
+    "fileIdentifier": {
+      "type": "object",
+      "description": "Original Unity FileIdentifier if available.",
+      "additionalProperties": false,
+      "properties": {
+        "guid": { "$ref": "../core.schema.json#/$defs/UnityGuid" },
+        "type": { "type": "integer" },
+        "pathName": { "type": "string" }
+      }
+    }
+  }
+}

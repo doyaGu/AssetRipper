@@ -17,6 +17,18 @@ public sealed class AssetFactRecord
 	[JsonProperty("name", NullValueHandling = NullValueHandling.Ignore)]
 	public string? Name { get; set; }
 
+	[JsonProperty("hierarchy", NullValueHandling = NullValueHandling.Ignore)]
+	public HierarchyPath? Hierarchy { get; set; }
+
+	[JsonProperty("collectionName", NullValueHandling = NullValueHandling.Ignore)]
+	public string? CollectionName { get; set; }
+
+	[JsonProperty("bundleName", NullValueHandling = NullValueHandling.Ignore)]
+	public string? BundleName { get; set; }
+
+	[JsonProperty("sceneName", NullValueHandling = NullValueHandling.Ignore)]
+	public string? SceneName { get; set; }
+
 	[JsonProperty("unity", NullValueHandling = NullValueHandling.Ignore)]
 	public AssetUnityMetadata? Unity { get; set; }
 

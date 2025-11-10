@@ -12,33 +12,51 @@ namespace AssetRipper.Tools.AssetDumper.Orchestration;
 public sealed class OptionalExportPipeline
 {
 	private readonly ExportContext _context;
+	private readonly bool _executeBundleMetadata;
+	private readonly bool _executeScenes;
+	private readonly bool _executeScriptMetadata;
+	private readonly bool _executeMetrics;
 
 	public OptionalExportPipeline(ExportContext context)
+		: this(context, executeBundleMetadata: true, executeScenes: true, executeScriptMetadata: true, executeMetrics: true)
+	{
+	}
+
+	public OptionalExportPipeline(
+		ExportContext context,
+		bool executeBundleMetadata,
+		bool executeScenes,
+		bool executeScriptMetadata,
+		bool executeMetrics)
 	{
 		_context = context;
+		_executeBundleMetadata = executeBundleMetadata;
+		_executeScenes = executeScenes;
+		_executeScriptMetadata = executeScriptMetadata;
+		_executeMetrics = executeMetrics;
 	}
 
 	/// <summary>
-	/// Executes optional export pipelines based on configuration.
+	/// Executes optional export pipelines based on configuration and incremental flags.
 	/// </summary>
 	public void Execute()
 	{
-		if (_context.Options.ExportScenes)
+		if (_context.Options.ExportScenes && _executeScenes)
 		{
 			ExportScenes();
 		}
 
-		if (_context.Options.ExportBundleMetadata)
+		if (_context.Options.ExportBundleMetadata && _executeBundleMetadata)
 		{
 			ExportBundleMetadata();
 		}
 
-		if (_context.Options.ExportScriptMetadata)
+		if (_context.Options.ExportScriptMetadata && _executeScriptMetadata)
 		{
 			ExportScriptMetadata();
 		}
 
-		if (_context.Options.ExportMetrics)
+		if (_context.Options.ExportMetrics && _executeMetrics)
 		{
 			List<DomainExportResult> metricsResults = ExportMetrics();
 			foreach (DomainExportResult result in metricsResults)

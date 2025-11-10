@@ -22,6 +22,22 @@
       "type": "string",
       "description": "Best-effort asset name (Unity m_Name or derived)."
     },
+    "hierarchy": {
+      "$ref": "https://schemas.assetripper.dev/assetdump/v2/core.schema.json#HierarchyPath",
+      "description": "Complete hierarchical path from root bundle to this asset."
+    },
+    "collectionName": {
+      "type": "string",
+      "description": "Name of the containing collection (for readability)."
+    },
+    "bundleName": {
+      "type": "string",
+      "description": "Name of the parent bundle (for readability)."
+    },
+    "sceneName": {
+      "type": "string",
+      "description": "Name of the scene if this asset belongs to one."
+    },
     "unity": {
       "type": "object",
       "description": "Unity serialization metadata; all fields optional for version flexibility.",

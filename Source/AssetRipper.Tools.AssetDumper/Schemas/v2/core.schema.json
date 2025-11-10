@@ -70,6 +70,70 @@
           "type": "null"
         }
       ]
+    },
+    "BundleRef": {
+      "$anchor": "BundleRef",
+      "type": "object",
+      "description": "Reference to a Bundle node using stable PK.",
+      "additionalProperties": false,
+      "required": ["bundlePk"],
+      "properties": {
+        "bundlePk": {
+          "type": "string",
+          "pattern": "^[A-F0-9]{8}$",
+          "description": "Stable 8-hex identifier for the bundle node."
+        },
+        "bundleName": {
+          "type": "string",
+          "description": "Optional human-readable bundle name for readability."
+        }
+      }
+    },
+    "SceneRef": {
+      "$anchor": "SceneRef",
+      "type": "object",
+      "description": "Reference to a Scene using GUID.",
+      "additionalProperties": false,
+      "required": ["sceneGuid"],
+      "properties": {
+        "sceneGuid": {
+          "$ref": "#/$defs/UnityGuid"
+        },
+        "sceneName": {
+          "type": "string",
+          "description": "Optional scene name for human readability."
+        },
+        "scenePath": {
+          "type": "string",
+          "description": "Optional scene path (e.g., Assets/Scenes/MainMenu.unity)."
+        }
+      }
+    },
+    "HierarchyPath": {
+      "$anchor": "HierarchyPath",
+      "type": "object",
+      "description": "Complete hierarchical path from root to target entity.",
+      "additionalProperties": false,
+      "properties": {
+        "bundlePath": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-F0-9]{8}$"
+          },
+          "description": "Ordered list of bundle PKs from root to current bundle."
+        },
+        "bundleNames": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Human-readable bundle names corresponding to bundlePath."
+        },
+        "depth": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Hierarchy depth (root = 0)."
+        }
+      }
     }
   },
   "$anchor": "AssetPK",

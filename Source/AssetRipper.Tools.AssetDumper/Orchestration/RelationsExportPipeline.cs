@@ -21,6 +21,8 @@ public sealed class RelationsExportPipeline
 	/// </summary>
 	public void Execute()
 	{
+		ExportBundleHierarchy();
+		ExportCollectionDependencies();
 		ExportAssetDependencies();
 	}
 
@@ -44,6 +46,52 @@ public sealed class RelationsExportPipeline
 		catch (Exception ex)
 		{
 			Logger.Error("Failed to export asset dependencies", ex);
+			throw;
+		}
+	}
+
+	private void ExportBundleHierarchy()
+	{
+		if (!_context.Options.Silent)
+		{
+			Logger.Info("Exporting bundle hierarchy relations...");
+		}
+
+		try
+		{
+			BundleHierarchyExporter exporter = new BundleHierarchyExporter(
+				_context.Options,
+				_context.CompressionKind);
+
+			DomainExportResult result = exporter.Export(_context.GameData);
+			_context.AddResult(result);
+		}
+		catch (Exception ex)
+		{
+			Logger.Error("Failed to export bundle hierarchy", ex);
+			throw;
+		}
+	}
+
+	private void ExportCollectionDependencies()
+	{
+		if (!_context.Options.Silent)
+		{
+			Logger.Info("Exporting collection dependency relations...");
+		}
+
+		try
+		{
+			CollectionDependencyExporter exporter = new CollectionDependencyExporter(
+				_context.Options,
+				_context.CompressionKind);
+
+			DomainExportResult result = exporter.Export(_context.GameData);
+			_context.AddResult(result);
+		}
+		catch (Exception ex)
+		{
+			Logger.Error("Failed to export collection dependencies", ex);
 			throw;
 		}
 	}

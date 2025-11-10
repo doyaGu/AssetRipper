@@ -10,7 +10,10 @@
     "name",
     "platform",
     "unityVersion",
-    "endian"
+    "endian",
+    "bundle",
+    "dependencies",
+    "assetCount"
   ],
   "properties": {
     "collectionId": {
@@ -66,6 +69,39 @@
     "isSceneCollection": {
       "type": "boolean",
       "description": "True when the collection originates from a Unity scene."
+    },
+    "bundle": {
+      "$ref": "https://schemas.assetripper.dev/assetdump/v2/core.schema.json#BundleRef",
+      "description": "Reference to the parent Bundle containing this collection."
+    },
+    "scene": {
+      "$ref": "https://schemas.assetripper.dev/assetdump/v2/core.schema.json#SceneRef",
+      "description": "Reference to the Scene if this collection is part of one."
+    },
+    "collectionIndex": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Index of this collection within its parent bundle's collection list."
+    },
+    "dependencies": {
+      "type": "array",
+      "items": {
+        "$ref": "https://schemas.assetripper.dev/assetdump/v2/core.schema.json#/$defs/CollectionID"
+      },
+      "description": "Ordered list of dependency CollectionIDs (index 0 is self)."
+    },
+    "dependencyIndices": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 0
+      },
+      "description": "Map from dependency CollectionID to its index in dependencies array."
+    },
+    "assetCount": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Total number of assets in this collection."
     },
     "source": {
       "type": "object",

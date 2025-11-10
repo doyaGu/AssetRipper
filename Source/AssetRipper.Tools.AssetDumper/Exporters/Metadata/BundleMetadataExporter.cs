@@ -139,6 +139,49 @@ internal sealed class BundleMetadataExporter
 		List<string>? collectionIds = BuildCollectionIdList(bundle);
 		List<BundleResourceRecord>? resourceRecords = BuildResourceRecords(bundle.Resources);
 
+		// New: Collect child bundle information
+		List<string>? childBundlePks = null;
+		List<string>? childBundleNames = null;
+		if (bundle.Bundles.Count > 0)
+		{
+			childBundlePks = new List<string>(bundle.Bundles.Count);
+			childBundleNames = new List<string>(bundle.Bundles.Count);
+			foreach (Bundle child in bundle.Bundles)
+			{
+				List<Bundle> childLineage = new(lineage) { child };
+				string childPk = ComputeBundleStableKey(childLineage);
+				childBundlePks.Add(childPk);
+				childBundleNames.Add(child.Name);
+			}
+		}
+
+		// New: Build ancestor path
+		List<string>? ancestorPath = null;
+		if (lineage.Count > 1)
+		{
+			ancestorPath = new List<string>(lineage.Count - 1);
+			for (int i = 0; i < lineage.Count - 1; i++)
+			{
+				List<Bundle> ancestorLineage = lineage.Take(i + 1).ToList();
+				ancestorPath.Add(ComputeBundleStableKey(ancestorLineage));
+			}
+		}
+
+		// New: Calculate bundle index
+		int? bundleIndex = null;
+		if (parentPk != null && lineage.Count > 1)
+		{
+			Bundle parent = lineage[lineage.Count - 2];
+			for (int i = 0; i < parent.Bundles.Count; i++)
+			{
+				if (parent.Bundles[i] == bundle)
+				{
+					bundleIndex = i;
+					break;
+				}
+			}
+		}
+
 		BundleAggregate totals = new()
 		{
 			CollectionCount = directCollectionCount,
@@ -169,6 +212,10 @@ internal sealed class BundleMetadataExporter
 			IsRoot = parentPk is null,
 			HierarchyDepth = depth,
 			HierarchyPath = string.Join("/", lineage.Select(static b => b.Name)),
+			ChildBundlePks = childBundlePks,
+			ChildBundleNames = childBundleNames,
+			BundleIndex = bundleIndex,
+			AncestorPath = ancestorPath,
 			CollectionIds = collectionIds,
 			Resources = resourceRecords,
 			DirectCollectionCount = directCollectionCount,

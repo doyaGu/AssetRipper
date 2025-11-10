@@ -1,5 +1,6 @@
 using System.Globalization;
 using AssetRipper.Assets;
+using AssetRipper.Assets.Bundles;
 using AssetRipper.Assets.Collections;
 using AssetRipper.Assets.Metadata;
 using AssetRipper.Export.PrimaryContent;
@@ -56,14 +57,16 @@ public sealed class AssetFactsExporter
 
 		Directory.CreateDirectory(_options.OutputPath);
 
-		List<SerializedAssetCollection> collections = gameData.GameBundle
+		List<AssetCollection> collections = gameData.GameBundle
 			.FetchAssetCollections()
-			.OfType<SerializedAssetCollection>()
+			.Where(static collection => collection is SerializedAssetCollection or ProcessedAssetCollection)
 			.ToList();
 
 		if (_options.Verbose)
 		{
-			Logger.Info(LogCategory.Export, $"Processing {collections.Count} serialized collections");
+			int serializedCount = collections.Count(static c => c is SerializedAssetCollection);
+			int processedCount = collections.Count(static c => c is ProcessedAssetCollection);
+			Logger.Info(LogCategory.Export, $"Processing {serializedCount} serialized collections and {processedCount} processed collections");
 		}
 
 		long maxRecordsPerShard = _options.ShardSize > 0 ? _options.ShardSize : 100_000;
@@ -89,7 +92,7 @@ public sealed class AssetFactsExporter
 
 		try
 		{
-			foreach (SerializedAssetCollection collection in collections)
+			foreach (AssetCollection collection in collections)
 			{
 				string collectionId = ExportHelper.ComputeCollectionId(collection);
 				CollectionJsonWalker walker = new(collection);
@@ -139,6 +142,15 @@ public sealed class AssetFactsExporter
 	{
 		int classKey = _typeDictionary.GetOrAdd(asset, metadata);
 		string? bestName = asset.GetBestName();
+		AssetCollection collection = asset.Collection;
+
+		// New: Build hierarchy path
+		HierarchyPath? hierarchy = BuildHierarchyPath(collection.Bundle);
+
+		// New: Get redundant name fields for readability
+		string? collectionName = collection.Name;
+		string? bundleName = collection.Bundle?.Name;
+		string? sceneName = collection.IsScene ? collection.Scene?.Name : null;
 
 		AssetFactRecord fact = new AssetFactRecord
 		{
@@ -149,6 +161,10 @@ public sealed class AssetFactsExporter
 			},
 			ClassKey = classKey,
 			Name = string.IsNullOrWhiteSpace(bestName) ? null : bestName,
+			Hierarchy = hierarchy,
+			CollectionName = collectionName,
+			BundleName = bundleName,
+			SceneName = sceneName,
 			Unity = BuildUnityMetadata(metadata),
 			Data = new AssetDataContainer
 			{
@@ -175,11 +191,56 @@ public sealed class AssetFactsExporter
 		return unity;
 	}
 
+	private static HierarchyPath? BuildHierarchyPath(Bundle bundle)
+	{
+		if (bundle == null)
+		{
+			return null;
+		}
+
+		List<Bundle> lineage = new List<Bundle>();
+		Bundle? current = bundle;
+		while (current != null)
+		{
+			lineage.Insert(0, current);
+			current = current.Parent;
+		}
+
+		if (lineage.Count == 0)
+		{
+			return null;
+		}
+
+		List<string> bundlePath = new List<string>(lineage.Count);
+		List<string> bundleNames = new List<string>(lineage.Count);
+
+		foreach (Bundle b in lineage)
+		{
+			List<Bundle> pathToBundle = lineage.Take(lineage.IndexOf(b) + 1).ToList();
+			string bundlePk = ComputeBundleStableKey(pathToBundle);
+			bundlePath.Add(bundlePk);
+			bundleNames.Add(b.Name);
+		}
+
+		return new HierarchyPath
+		{
+			BundlePath = bundlePath,
+			BundleNames = bundleNames,
+			Depth = lineage.Count - 1
+		};
+	}
+
+	private static string ComputeBundleStableKey(List<Bundle> lineage)
+	{
+		string composite = string.Join("|", lineage.Select(static b => $"{b.GetType().FullName}:{b.Name}"));
+		return ExportHelper.ComputeStableHash(composite);
+	}
+
 	private sealed class CollectionJsonWalker : DefaultJsonWalker
 	{
-		private readonly SerializedAssetCollection _collection;
+		private readonly AssetCollection _collection;
 
-		public CollectionJsonWalker(SerializedAssetCollection collection)
+		public CollectionJsonWalker(AssetCollection collection)
 		{
 			_collection = collection ?? throw new ArgumentNullException(nameof(collection));
 		}
@@ -200,15 +261,12 @@ public sealed class AssetFactsExporter
 
 		public override void VisitPPtr<TAsset>(PPtr<TAsset> pptr)
 		{
-			AssetCollection? targetCollection = null;
-			if (pptr.FileID == 0)
+			AssetCollection? targetCollection = pptr.FileID switch
 			{
-				targetCollection = _collection;
-			}
-			else if (pptr.FileID > 0 && pptr.FileID < _collection.Dependencies.Count)
-			{
-				targetCollection = _collection.Dependencies[pptr.FileID];
-			}
+				0 => _collection,
+				> 0 when pptr.FileID < _collection.Dependencies.Count => _collection.Dependencies[pptr.FileID],
+				_ => null
+			};
 
 			if (targetCollection is not null)
 			{
@@ -219,6 +277,11 @@ public sealed class AssetFactsExporter
 				Writer.Write(JsonConvert.ToString(targetId));
 				Writer.Write(", \"m_PathID\": ");
 				Writer.Write(pptr.PathID.ToString(CultureInfo.InvariantCulture));
+				if (pptr.FileID != 0)
+				{
+					Writer.Write(", \"m_FileID\": ");
+					Writer.Write(pptr.FileID.ToString(CultureInfo.InvariantCulture));
+				}
 				Writer.Write(" }");
 				return;
 			}

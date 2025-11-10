@@ -54,7 +54,7 @@ public sealed class ExportOrchestrator
 			// Execute export pipelines
 			ExecuteFactsExport(context, existingManifest);
 			ExecuteRelationsExport(context, existingManifest);
-			ExecuteOptionalExports(context);
+			ExecuteOptionalExports(context, existingManifest);
 			GenerateManifest(context);
 			ProcessScripts(gameData);
 
@@ -134,7 +134,10 @@ public sealed class ExportOrchestrator
 
 		// Check if we can reuse existing relations
 		bool canReuseRelations = existingManifest != null
-			&& _incrementalManager.ManifestContainsTables(existingManifest, "relations/asset_dependencies");
+			&& _incrementalManager.ManifestContainsTables(existingManifest, 
+				"relations/bundle_hierarchy",
+				"relations/collection_dependencies",
+				"relations/asset_dependencies");
 
 		if (canReuseRelations)
 		{
@@ -143,7 +146,10 @@ public sealed class ExportOrchestrator
 				Logger.Info("Reusing existing relations export (incremental).");
 			}
 
-			ReuseManifestData(existingManifest!, context, "relations/asset_dependencies");
+			ReuseManifestData(existingManifest!, context, 
+				"relations/bundle_hierarchy",
+				"relations/collection_dependencies",
+				"relations/asset_dependencies");
 		}
 		else
 		{
@@ -152,10 +158,66 @@ public sealed class ExportOrchestrator
 		}
 	}
 
-	private void ExecuteOptionalExports(ExportContext context)
+	private void ExecuteOptionalExports(ExportContext context, Manifest? existingManifest)
 	{
-		OptionalExportPipeline pipeline = new OptionalExportPipeline(context);
-		pipeline.Execute();
+		// Check for incremental reuse of optional exports
+		bool canReuseBundleMetadata = _options.ExportBundleMetadata
+			&& existingManifest != null
+			&& _incrementalManager.ManifestContainsTables(existingManifest, "facts/bundles");
+
+		bool canReuseScenes = _options.ExportScenes
+			&& existingManifest != null
+			&& _incrementalManager.ManifestContainsTables(existingManifest, "facts/scenes");
+
+		bool canReuseScriptMetadata = _options.ExportScriptMetadata
+			&& existingManifest != null
+			&& _incrementalManager.ManifestContainsTables(existingManifest, "facts/scripts");
+
+		// Reuse what we can
+		if (canReuseBundleMetadata)
+		{
+			if (!_options.Silent)
+			{
+				Logger.Info("Reusing existing bundle metadata (incremental).");
+			}
+			ReuseManifestData(existingManifest!, context, "facts/bundles");
+		}
+
+		if (canReuseScenes)
+		{
+			if (!_options.Silent)
+			{
+				Logger.Info("Reusing existing scenes export (incremental).");
+			}
+			ReuseManifestData(existingManifest!, context, "facts/scenes");
+		}
+
+		if (canReuseScriptMetadata)
+		{
+			if (!_options.Silent)
+			{
+				Logger.Info("Reusing existing script metadata (incremental).");
+			}
+			ReuseManifestData(existingManifest!, context, "facts/scripts");
+		}
+
+		// Export what needs to be regenerated
+		bool needsBundleMetadata = _options.ExportBundleMetadata && !canReuseBundleMetadata;
+		bool needsScenes = _options.ExportScenes && !canReuseScenes;
+		bool needsScriptMetadata = _options.ExportScriptMetadata && !canReuseScriptMetadata;
+		bool needsMetrics = _options.ExportMetrics;
+
+		if (needsBundleMetadata || needsScenes || needsScriptMetadata || needsMetrics)
+		{
+			OptionalExportPipeline pipeline = new OptionalExportPipeline(
+				context,
+				executeBundleMetadata: needsBundleMetadata,
+				executeScenes: needsScenes,
+				executeScriptMetadata: needsScriptMetadata,
+				executeMetrics: needsMetrics);
+
+			pipeline.Execute();
+		}
 	}
 
 	private void GenerateManifest(ExportContext context)

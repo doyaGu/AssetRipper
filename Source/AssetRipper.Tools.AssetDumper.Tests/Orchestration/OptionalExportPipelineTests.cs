@@ -56,6 +56,82 @@ public class OptionalExportPipelineTests : IDisposable
 		pipeline.Should().NotBeNull();
 	}
 
+	[Fact]
+	public void Constructor_WithSelectiveExecution_ShouldInitialize()
+	{
+		// Arrange
+		var options = new Options
+		{
+			InputPath = "C:\\TestInput",
+			OutputPath = _testOutputPath,
+			Silent = true
+		};
+		var context = CreateTestContext(options);
+
+		// Act
+		var pipeline = new OptionalExportPipeline(
+			context,
+			executeBundleMetadata: true,
+			executeScenes: false,
+			executeScriptMetadata: true,
+			executeMetrics: false);
+
+		// Assert
+		pipeline.Should().NotBeNull();
+	}
+
+	[Fact]
+	public void Constructor_DefaultConstructor_ShouldExecuteAllExports()
+	{
+		// Arrange
+		var options = new Options
+		{
+			InputPath = "C:\\TestInput",
+			OutputPath = _testOutputPath,
+			Silent = true,
+			ExportBundleMetadata = true,
+			ExportScenes = true,
+			ExportScriptMetadata = true,
+			ExportMetrics = true
+		};
+		var context = CreateTestContext(options);
+
+		// Act
+		var pipeline = new OptionalExportPipeline(context);
+
+		// Assert
+		pipeline.Should().NotBeNull();
+		// Default constructor should allow all exports to run
+	}
+
+	[Fact]
+	public void Constructor_SelectiveExecution_ShouldAllowPartialReuse()
+	{
+		// Arrange
+		var options = new Options
+		{
+			InputPath = "C:\\TestInput",
+			OutputPath = _testOutputPath,
+			Silent = true,
+			ExportBundleMetadata = true,
+			ExportScenes = true,
+			ExportScriptMetadata = true
+		};
+		var context = CreateTestContext(options);
+
+		// Act - Simulate incremental scenario: reuse bundles and scenes, regenerate scripts
+		var pipeline = new OptionalExportPipeline(
+			context,
+			executeBundleMetadata: false, // Reused
+			executeScenes: false,          // Reused
+			executeScriptMetadata: true,   // Regenerate
+			executeMetrics: false);
+
+		// Assert
+		pipeline.Should().NotBeNull();
+		// This pipeline would only execute script metadata export
+	}
+
 	#endregion
 
 	#region Helper Methods

@@ -12,6 +12,7 @@
     "isRoot",
     "hierarchyDepth",
     "hierarchyPath",
+    "childBundlePks",
     "directCollectionCount",
     "totalCollectionCount",
     "directSceneCollectionCount",
@@ -56,6 +57,32 @@
     "hierarchyPath": {
       "type": "string",
       "description": "Human readable path constructed from ancestor bundle names."
+    },
+    "childBundlePks": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[A-F0-9]{8}$"
+      },
+      "description": "Stable PKs of direct child bundles in declaration order."
+    },
+    "childBundleNames": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Names of child bundles for human readability."
+    },
+    "bundleIndex": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Index of this bundle within its parent's child list (0-based)."
+    },
+    "ancestorPath": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[A-F0-9]{8}$"
+      },
+      "description": "Ordered list of ancestor bundle PKs from root to parent."
     },
     "collectionIds": {
       "type": "array",
