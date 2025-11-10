@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://schemas.assetripper.dev/assetdump/v2/primary/scenes.schema.json",
+  "$id": "https://schemas.assetripper.dev/assetdump/v2/facts/scenes.schema.json",
   "title": "AssetDump Scenes Records",
   "description": "Schema describing per-line scene records emitted by the scenes NDJSON domain.",
   "$ref": "#/$defs/SceneRecord",

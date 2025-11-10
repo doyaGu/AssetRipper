@@ -21,34 +21,6 @@
     "collectionId": {
       "$ref": "https://schemas.assetripper.dev/assetdump/v2/core.schema.json#/$defs/CollectionID"
     },
-    "collectionName": {
-      "type": "string",
-      "description": "Friendly name of the serialized file that owns the MonoScript."
-    },
-    "bundleName": {
-      "type": "string",
-      "description": "AssetBundle that supplied the owning collection, if applicable."
-    },
-    "collectionFlags": {
-      "type": "string",
-      "description": "Bitflag string describing Unity SerializedFile flags."
-    },
-    "collectionPlatform": {
-      "type": "string",
-      "description": "Unity build target for the owning collection."
-    },
-    "collectionVersion": {
-      "type": "string",
-      "description": "Unity version recorded on the owning collection."
-    },
-    "collectionFilePath": {
-      "type": "string",
-      "description": "Relative file path for the serialized collection on disk."
-    },
-    "isSceneCollection": {
-      "type": "boolean",
-      "description": "True when the MonoScript originates from a Scene collection."
-    },
     "pathId": {
       "type": "integer",
       "description": "Unity m_PathID for the MonoScript asset."

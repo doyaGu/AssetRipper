@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.assetripper.dev/assetdump/v2/facts/scripts.schema.json",
+  "title": "AssetDump Script Facts",
+  "description": "MonoScript facts linking to collections while capturing identifiers and optional scene provenance.",
+  "$ref": "#/$defs/ScriptRecord",
+  "$defs": {
+    "ScriptRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "domain",
+        "pk",
+        "collectionId",
+        "pathId",
+        "classId",
+        "className",
+        "fullName",
+        "assemblyName",
+        "executionOrder"
+      ],
+      "properties": {
+        "domain": { "type": "string", "const": "scripts" },
+        "pk": { "$ref": "../core.schema.json#/$defs/StableKey" },
+        "collectionId": { "$ref": "../core.schema.json#/$defs/CollectionID" },
+        "pathId": { "type": "integer" },
+        "classId": { "type": "integer" },
+        "className": { "type": "string" },
+        "namespace": { "type": "string" },
+        "fullName": { "type": "string" },
+        "assemblyName": { "type": "string" },
+        "assemblyGuid": { "$ref": "../core.schema.json#/$defs/UnityGuid" },
+        "scriptGuid": { "$ref": "../core.schema.json#/$defs/UnityGuid" },
+        "scriptFileId": { "type": "integer" },
+        "executionOrder": { "type": "integer" },
+        "propertiesHash": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{32}$"
+        },
+        "scene": { "$ref": "#/$defs/SceneMetadata" }
+      }
+    },
+    "SceneMetadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string" },
+        "path": { "type": "string" },
+        "guid": { "$ref": "../core.schema.json#/$defs/UnityGuid" }
+      }
+    }
+  }
+}

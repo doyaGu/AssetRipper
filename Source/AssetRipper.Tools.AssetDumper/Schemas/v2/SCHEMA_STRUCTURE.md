@@ -5,11 +5,14 @@
 Schemas/
 └── v2/
     ├── core.schema.json
-    ├── facts/
-    │   ├── assets.schema.json
-    │   ├── collections.schema.json
-    │   ├── types.schema.json
-    │   └── README.md
+  ├── facts/
+  │   ├── assets.schema.json
+  │   ├── bundles.schema.json
+  │   ├── collections.schema.json
+  │   ├── scenes.schema.json
+  │   ├── scripts.schema.json
+  │   ├── types.schema.json
+  │   └── README.md
     ├── relations/
     │   ├── asset_dependencies.schema.json
     │   └── README.md
@@ -22,8 +25,7 @@ Schemas/
 ```
 
 - **core.schema.json**：声明公共 `$defs` 与 `$anchor`，供各业务 schema 复用，例如 `CollectionID`、`AssetPK`、`UnityGuid` 等。
-- **facts/**：存放 Facts 层对象 schema，每张事实表对应一个文件；可在 README 中说明字段含义与版本差异。
-- **relations/**：存放 Relations 层边 schema。
+- **facts/**：存放事实层对象 schema，每张事实表对应一个文件（集合、资产、脚本、场景、引用边等）；可在 README 中说明字段含义与版本差异。
 - **indexes/**：定义可再生索引文件结构。
 - **metrics/**：定义派生统计的数据结构。
 

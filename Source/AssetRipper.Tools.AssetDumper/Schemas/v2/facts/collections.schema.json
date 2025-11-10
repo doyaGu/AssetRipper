@@ -10,7 +10,6 @@
     "name",
     "platform",
     "unityVersion",
-    "formatVersion",
     "endian"
   ],
   "properties": {
@@ -21,9 +20,17 @@
       "type": "string",
       "description": "Primary filename (e.g., sharedassets1.assets)."
     },
+    "friendlyName": {
+      "type": "string",
+      "description": "Human-friendly scene identifier derived from the project-relative path (drops the leading 'Assets/' prefix, strips '.unity', replaces underscores/hyphens with spaces)."
+    },
     "bundleName": {
       "type": "string",
       "description": "Bundle name when sourced from an AssetBundle."
+    },
+    "filePath": {
+      "type": "string",
+      "description": "Relative file path for the serialized collection on disk."
     },
     "platform": {
       "type": "string",
@@ -45,12 +52,20 @@
         "BigEndian"
       ]
     },
+    "flagsRaw": {
+      "type": "string",
+      "description": "Bitflag string describing Unity SerializedFile flags as recorded on disk."
+    },
     "flags": {
       "type": "array",
       "items": {
         "type": "string"
       },
       "description": "Optional flag set derived from Unity SerializedFile header."
+    },
+    "isSceneCollection": {
+      "type": "boolean",
+      "description": "True when the collection originates from a Unity scene."
     },
     "source": {
       "type": "object",
