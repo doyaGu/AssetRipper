@@ -294,7 +294,7 @@ internal sealed class ManifestGenerator
 	{
 		ManifestProducer producer = new()
 		{
-			Name = "AssetRipper.Tools.AssetDumper",
+			Name = "AssetDumper",
 			Version = GetToolVersion(),
 			AssetRipperVersion = GetAssetRipperVersion()
 		};

@@ -5,7 +5,7 @@
 [![Completion](https://img.shields.io/badge/completion-90%25-success.svg)]()
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE.md)
 
-**AssetDumper** is a command-line tool for extracting, analyzing, and exporting Unity game assets into structured, queryable datasets. Built on top of [AssetRipper](https://github.com/AssetRipper/AssetRipper), it produces machine-readable NDJSON files with comprehensive metadata, making Unity projects analyzable by modern data tools.
+**AssetDumper** is a command-line tool for extracting, analyzing, and exporting Unity game assets into structured, queryable datasets. Built on top of [AssetRipper](https://github.com/AssetRipper/AssetRipper), it produces machine-readable NDJSON files with comprehensive metadata, making Unity projects analyzable by modern data tools. The project is maintained by SecLab.
 
 ---
 
@@ -161,7 +161,7 @@ The `manifest.json` file is the entry point for all exported data:
   "version": "2.0",
   "createdAt": "2025-11-07T17:14:38Z",
   "producer": {
-    "name": "AssetRipper.Tools.AssetDumper",
+    "name": "AssetDumper",
     "version": "1.3.5.0"
   },
   "tables": {

@@ -56,7 +56,7 @@ public sealed class KeyIndexGenerator
 				Metadata = new Dictionary<string, object>
 				{
 					{"recordCount", entries.Count},
-					{"generatedBy", "AssetRipper.Tools.AssetDumper"},
+					{"generatedBy", "AssetDumper"},
 					{"compressionMode", compressionKind.ToString().ToLowerInvariant()},
 					{"indexingStrategy", compressionKind == CompressionKind.None ? "byte-offset" : "line-number"}
 				}

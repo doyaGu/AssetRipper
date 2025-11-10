@@ -72,7 +72,7 @@ Write-Success "GRIS sample found"
 
 $ProjectRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 $AssetDumperProject = Join-Path $ProjectRoot "AssetRipper.Tools.AssetDumper"
-$BinaryPath = Join-Path $ProjectRoot "0Bins\AssetRipper.Tools.AssetDumper\Debug\AssetRipper.Tools.AssetDumper.dll"
+$BinaryPath = Join-Path $ProjectRoot "0Bins\AssetRipper.Tools.AssetDumper\Debug\AssetDumper.dll"
 
 if (-not (Test-Path $AssetDumperProject)) {
     Write-Error2 "AssetDumper project not found at: $AssetDumperProject"

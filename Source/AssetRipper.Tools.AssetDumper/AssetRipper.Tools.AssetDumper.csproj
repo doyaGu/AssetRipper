@@ -5,6 +5,9 @@
 		<ImplicitUsings>enable</ImplicitUsings>
 		<OutputPath>..\0Bins\AssetRipper.Tools.AssetDumper\$(Configuration)\</OutputPath>
 		<IntermediateOutputPath>..\0Bins\obj\AssetRipper.Tools.AssetDumper\$(Configuration)\</IntermediateOutputPath>
+		<AssemblyName>AssetDumper</AssemblyName>
+		<RootNamespace>AssetRipper.Tools.AssetDumper</RootNamespace>
+		<Authors>SecLab</Authors>
 	</PropertyGroup>
 
 	<ItemGroup>
