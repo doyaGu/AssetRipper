@@ -213,8 +213,12 @@ public sealed class AssetDependencyRelationsExporter
                                 ? $"fileID={lastPointer.FileID}, pathID={lastPointer.PathID}"
                                 : "<unavailable>";
                             Logger.Warning(LogCategory.Export,
-                                $"[{ownerCollectionId}] Asset {assetIndex}/{assetTotal} (pathID {asset.PathID}) aborting dependency enumeration after repeated stalled null references (last pointer {pointerDetails}, field='{lastField ?? "<null>"}')");
-                            return true;
+                                $"[{ownerCollectionId}] Asset {assetIndex}/{assetTotal} (pathID {asset.PathID}) observed repeated stalled null references (last pointer {pointerDetails}, field='{lastField ?? "<null>"}') - continuing enumeration to avoid data loss");
+                            // Reset the stall counter so we do not emit the same warning indefinitely.
+                            stallWarningCount = 5;
+                            lastPointer = default;
+                            hasPointerSnapshot = false;
+                            return false;
                         }
 
                         return false;
