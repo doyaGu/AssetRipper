@@ -38,13 +38,13 @@ public class GRISIntegrationTests
 
 		// Act - Just verify options can be created and have expected properties
 		// Note: We can't test the actual export process since Program is internal
-		
+
 		// Assert
 		Assert.True(Directory.Exists(options.InputPath), "Input path should exist");
 		Assert.Equal("none", options.Compression);
 		Assert.True(options.EnableIndex);
 		Assert.True(options.ExportMetrics);
-		
+
 		// Verify manifest exists
 		string manifestPath = Path.Combine(_outputPath, "manifest.json");
 		Assert.True(File.Exists(manifestPath), "manifest.json should be generated");
@@ -77,12 +77,12 @@ public class GRISIntegrationTests
 
 		// Act - Just verify options can be created and have expected properties
 		// Note: We can't test the actual export process since Program is internal
-		
+
 		// Assert
 		Assert.True(Directory.Exists(options.InputPath), "Input path should exist");
 		Assert.Equal("zstd", options.Compression);
 		Assert.True(options.EnableIndex);
-		
+
 		// Verify indexes work with compression
 		string indexesPath = Path.Combine(_outputPath, "indexes");
 		Assert.True(Directory.Exists(indexesPath), "indexes should be generated even with compression");
@@ -100,7 +100,7 @@ public class GRISIntegrationTests
 	}
 
 	[Fact(Skip = "Integration test - requires GRIS sample")]
-	public void Export_GRIS_Sample_GeneratesScriptMetadata()
+	public void Export_GRIS_Sample_GeneratesScriptFacts()
 	{
 		// Arrange
 		var options = new Options
@@ -112,19 +112,19 @@ public class GRISIntegrationTests
 
 		// Act - Just verify options can be created and have expected properties
 		// Note: We can't test the actual export process since Program is internal
-		
+
 		// Assert
 		Assert.True(Directory.Exists(options.InputPath), "Input path should exist");
 		Assert.True(options.ExportScriptMetadata);
 
-		// Verify script metadata table
-		string scriptsPath = Path.Combine(_outputPath, "facts", "script_metadata");
-		Assert.True(Directory.Exists(scriptsPath), "script_metadata table should exist");
+		// Verify script facts table
+		string scriptsPath = Path.Combine(_outputPath, "facts", "scripts");
+		Assert.True(Directory.Exists(scriptsPath), "scripts table should exist");
 
-		// Verify manifest includes script_metadata table
+		// Verify manifest includes scripts table
 		string manifestPath = Path.Combine(_outputPath, "manifest.json");
 		string manifestContent = File.ReadAllText(manifestPath);
-		Assert.Contains("\"facts/script_metadata\"", manifestContent);
+		Assert.Contains("\"facts/scripts\"", manifestContent);
 	}
 
 	[Fact(Skip = "Integration test - requires GRIS sample")]
@@ -140,20 +140,20 @@ public class GRISIntegrationTests
 
 		// Act - Just verify options can be created and have expected properties
 		// Note: We can't test the actual export process since Program is internal
-		
+
 		// Assert
 		Assert.True(Directory.Exists(options.InputPath), "Input path should exist");
 		Assert.True(options.ExportScriptMetadata);
 
 		// Verify custom scripts are exported
-		string scriptsPath = Path.Combine(_outputPath, "facts", "script_metadata");
+		string scriptsPath = Path.Combine(_outputPath, "facts", "scripts");
 		var scriptFiles = Directory.GetFiles(scriptsPath, "*.ndjson", SearchOption.AllDirectories);
 
 		bool hasCustomScripts = false;
 		foreach (var file in scriptFiles)
 		{
 			string content = File.ReadAllText(file);
-			if (content.Contains("\"isBuiltin\":false", StringComparison.OrdinalIgnoreCase))
+			if (content.Contains("\"assemblyName\"", StringComparison.OrdinalIgnoreCase))
 			{
 				hasCustomScripts = true;
 				break;
@@ -175,7 +175,7 @@ public class GRISIntegrationTests
 
 		// Act - Just verify options can be created and have expected properties
 		// Note: We can't test the actual export process since Program is internal
-		
+
 		// Assert
 		Assert.True(Directory.Exists(options.InputPath), "Input path should exist");
 
@@ -216,7 +216,7 @@ public class GRISIntegrationTests
 
 		// Act - Just verify options can be created and have expected properties
 		// Note: We can't test the actual export process since Program is internal
-		
+
 		// Assert
 		Assert.True(Directory.Exists(options.InputPath), "Input path should exist");
 		Assert.True(options.ExportMetrics);
@@ -226,7 +226,7 @@ public class GRISIntegrationTests
 		// Load and validate manifest
 		string manifestPath = Path.Combine(_outputPath, "manifest.json");
 		string manifestJson = File.ReadAllText(manifestPath);
-		
+
 		// Parse manifest (basic JSON validation)
 		Assert.Contains("\"version\":", manifestJson);
 		Assert.Contains("\"tables\":", manifestJson);
@@ -241,7 +241,7 @@ public class GRISIntegrationTests
 		// Verify key tables exist
 		Assert.Contains("\"facts/assets\"", manifestJson);
 		Assert.Contains("\"facts/dependencies\"", manifestJson);
-		Assert.Contains("\"facts/script_metadata\"", manifestJson);
+		Assert.Contains("\"facts/scripts\"", manifestJson);
 
 		// Verify metrics tables are registered
 		Assert.Contains("\"metrics/scene_stats\"", manifestJson);

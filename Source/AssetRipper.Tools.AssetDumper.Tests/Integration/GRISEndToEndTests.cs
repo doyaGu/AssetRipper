@@ -36,17 +36,17 @@ public class GRISEndToEndTests : IDisposable
 		{
 			InputPath = GRIS_SAMPLE_PATH,
 			OutputPath = _outputPath,
-			
+
 			// Enable all features
 			ExportMetrics = true,
 			EnableIndex = true,
 			ExportScriptMetadata = true,
 			ExportScenes = true,
 			ExportBundleMetadata = true,
-			
+
 			// Compression and performance
 			Compression = "zstd",
-			
+
 			// Output control
 			Silent = false,
 			Verbose = true
@@ -57,7 +57,7 @@ public class GRISEndToEndTests : IDisposable
 
 		// Act - Just verify options can be created and have expected properties
 		// Note: We can't test the actual export process since Program is internal
-		
+
 		sw.Stop();
 		_output.WriteLine($"Options validation completed in {sw.Elapsed.TotalSeconds:F2} seconds");
 
@@ -79,7 +79,7 @@ public class GRISEndToEndTests : IDisposable
 		// Verify manifest
 		string manifestPath = Path.Combine(_outputPath, "manifest.json");
 		Assert.True(File.Exists(manifestPath), "manifest.json must exist");
-		
+
 		string manifestContent = File.ReadAllText(manifestPath);
 		_output.WriteLine($"Manifest size: {manifestContent.Length} bytes");
 
@@ -96,9 +96,9 @@ public class GRISEndToEndTests : IDisposable
 
 		// Verify key tables
 		Assert.Contains("\"facts/assets\"", manifestContent);
-		Assert.Contains("\"facts/dependencies\"", manifestContent);
-		Assert.Contains("\"facts/script_metadata\"", manifestContent);
-		Assert.Contains("\"primary/scenes\"", manifestContent);
+		Assert.Contains("\"relations/asset_dependencies\"", manifestContent);
+		Assert.Contains("\"facts/scripts\"", manifestContent);
+		Assert.Contains("\"facts/scenes\"", manifestContent);
 
 		// Verify metrics tables
 		Assert.Contains("\"metrics/scene_stats\"", manifestContent);
@@ -127,7 +127,7 @@ public class GRISEndToEndTests : IDisposable
 
 		// Act - Just verify options can be created and have expected properties
 		// Note: We can't test the actual export process since Program is internal
-		
+
 		sw.Stop();
 		_output.WriteLine($"Options validation completed in {sw.Elapsed.TotalSeconds:F2} seconds");
 
@@ -183,7 +183,7 @@ public class GRISEndToEndTests : IDisposable
 
 		// Act - Just verify options can be created and have expected properties
 		// Note: We can't test the actual export process since Program is internal
-		
+
 		sw.Stop();
 		_output.WriteLine($"Options validation completed in {sw.Elapsed.TotalSeconds:F2} seconds");
 
