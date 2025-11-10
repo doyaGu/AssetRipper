@@ -46,7 +46,7 @@ public class Options
 	public bool ExportScenes { get; set; } = true;
 
 	[Option("script-metadata", Required = false, Default = true,
-		HelpText = "Export script metadata facts (facts/script_metadata)")]
+		HelpText = "Export script facts (facts/scripts)")]
 	public bool ExportScriptMetadata { get; set; } = true;
 
 	[Option("bundle-metadata", Required = false, Default = true,
@@ -285,7 +285,7 @@ public class Options
 					InputPath = @"C:\Games\MyUnityGame",
 					AssemblyFilter = "Assembly-CSharp"
 				}),
-				new Example("Scripts and metadata only", new Options {
+				new Example("Scripts and facts only", new Options {
 					InputPath = @"C:\Games\MyUnityGame",
 					ExportScenes = false,
 					ExportScriptMetadata = true,

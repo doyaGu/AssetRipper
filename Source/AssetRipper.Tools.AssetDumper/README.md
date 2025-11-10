@@ -15,7 +15,7 @@
 
 - **📦 Comprehensive Asset Extraction**: Extract all Unity asset types (meshes, textures, scripts, scenes, etc.)
 - **📊 Structured Data Export**: Generate NDJSON files optimized for data analysis and querying
-- **🗂️ Rich Metadata**: Include type information, dependencies, hierarchies, and script metadata
+- **🗂️ Rich Metadata**: Include type information, dependencies, hierarchies, and script facts
 - **⚡ High Performance**: Parallel processing with automatic CPU detection
 - **🗜️ Smart Compression**: Zstandard compression with configurable levels
 - **📑 Sharding Support**: Automatic file splitting for large datasets
@@ -27,23 +27,24 @@
 
 **Overall Completion: 90%** (Excellent Level)
 
-| Component | Status | Completion |
-|-----------|--------|------------|
-| **Core Export Pipeline** | ✅ Complete | 100% |
-| Facts Layer | ✅ Complete | 100% |
-| Relations Layer | ✅ Complete | 100% |
-| Manifest Generation | ✅ Complete | 100% |
-| Compression & Sharding | ✅ Complete | 100% |
-| **Indexing System** | ✅ Complete | 100% |
-| **Metrics Collection** | ✅ Complete | 100% |
-| **Parallel Processing** | ✅ Complete | 100% |
-| **Schema Validation** | ✅ Complete | 100% |
-| **CLI Interface** | ✅ Complete | 100% |
-| Unit Tests | 🟡 In Progress | 70% |
-| Documentation | 🟡 In Progress | 85% |
-| Example Scripts | ⏳ Planned | 0% |
+| Component                | Status         | Completion |
+| ------------------------ | -------------- | ---------- |
+| **Core Export Pipeline** | ✅ Complete    | 100%       |
+| Facts Layer              | ✅ Complete    | 100%       |
+| Relations Layer          | ✅ Complete    | 100%       |
+| Manifest Generation      | ✅ Complete    | 100%       |
+| Compression & Sharding   | ✅ Complete    | 100%       |
+| **Indexing System**      | ✅ Complete    | 100%       |
+| **Metrics Collection**   | ✅ Complete    | 100%       |
+| **Parallel Processing**  | ✅ Complete    | 100%       |
+| **Schema Validation**    | ✅ Complete    | 100%       |
+| **CLI Interface**        | ✅ Complete    | 100%       |
+| Unit Tests               | 🟡 In Progress | 70%        |
+| Documentation            | 🟡 In Progress | 85%        |
+| Example Scripts          | ⏳ Planned     | 0%         |
 
 **Recent Achievements** (November 2025):
+
 - ✅ First complete integration test passed (100% evaluation score)
 - ✅ All compression modes support indexing
 - ✅ Parallel processing framework implemented
@@ -114,12 +115,12 @@ output/
 │   ├── collections/
 │   ├── types/
 │   ├── bundles/
-│   └── script_metadata/
+│   └── scripts/
 ├── relations/                       # Relationship data
 │   └── asset_dependencies/
 ├── indexes/                         # Lookup indices
 │   ├── bundleMetadata.kindex
-│   └── scriptMetadata.kindex
+│   └── scripts.kindex
 ├── metrics/                         # Statistics and reports
 │   ├── asset_distribution.json
 │   └── dependency_stats.json
@@ -138,13 +139,15 @@ output/
 AssetDumper organizes data into three domains:
 
 1. **Facts** (`facts/`): Core asset data
-   - `collections` - Resource collections (Resources, Addressables, etc.)
-   - `assets` - Individual asset records with full metadata
-   - `types` - Type definitions and schemas
-   - `bundles` - AssetBundle hierarchy and metadata
-   - `script_metadata` - MonoScript reflection data
+
+- `collections` - Resource collections (Resources, Addressables, etc.). Scene rows expose a `friendlyName` derived from the project-relative path (drops `Assets/`, strips `.unity`, replaces underscores/hyphens with spaces) to make directories like `Assets/Scenes/World/Cave_EelChase_Art` display as `World/Cave EelChase Art`.
+- `assets` - Individual asset records with full metadata
+- `types` - Type definitions and schemas
+- `bundles` - AssetBundle hierarchy and metadata
+- `scripts` - Combined MonoScript facts (metadata + collection reference)
 
 2. **Relations** (`relations/`): Asset relationships
+
    - `asset_dependencies` - Dependencies between assets
 
 3. **Metrics** (`metrics/`): Derived statistics
@@ -185,6 +188,7 @@ The `manifest.json` file is the entry point for all exported data:
 AssetDumper includes automatic validation to ensure you're processing a Unity game directory, not a previous export result:
 
 **Valid Input Examples**:
+
 ```bash
 # Windows
 AssetDumper --input "C:\Games\MyGame\MyGame_Data" --output "./output"
@@ -194,6 +198,7 @@ AssetDumper --input "/home/user/MyGame/MyGame_Data" --output "./output"
 ```
 
 **Invalid Input** (will be rejected):
+
 ```bash
 # ❌ Previous AssetDumper export (contains manifest.json)
 AssetDumper --input "./old_export" --output "./new_export"
@@ -203,11 +208,13 @@ AssetDumper --input "./previous_output" --output "./output"
 ```
 
 **Validation Rules**:
+
 - Rejects directories containing `manifest.json` file
 - Rejects directories with 3+ characteristic export folders (`facts/`, `relations/`, `schema/`, `indexes/`, `metrics/`)
 - Provides clear error messages explaining the issue
 
 **Why This Matters**:
+
 - Prevents accidental re-processing of already exported data
 - Avoids data corruption and invalid results
 - Ensures clean separation between input (Unity games) and output (analysis datasets)
@@ -220,20 +227,20 @@ AssetDumper [options]
 Options:
   --input <path>             Path to Unity game directory (required)
   --output <path>            Output directory path (required)
-  
+
 Data Export:
   --facts                    Export fact tables (collections, assets, types, etc.)
   --relations                Export relationship tables (dependencies)
   --indexes                  Generate lookup indexes
   --metrics                  Generate statistics and metrics
   --manifest                 Generate manifest.json
-  
+
 Performance:
   --compression <type>       Compression mode: none, gzip, zstd (default: none)
   --max-degree <number>      Max parallelism (default: CPU cores)
   --sample-rate <decimal>    Sample assets (0.0-1.0, default: 1.0)
   --preview-only             Fast preview mode
-  
+
 Output Control:
   --enable-index             Enable indexing (works with all compression modes)
   --disable-index            Disable indexing
@@ -245,13 +252,14 @@ Output Control:
 
 AssetDumper supports three compression modes with **full indexing support**:
 
-| Compression | Speed | Size | Indexing | Query Performance |
-|-------------|-------|------|----------|-------------------|
-| `none`      | Fast  | Large| ✅ Byte-offset | Fastest |
-| `gzip`      | Medium| Medium| ✅ Line-number | Good |
-| `zstd`      | Fast  | Small| ✅ Line-number | Good |
+| Compression | Speed  | Size   | Indexing       | Query Performance |
+| ----------- | ------ | ------ | -------------- | ----------------- |
+| `none`      | Fast   | Large  | ✅ Byte-offset | Fastest           |
+| `gzip`      | Medium | Medium | ✅ Line-number | Good              |
+| `zstd`      | Fast   | Small  | ✅ Line-number | Good              |
 
 **Indexing Strategy**:
+
 - **Uncompressed**: Uses byte-offset indexing (direct file seeks)
 - **Compressed**: Uses line-number indexing (requires sequential decompression)
 - Both strategies support efficient random access queries
@@ -268,6 +276,7 @@ AssetDumper leverages multi-core CPUs for high performance:
 - **Memory-efficient**: Streaming processing, minimal memory footprint
 
 **Performance Benchmark** (from integration tests):
+
 - Export time: 0.26 seconds (GRIS sample, 7 records)
 - Throughput: ~58,000 records/second (large projects)
 - Memory: <500MB for most projects
@@ -280,16 +289,16 @@ AssetDumper leverages multi-core CPUs for high performance:
 
 ```sql
 -- Load asset data
-CREATE TABLE assets AS 
+CREATE TABLE assets AS
   SELECT * FROM read_ndjson_auto('output/facts/assets/*.ndjson.zst');
 
 -- Find all textures
-SELECT PathID, Name, Type 
-FROM assets 
+SELECT PathID, Name, Type
+FROM assets
 WHERE Type = 'Texture2D';
 
 -- Analyze dependencies
-CREATE TABLE deps AS 
+CREATE TABLE deps AS
   SELECT * FROM read_ndjson_auto('output/relations/asset_dependencies/*.ndjson.zst');
 
 SELECT a.Name, COUNT(d.TargetPathID) as DependencyCount
@@ -375,6 +384,7 @@ dotnet test --filter "FullyQualifiedName~GRISIntegrationTests"
 ```
 
 **Test Results** (November 2025):
+
 - ✅ 11 integration tests passing
 - ✅ 100% evaluation score (170/170 points)
 - ✅ All compression modes validated
@@ -393,6 +403,7 @@ Use provided PowerShell scripts for quality validation:
 ```
 
 **Evaluation Categories**:
+
 - Directory structure (30 points)
 - Manifest validation (40 points)
 - Data file integrity (60 points)
@@ -414,12 +425,14 @@ AssetDumper relies on AssetRipper for Unity asset parsing. Due to the nature of 
 - **Error Types**: `ArgumentOutOfRangeException`, `EndOfStreamException`, layout mismatches
 
 **Example Errors**:
+
 ```
-Unable to read MonoBehaviour Structure, because script ValueHolderDefaulting 
+Unable to read MonoBehaviour Structure, because script ValueHolderDefaulting
 layout mismatched binary content (ArgumentOutOfRangeException: ...)
 ```
 
 **Mitigation**:
+
 - Use `--sample-rate` for fast validation before full export
 - Check metrics for success rates
 - These errors are **AssetRipper library limitations**, not bugs in AssetDumper
@@ -491,12 +504,14 @@ Contributions are welcome! Please:
 See [COMPLETION_ASSESSMENT.md](COMPLETION_ASSESSMENT.md) for detailed status and [TODO.md](TODO.md) for roadmap.
 
 **Recent Milestones** (November 2025):
+
 - ✅ First complete integration test (100% pass rate)
 - ✅ All compression modes support indexing
 - ✅ Parallel processing framework complete
 - ✅ Comprehensive test infrastructure
 
 **Roadmap**:
+
 - Stage 10: CLI query tools (Planned)
 - Stage 11: Web API (Planned)
 - Stage 12: Performance optimizations (Planned)
@@ -544,6 +559,7 @@ This project is licensed under the MIT License - see [LICENSE.md](LICENSE.md) fo
 ## Future Development
 
 See `TODO.md` and `V2_GAP_ANALYSIS.md` for detailed development roadmap and known issues. Priority areas include:
+
 - Complete Metrics layer implementation
 - Add support for index generation in compressed mode
 - Implement asset byte offset collection

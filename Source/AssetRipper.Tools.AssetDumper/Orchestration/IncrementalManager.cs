@@ -1,8 +1,9 @@
 using AssetRipper.Import.Logging;
-using AssetRipper.Tools.AssetDumper.Models;
-using Newtonsoft.Json;
 using AssetRipper.Tools.AssetDumper.Core;
+using AssetRipper.Tools.AssetDumper.Helpers;
+using AssetRipper.Tools.AssetDumper.Models;
 using AssetRipper.Tools.AssetDumper.Writers;
+using Newtonsoft.Json;
 
 namespace AssetRipper.Tools.AssetDumper.Orchestration;
 
@@ -57,9 +58,9 @@ public sealed class IncrementalManager
 	}
 
 	/// <summary>
-	/// Checks if all specified tables exist in the manifest with valid data.
+	/// Checks if all specified tables exist in the manifest with valid data and on disk.
 	/// </summary>
-	public static bool ManifestContainsTables(Manifest manifest, params string[] tableIds)
+	public bool ManifestContainsTables(Manifest manifest, params string[] tableIds)
 	{
 		foreach (string tableId in tableIds)
 		{
@@ -68,9 +69,61 @@ public sealed class IncrementalManager
 				return false;
 			}
 
-			bool hasShards = table.Shards != null && table.Shards.Count > 0;
-			bool hasFile = !string.IsNullOrWhiteSpace(table.File);
-			if (string.IsNullOrWhiteSpace(table.Schema) || (!hasShards && !hasFile))
+			if (!IsTableMaterialized(table))
+			{
+				Logger.Verbose(LogCategory.Export, $"Manifest table '{tableId}' missing required data for incremental reuse.");
+				return false;
+			}
+		}
+
+		return true;
+	}
+
+	private bool IsTableMaterialized(ManifestTable table)
+	{
+		if (string.IsNullOrWhiteSpace(table.Schema))
+		{
+			return false;
+		}
+
+		bool hasFile = !string.IsNullOrWhiteSpace(table.File);
+		bool hasShards = table.Shards is { Count: > 0 };
+
+		if (!hasFile && !hasShards)
+		{
+			return false;
+		}
+
+		if (hasFile && !EntryExists(table.File!))
+		{
+			return false;
+		}
+
+		if (hasShards && !ShardsExist(table.Shards!))
+		{
+			return false;
+		}
+
+		return true;
+	}
+
+	private bool EntryExists(string relativePath)
+	{
+		string normalized = OutputPathHelper.NormalizeRelativePath(relativePath);
+		string absolute = OutputPathHelper.ResolveAbsolutePath(_options.OutputPath, normalized);
+		return File.Exists(absolute);
+	}
+
+	private bool ShardsExist(IEnumerable<ManifestTableShard> shards)
+	{
+		foreach (ManifestTableShard shard in shards)
+		{
+			if (string.IsNullOrWhiteSpace(shard.Path))
+			{
+				return false;
+			}
+
+			if (!EntryExists(shard.Path))
 			{
 				return false;
 			}

@@ -11,6 +11,7 @@ using Newtonsoft.Json;
 using AssetRipper.Tools.AssetDumper.Core;
 using AssetRipper.Tools.AssetDumper.Helpers;
 using AssetRipper.Tools.AssetDumper.Writers;
+using AssetRipper.IO.Files.SerializedFiles;
 
 namespace AssetRipper.Tools.AssetDumper.Exporters.Records;
 
@@ -67,8 +68,8 @@ internal class ScriptRecordExporter
 
 		DomainExportResult result = new DomainExportResult(
 			domain: "scripts",
-			tableId: "primary/scripts",
-			schemaPath: "Schemas/v2/primary/scripts.schema.json");
+			tableId: "facts/scripts",
+			schemaPath: "Schemas/v2/facts/scripts.schema.json");
 
 		ShardedNdjsonWriter writer = new ShardedNdjsonWriter(
 			_options.OutputPath,
@@ -144,42 +145,33 @@ internal class ScriptRecordExporter
 		ScriptRecord record = new ScriptRecord
 		{
 			Domain = "scripts",
+			Pk = stableKey,
 			CollectionId = collectionId,
-			Collection = collection.Name,
-			BundleName = collection.Bundle?.Name ?? string.Empty,
-			Platform = collection.Platform.ToString(),
-			Version = collection.Version.ToString(),
-			Flags = collection.Flags.ToString(),
-			File = collection.FilePath,
 
 			PathId = script.PathID,
 			ClassId = script.ClassID,
 			ClassName = script.ClassName,
-			Namespace = script.Namespace.String,
+			Namespace = string.IsNullOrWhiteSpace(script.Namespace.String) ? null : script.Namespace.String,
 			FullName = script.GetFullName(),
 			AssemblyName = script.GetAssemblyNameFixed(),
 			ExecutionOrder = script.ExecutionOrder
 		};
 
-		// Add script identifiers (safe computation with fallbacks)
-		record.ScriptGuid = SafeCompute(script, "script guid", () => ScriptHashing.CalculateScriptGuid(script).ToString(), string.Empty);
-		record.AssemblyGuid = SafeCompute(script, "assembly guid", () => ScriptHashing.CalculateAssemblyGuid(script).ToString(), (string?)null);
-		record.ScriptFileId = SafeCompute(script, "script file id", () => (int?)ScriptHashing.CalculateScriptFileID(script), (int?)null);
+		record.ScriptGuid = SafeCompute(script, "script guid", static s => ScriptHashing.CalculateScriptGuid(s).ToString(), (string?)null);
+		record.AssemblyGuid = SafeCompute(script, "assembly guid", static s => ScriptHashing.CalculateAssemblyGuid(s).ToString(), (string?)null);
+		record.ScriptFileId = SafeCompute(script, "script file id", static s => (int?)ScriptHashing.CalculateScriptFileID(s), (int?)null);
 
 		TryAssignPropertiesHash(script, record);
-
-		// TODO: Add behaviour resolution info if available
-		// This would require integration with the behaviour resolution system
-		// record.Behaviour = ResolveBehaviourInfo(script);
+		AssignSceneMetadata(collection, record);
 
 		return record;
 	}
 
-	private T SafeCompute<T>(IMonoScript script, string context, Func<T> computation, T fallback)
+	private static T SafeCompute<T>(IMonoScript script, string context, Func<IMonoScript, T> computation, T fallback)
 	{
 		try
 		{
-			return computation();
+			return computation(script);
 		}
 		catch (Exception ex)
 		{
@@ -205,6 +197,22 @@ internal class ScriptRecordExporter
 			Logger.Warning(LogCategory.Export,
 				$"Failed to read properties hash for script {script.GetFullName()}: {ex.Message}");
 		}
+	}
+
+	private static void AssignSceneMetadata(AssetCollection collection, ScriptRecord record)
+	{
+		if (!collection.IsScene || collection.Scene is null)
+		{
+			record.Scene = null;
+			return;
+		}
+
+		record.Scene = new ScriptSceneInfo
+		{
+			Name = collection.Scene.Name,
+			Path = collection.Scene.Path,
+			Guid = collection.Scene.GUID.ToString()
+		};
 	}
 }
 

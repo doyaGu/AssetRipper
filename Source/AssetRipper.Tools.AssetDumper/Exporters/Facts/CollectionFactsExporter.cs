@@ -1,3 +1,7 @@
+using System.Collections.Generic;
+using System.Globalization;
+using System.Reflection;
+using System.Text;
 using AssetRipper.Assets.Collections;
 using AssetRipper.IO.Files;
 using AssetRipper.IO.Files.SerializedFiles;
@@ -95,22 +99,238 @@ public sealed class CollectionFactsExporter
 
 		string collectionId = ExportHelper.ComputeCollectionId(collection);
 		List<string>? flags = BuildFlags(collection.Flags);
-		CollectionSourceRecord? source = BuildSource(collection.FilePath);
+		string? normalizedPath = NormalizePath(collection.FilePath);
+		CollectionSourceRecord? source = BuildSource(normalizedPath);
 		CollectionUnityRecord? unity = BuildUnityRecord(collection);
+		string? friendlyName = BuildFriendlyName(collection);
+		string? flagsRaw = BuildFlagsRaw(collection.Flags);
+		bool? isSceneCollection = collection.IsScene ? true : null;
+		int? formatVersion = ResolveFormatVersion(collection);
 
 		return new CollectionFactRecord
 		{
 			CollectionId = collectionId,
 			Name = collection.Name,
+			FriendlyName = friendlyName,
+			FilePath = normalizedPath,
 			BundleName = collection.Bundle?.Name,
 			Platform = collection.Platform.ToString(),
 			UnityVersion = collection.Version.ToString(),
-			FormatVersion = 0,
+			FormatVersion = formatVersion,
 			Endian = collection.EndianType.ToString(),
+			FlagsRaw = flagsRaw,
 			Flags = flags,
+			IsSceneCollection = isSceneCollection,
 			Source = source,
 			Unity = unity
 		};
+	}
+
+	private static int? ResolveFormatVersion(SerializedAssetCollection collection)
+	{
+		PropertyInfo? property = collection.GetType().GetProperty("FormatVersion", BindingFlags.Public | BindingFlags.Instance);
+		if (property is null)
+		{
+			return null;
+		}
+
+		object? rawValue;
+		try
+		{
+			rawValue = property.GetValue(collection);
+		}
+		catch
+		{
+			return null;
+		}
+
+		return TryConvertToInt(rawValue);
+	}
+
+	private static int? TryConvertToInt(object? value)
+	{
+		if (value is null)
+		{
+			return null;
+		}
+
+		if (value is int alreadyInt)
+		{
+			return alreadyInt;
+		}
+
+		if (value is IConvertible convertible)
+		{
+			try
+			{
+				return convertible.ToInt32(CultureInfo.InvariantCulture);
+			}
+			catch
+			{
+				return null;
+			}
+		}
+
+		return null;
+	}
+
+	private static string? NormalizePath(string? path)
+	{
+		if (string.IsNullOrWhiteSpace(path))
+		{
+			return null;
+		}
+
+		return path.Replace('\\', '/');
+	}
+
+	private static string? BuildFriendlyName(SerializedAssetCollection collection)
+	{
+		if (collection.Scene is not { } scene)
+		{
+			return null;
+		}
+
+		string? friendlyFromPath = BeautifyScenePath(scene.Path);
+		if (!string.IsNullOrWhiteSpace(friendlyFromPath))
+		{
+			return friendlyFromPath;
+		}
+
+		if (!string.IsNullOrWhiteSpace(scene.Name))
+		{
+			string beautifiedName = BeautifySegment(scene.Name);
+			return string.IsNullOrWhiteSpace(beautifiedName) ? null : beautifiedName;
+		}
+
+		return null;
+	}
+
+	private static string? BeautifyScenePath(string? rawPath)
+	{
+		if (string.IsNullOrWhiteSpace(rawPath))
+		{
+			return null;
+		}
+
+		string normalized = rawPath.Replace('\\', '/').Trim();
+		if (normalized.Length == 0)
+		{
+			return null;
+		}
+
+		normalized = RemovePrefix(normalized, "Assets/");
+		normalized = CollapseSeparators(normalized);
+
+		string[] segments = normalized.Split('/', StringSplitOptions.RemoveEmptyEntries);
+		if (segments.Length == 0)
+		{
+			return null;
+		}
+
+		// Strip .unity extension from the final segment when present.
+		int lastIndex = segments.Length - 1;
+		string lastSegment = segments[lastIndex];
+		if (lastSegment.EndsWith(".unity", StringComparison.OrdinalIgnoreCase))
+		{
+			segments[lastIndex] = lastSegment[..^6];
+		}
+
+		List<string> friendlySegments = new(segments.Length);
+		for (int i = 0; i < segments.Length; i++)
+		{
+			string segment = segments[i];
+			if (i == 0 && string.Equals(segment, "Scenes", StringComparison.OrdinalIgnoreCase))
+			{
+				continue;
+			}
+
+			string beautified = BeautifySegment(segment);
+			if (!string.IsNullOrWhiteSpace(beautified))
+			{
+				friendlySegments.Add(beautified);
+			}
+		}
+
+		if (friendlySegments.Count == 0)
+		{
+			return null;
+		}
+
+		return string.Join('/', friendlySegments);
+	}
+
+	private static string BeautifySegment(string segment)
+	{
+		if (string.IsNullOrWhiteSpace(segment))
+		{
+			return string.Empty;
+		}
+
+		StringBuilder builder = new(segment.Length);
+		bool previousWasSeparator = false;
+		foreach (char character in segment)
+		{
+			if (character == '_' || character == '-' || char.IsWhiteSpace(character))
+			{
+				if (!previousWasSeparator)
+				{
+					builder.Append(' ');
+					previousWasSeparator = true;
+				}
+
+				continue;
+			}
+
+			builder.Append(character);
+			previousWasSeparator = false;
+		}
+
+		return builder.ToString().Trim();
+	}
+
+	private static string RemovePrefix(string value, string prefix)
+	{
+		if (value.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+		{
+			return value[prefix.Length..];
+		}
+
+		return value;
+	}
+
+	private static string CollapseSeparators(string value)
+	{
+		if (string.IsNullOrEmpty(value))
+		{
+			return value;
+		}
+
+		StringBuilder builder = new(value.Length);
+		char previous = '\0';
+		foreach (char character in value)
+		{
+			if (character == '/' && previous == '/')
+			{
+				continue;
+			}
+
+			builder.Append(character);
+			previous = character;
+		}
+
+		return builder.ToString();
+	}
+
+	private static string? BuildFlagsRaw(TransferInstructionFlags flags)
+	{
+		if (flags == TransferInstructionFlags.NoTransferInstructionFlags)
+		{
+			return null;
+		}
+
+		string value = flags.ToString("F");
+		return string.IsNullOrWhiteSpace(value) ? null : value;
 	}
 
 	private static List<string>? BuildFlags(TransferInstructionFlags flags)

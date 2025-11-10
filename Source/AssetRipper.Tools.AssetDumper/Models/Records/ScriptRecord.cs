@@ -3,38 +3,23 @@ using Newtonsoft.Json;
 namespace AssetRipper.Tools.AssetDumper.Models;
 
 /// <summary>
-/// Minimal MonoScript metadata line for the "scripts" NDJSON domain.
+/// MonoScript fact record combining collection linkage, identifiers, and scene provenance.
 /// </summary>
-public class ScriptRecord
+public sealed class ScriptRecord
 {
 	[JsonProperty("domain")]
 	public string Domain { get; set; } = "scripts";
 
+	[JsonProperty("pk")]
+	public string Pk { get; set; } = string.Empty;
+
 	[JsonProperty("collectionId")]
 	public string CollectionId { get; set; } = string.Empty;
 
-	[JsonProperty("collection")]
-	public string Collection { get; set; } = string.Empty;
-
-	[JsonProperty("bundleName")]
-	public string BundleName { get; set; } = string.Empty;
-
-	[JsonProperty("platform")]
-	public string Platform { get; set; } = string.Empty;
-
-	[JsonProperty("version")]
-	public string Version { get; set; } = string.Empty;
-
-	[JsonProperty("flags", NullValueHandling = NullValueHandling.Ignore)]
-	public string? Flags { get; set; }
-
-	[JsonProperty("file", NullValueHandling = NullValueHandling.Ignore)]
-	public string? File { get; set; }
-
-	[JsonProperty("pathID")]
+	[JsonProperty("pathId")]
 	public long PathId { get; set; }
 
-	[JsonProperty("classID")]
+	[JsonProperty("classId")]
 	public int ClassId { get; set; }
 
 	[JsonProperty("className")]
@@ -52,8 +37,8 @@ public class ScriptRecord
 	[JsonProperty("assemblyGuid", NullValueHandling = NullValueHandling.Ignore)]
 	public string? AssemblyGuid { get; set; }
 
-	[JsonProperty("scriptGuid")]
-	public string ScriptGuid { get; set; } = string.Empty;
+	[JsonProperty("scriptGuid", NullValueHandling = NullValueHandling.Ignore)]
+	public string? ScriptGuid { get; set; }
 
 	[JsonProperty("scriptFileId", NullValueHandling = NullValueHandling.Ignore)]
 	public int? ScriptFileId { get; set; }
@@ -63,4 +48,22 @@ public class ScriptRecord
 
 	[JsonProperty("propertiesHash", NullValueHandling = NullValueHandling.Ignore)]
 	public string? PropertiesHash { get; set; }
+
+	[JsonProperty("scene", NullValueHandling = NullValueHandling.Ignore)]
+	public ScriptSceneInfo? Scene { get; set; }
+}
+
+/// <summary>
+/// Scene metadata associated with a script when sourced from a scene collection.
+/// </summary>
+public sealed class ScriptSceneInfo
+{
+	[JsonProperty("name", NullValueHandling = NullValueHandling.Ignore)]
+	public string? Name { get; set; }
+
+	[JsonProperty("path", NullValueHandling = NullValueHandling.Ignore)]
+	public string? Path { get; set; }
+
+	[JsonProperty("guid", NullValueHandling = NullValueHandling.Ignore)]
+	public string? Guid { get; set; }
 }

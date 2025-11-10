@@ -105,12 +105,12 @@ public sealed class OptionalExportPipeline
 
 		try
 		{
-			ScriptMetadataExporter exporter = new ScriptMetadataExporter(
+			ScriptRecordExporter exporter = new ScriptRecordExporter(
 				_context.Options,
 				_context.CompressionKind,
 				_context.EnableIndex);
 
-			DomainExportResult result = exporter.Export(_context.GameData);
+			DomainExportResult result = exporter.ExportScripts(_context.GameData);
 			_context.AddResult(result);
 		}
 		catch (Exception ex)

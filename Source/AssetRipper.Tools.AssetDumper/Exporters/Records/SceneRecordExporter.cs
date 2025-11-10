@@ -60,8 +60,8 @@ internal class SceneRecordExporter
 
 		DomainExportResult result = new DomainExportResult(
 			domain: "scenes",
-			tableId: "primary/scenes",
-			schemaPath: "Schemas/v2/primary/scenes.schema.json");
+			tableId: "facts/scenes",
+			schemaPath: "Schemas/v2/facts/scenes.schema.json");
 
 		ShardedNdjsonWriter writer = new ShardedNdjsonWriter(
 			_options.OutputPath,
@@ -152,7 +152,7 @@ internal class SceneRecordExporter
 			SceneGuid = hierarchy.Scene.GUID.ToString(),
 			ScenePath = hierarchy.Scene.Path,
 			ExportedAt = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ"),
-			
+
 			CollectionId = primaryCollectionId,
 			Collection = primaryCollection.Name,
 			Version = primaryCollection.Version.ToString(),
@@ -204,7 +204,7 @@ internal class SceneRecordExporter
 					record.SceneRootsAsset = new AssetRef(sceneRootsCollectionId, sceneRootsAsset.PathID);
 				}
 			}
-			
+
 			record.RootGameObjects = ConvertToAssetRefs(hierarchy.GetRoots());
 			record.GameObjects = ConvertToAssetRefs(hierarchy.GameObjects);
 			record.Components = ConvertToAssetRefs(hierarchy.Components);

@@ -104,7 +104,7 @@ public sealed class ExportOrchestrator
 
 		// Check if we can reuse existing facts
 		bool canReuseFacts = existingManifest != null
-			&& IncrementalManager.ManifestContainsTables(existingManifest,
+			&& _incrementalManager.ManifestContainsTables(existingManifest,
 				"facts/collections",
 				"facts/assets",
 				"facts/types");
@@ -134,7 +134,7 @@ public sealed class ExportOrchestrator
 
 		// Check if we can reuse existing relations
 		bool canReuseRelations = existingManifest != null
-			&& IncrementalManager.ManifestContainsTables(existingManifest, "relations/asset_dependencies");
+			&& _incrementalManager.ManifestContainsTables(existingManifest, "relations/asset_dependencies");
 
 		if (canReuseRelations)
 		{

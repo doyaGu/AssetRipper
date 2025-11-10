@@ -168,7 +168,7 @@ internal static class Program
 		Logger.Info($"Generate AST: {options.GenerateAst}");
 		Logger.Info($"Export Scenes: {options.ExportScenes}");
 		Logger.Info($"Export Assemblies: {options.ExportAssemblies}");
-		Logger.Info($"Export Script Metadata Facts: {options.ExportScriptMetadata}");
+		Logger.Info($"Export Script Facts: {options.ExportScriptMetadata}");
 		Logger.Info($"Export Facts: {options.ExportFacts}");
 		Logger.Info($"Export Relations: {options.ExportRelations}");
 		Logger.Info($"Export Manifest: {options.ExportManifest}");
@@ -222,7 +222,7 @@ internal static class Program
 		// If multiple characteristic directories exist, it's likely an export
 		string[] exportDirs = { "facts", "relations", "schema", "indexes", "metrics" };
 		int foundCount = exportDirs.Count(dir => Directory.Exists(Path.Combine(directoryPath, dir)));
-		
+
 		// If 3 or more characteristic directories found, likely an export
 		if (foundCount >= 3)
 		{
