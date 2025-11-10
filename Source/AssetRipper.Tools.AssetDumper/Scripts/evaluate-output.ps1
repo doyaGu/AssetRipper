@@ -102,11 +102,11 @@ Add-Check -Category "Structure" -CheckName "Manifest File" -Points 10 `
 
 # Check facts subdirectory structure (10 pts)
 $FactsDir = Join-Path $OutputPath "facts"
-$ScriptMetadataDir = Join-Path $FactsDir "script_metadata"
-$hasScriptMetadata = Test-Path $ScriptMetadataDir
+$ScriptFactsDir = Join-Path $FactsDir "scripts"
+$hasScriptFacts = Test-Path $ScriptFactsDir
 Add-Check -Category "Structure" -CheckName "Facts Subdirectories" -Points 10 `
-    -Passed $hasScriptMetadata `
-    -Message $(if ($hasScriptMetadata) { "script_metadata present" } else { "script_metadata missing" })
+    -Passed $hasScriptFacts `
+    -Message $(if ($hasScriptFacts) { "scripts present" } else { "scripts missing" })
 
 # ════════════════════════════════════════════════════════════
 # CATEGORY 2: Manifest Completeness (40 points)
@@ -199,15 +199,15 @@ Add-Check -Category "Data" -CheckName "Facts Tables" -Points $factsMax `
     -Passed ($factsScore -eq $factsMax) `
     -Message "$factsScore/$factsMax points earned"
 
-# Check script_metadata shards (15 pts)
-if (Test-Path $ScriptMetadataDir) {
-    $scriptFiles = Get-ChildItem -Path $ScriptMetadataDir -File -Recurse
+# Check scripts shards (15 pts)
+if (Test-Path $ScriptFactsDir) {
+    $scriptFiles = Get-ChildItem -Path $ScriptFactsDir -File -Recurse
     $hasScriptFiles = $scriptFiles.Count -gt 0
-    Add-Check -Category "Data" -CheckName "Script Metadata Shards" -Points 15 `
+    Add-Check -Category "Data" -CheckName "Script Shards" -Points 15 `
         -Passed $hasScriptFiles `
         -Message $(if ($hasScriptFiles) { "$($scriptFiles.Count) files" } else { "No files found" })
 } else {
-    Add-Check -Category "Data" -CheckName "Script Metadata Shards" -Points 15 `
+    Add-Check -Category "Data" -CheckName "Script Shards" -Points 15 `
         -Passed $false `
         -Message "Directory not found"
 }

@@ -209,13 +209,13 @@ foreach ($table in $FactsTables) {
     }
 }
 
-# Check for script_metadata subdirectory
-$ScriptMetadataDir = Join-Path $FactsDir "script_metadata"
-if (Test-Path $ScriptMetadataDir) {
-    $scriptFiles = Get-ChildItem -Path $ScriptMetadataDir -File -Recurse
-    Add-TestResult -TestName "Facts: script_metadata" -Passed $true -Message "$($scriptFiles.Count) files" -Details $ScriptMetadataDir
+# Check for scripts subdirectory
+$ScriptFactsDir = Join-Path $FactsDir "scripts"
+if (Test-Path $ScriptFactsDir) {
+    $scriptFiles = Get-ChildItem -Path $ScriptFactsDir -File -Recurse
+    Add-TestResult -TestName "Facts: scripts" -Passed $true -Message "$($scriptFiles.Count) files" -Details $ScriptFactsDir
 } else {
-    Add-TestResult -TestName "Facts: script_metadata" -Passed $false -Message "Missing" -Details $ScriptMetadataDir
+    Add-TestResult -TestName "Facts: scripts" -Passed $false -Message "Missing" -Details $ScriptFactsDir
 }
 
 # Step 7: Validate Relations Tables

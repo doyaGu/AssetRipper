@@ -164,14 +164,14 @@ foreach ($file in $factFiles) {
     }
 }
 
-# Check script_metadata
-$ScriptMetadataDir = Join-Path $FactsDir "script_metadata"
-if (Test-Path $ScriptMetadataDir) {
-    $scriptFiles = Get-ChildItem -Path $ScriptMetadataDir -File -Recurse
-    Write-Host "  OK: script_metadata has $($scriptFiles.Count) files" -ForegroundColor Green
+# Check scripts facts
+$ScriptFactsDir = Join-Path $FactsDir "scripts"
+if (Test-Path $ScriptFactsDir) {
+    $scriptFiles = Get-ChildItem -Path $ScriptFactsDir -File -Recurse
+    Write-Host "  OK: scripts has $($scriptFiles.Count) files" -ForegroundColor Green
     $TestResults.Passed++
 } else {
-    Write-Host "  FAIL: script_metadata missing" -ForegroundColor Red
+    Write-Host "  FAIL: scripts missing" -ForegroundColor Red
     $TestResults.Failed++
 }
 

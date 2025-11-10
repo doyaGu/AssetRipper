@@ -78,10 +78,10 @@ $FactsDir = Join-Path $OutputPath "facts"
 
 # Check for any facts data
 $hasBundles = (Get-ChildItem -Path (Join-Path $FactsDir "bundles") -Recurse -File -ErrorAction SilentlyContinue).Count -gt 0
-$hasScripts = (Get-ChildItem -Path (Join-Path $FactsDir "script_metadata") -Recurse -File -ErrorAction SilentlyContinue).Count -gt 0
+$hasScripts = (Get-ChildItem -Path (Join-Path $FactsDir "scripts") -Recurse -File -ErrorAction SilentlyContinue).Count -gt 0
 
 Test-Item "Bundle facts exist" 20 { $hasBundles }
-Test-Item "Script metadata facts exist" 20 { $hasScripts }
+Test-Item "Script facts exist" 20 { $hasScripts }
 
 # Check indexes
 $IndexesDir = Join-Path $OutputPath "indexes"
