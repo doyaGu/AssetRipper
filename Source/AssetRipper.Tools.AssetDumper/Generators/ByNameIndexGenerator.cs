@@ -5,6 +5,7 @@ using AssetRipper.Processing;
 using AssetRipper.Tools.AssetDumper.Helpers;
 using Newtonsoft.Json;
 using AssetRipper.Tools.AssetDumper.Core;
+using System.Diagnostics.CodeAnalysis;
 
 namespace AssetRipper.Tools.AssetDumper.Generators;
 
@@ -137,18 +138,19 @@ internal sealed class ByNameIndexGenerator
 	/// <summary>
 	/// Extract name from asset using reflection to access the Name property if available.
 	/// </summary>
+	[UnconditionalSuppressMessage("Trimming", "IL2075", Justification = "Dynamic reflection on Unity asset types is intentional and required for name extraction")]
 	private string? GetAssetName(IUnityObjectBase asset)
 	{
 		try
 		{
 			// Try to use the common GetBestName() extension method if available
 			// Most NamedObject types have a Name property
-			var type = asset.GetType();
-			var nameProperty = type.GetProperty("Name");
+			Type type = asset.GetType();
+			System.Reflection.PropertyInfo? nameProperty = type.GetProperty("Name");
 			
 			if (nameProperty != null)
 			{
-				var value = nameProperty.GetValue(asset);
+				object? value = nameProperty.GetValue(asset);
 				if (value is string name && !string.IsNullOrWhiteSpace(name))
 				{
 					return name;
@@ -156,10 +158,10 @@ internal sealed class ByNameIndexGenerator
 			}
 
 			// Fallback: try m_Name field (common in Unity serialization)
-			var nameField = type.GetField("m_Name");
+			System.Reflection.FieldInfo? nameField = type.GetField("m_Name");
 			if (nameField != null)
 			{
-				var value = nameField.GetValue(asset);
+				object? value = nameField.GetValue(asset);
 				if (value is string name && !string.IsNullOrWhiteSpace(name))
 				{
 					return name;
