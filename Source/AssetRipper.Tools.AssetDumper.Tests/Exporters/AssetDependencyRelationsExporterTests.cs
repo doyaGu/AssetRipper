@@ -45,7 +45,7 @@ public class AssetDependencyRelationsExporterTests : IDisposable
 		{
 			InputPath = "C:\\TestInput",
 			OutputPath = _testOutputPath,
-			Silent = true
+			Quiet = true
 		};
 
 		// Act
@@ -75,7 +75,7 @@ public class AssetDependencyRelationsExporterTests : IDisposable
 		{
 			InputPath = "C:\\TestInput",
 			OutputPath = _testOutputPath,
-			Silent = true
+			Quiet = true
 		};
 
 		// Act
@@ -95,7 +95,7 @@ public class AssetDependencyRelationsExporterTests : IDisposable
 		{
 			InputPath = "C:\\TestInput",
 			OutputPath = _testOutputPath,
-			Silent = true
+			Quiet = true
 		};
 
 		// Act
@@ -117,7 +117,7 @@ public class AssetDependencyRelationsExporterTests : IDisposable
 		{
 			InputPath = "C:\\TestInput",
 			OutputPath = _testOutputPath,
-			Silent = true
+			Quiet = true
 		};
 		var exporter = new AssetDependencyRelationsExporter(options, CompressionKind.None, enableIndex: false);
 

@@ -45,7 +45,7 @@ public class ExportOrchestratorTests : IDisposable
 		{
 			InputPath = "C:\\TestInput",
 			OutputPath = _testOutputPath,
-			Silent = true
+			Quiet = true
 		};
 
 		// Act
@@ -102,10 +102,9 @@ public class ExportOrchestratorTests : IDisposable
 		{
 			InputPath = "C:\\NonExistentPath", // Will fail but directory should be created
 			OutputPath = outputPath,
-			Silent = true,
-			ExportFacts = false,
-			ExportRelations = false,
-			ExportManifest = false
+			Quiet = true,
+			ExportDomains = "none",  // Disable all exports for this test
+			FactTables = "none"
 		};
 		var orchestrator = new ExportOrchestrator(options);
 

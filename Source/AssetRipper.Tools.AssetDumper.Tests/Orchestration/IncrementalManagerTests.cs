@@ -46,7 +46,7 @@ public class IncrementalManagerTests : IDisposable
 		{
 			InputPath = "C:\\TestInput",
 			OutputPath = _testOutputPath,
-			Silent = true
+			Quiet = true
 		};
 
 		// Act
@@ -68,7 +68,7 @@ public class IncrementalManagerTests : IDisposable
 		{
 			InputPath = "C:\\TestInput",
 			OutputPath = _testOutputPath,
-			Silent = true
+			Quiet = true
 		};
 		var manager = new IncrementalManager(options);
 
@@ -87,8 +87,8 @@ public class IncrementalManagerTests : IDisposable
 		{
 			InputPath = "C:\\TestInput",
 			OutputPath = _testOutputPath,
-			IncrementalProcessing = false,
-			Silent = true
+			IncrementalMode = false,
+			Quiet = true
 		};
 		var manager = new IncrementalManager(options);
 		
@@ -110,8 +110,8 @@ public class IncrementalManagerTests : IDisposable
 		{
 			InputPath = "C:\\TestInput",
 			OutputPath = _testOutputPath,
-			IncrementalProcessing = true,
-			Silent = true
+			IncrementalMode = true,
+			Quiet = true
 		};
 		var manager = new IncrementalManager(options);
 		
@@ -140,7 +140,7 @@ public class IncrementalManagerTests : IDisposable
 		{
 			InputPath = "C:\\TestInput",
 			OutputPath = _testOutputPath,
-			Silent = true
+			Quiet = true
 		};
 		var manager = new IncrementalManager(options);
 		var manifest = CreateValidManifest();
@@ -166,7 +166,7 @@ public class IncrementalManagerTests : IDisposable
 		{
 			InputPath = "C:\\TestInput",
 			OutputPath = _testOutputPath,
-			Silent = true
+			Quiet = true
 		};
 		var manager = new IncrementalManager(options);
 		var manifest = CreateValidManifest();
@@ -188,7 +188,7 @@ public class IncrementalManagerTests : IDisposable
 		{
 			InputPath = "C:\\TestInput",
 			OutputPath = _testOutputPath,
-			Silent = true
+			Quiet = true
 		};
 		var manager = new IncrementalManager(options);
 		var manifest = CreateValidManifest();
@@ -210,7 +210,7 @@ public class IncrementalManagerTests : IDisposable
 		{
 			InputPath = "C:\\TestInput",
 			OutputPath = _testOutputPath,
-			Silent = true
+			Quiet = true
 		};
 		var manager = new IncrementalManager(options);
 		var manifest = CreateValidManifest();
@@ -242,7 +242,7 @@ public class IncrementalManagerTests : IDisposable
 		{
 			InputPath = "C:\\TestInput",
 			OutputPath = _testOutputPath,
-			Silent = true
+			Quiet = true
 		};
 		var manager = new IncrementalManager(options);
 		var manifest = CreateValidManifest();
@@ -264,7 +264,7 @@ public class IncrementalManagerTests : IDisposable
 		{
 			InputPath = "C:\\TestInput",
 			OutputPath = _testOutputPath,
-			Silent = true
+			Quiet = true
 		};
 		var manager = new IncrementalManager(options);
 		var manifest = CreateValidManifest();

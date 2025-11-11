@@ -45,7 +45,7 @@ public class AssetFactsExporterTests : IDisposable
 		{
 			InputPath = "C:\\TestInput",
 			OutputPath = _testOutputPath,
-			Silent = true
+			Quiet = true
 		};
 
 		// Act
@@ -76,7 +76,7 @@ public class AssetFactsExporterTests : IDisposable
 		{
 			InputPath = "C:\\TestInput",
 			OutputPath = _testOutputPath,
-			Silent = true
+			Quiet = true
 		};
 
 		// Act
@@ -96,7 +96,7 @@ public class AssetFactsExporterTests : IDisposable
 		{
 			InputPath = "C:\\TestInput",
 			OutputPath = _testOutputPath,
-			Silent = true
+			Quiet = true
 		};
 
 		// Act
@@ -118,7 +118,7 @@ public class AssetFactsExporterTests : IDisposable
 		{
 			InputPath = "C:\\TestInput",
 			OutputPath = _testOutputPath,
-			Silent = true
+			Quiet = true
 		};
 		var exporter = new AssetFactsExporter(options, CompressionKind.None, enableIndex: false);
 
@@ -141,7 +141,7 @@ public class AssetFactsExporterTests : IDisposable
 		{
 			InputPath = "C:\\TestInput",
 			OutputPath = _testOutputPath,
-			Silent = true
+			Quiet = true
 		};
 		var exporter = new AssetFactsExporter(options, CompressionKind.None, enableIndex: false);
 

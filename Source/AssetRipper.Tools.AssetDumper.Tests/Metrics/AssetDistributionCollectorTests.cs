@@ -173,7 +173,7 @@ public class AssetDistributionCollectorTests
 		{
 			InputPath = "test",
 			OutputPath = _testOutputPath,
-			Silent = true
+			Quiet = true
 		};
 		var collector = new AssetDistributionCollector(options);
 
@@ -192,7 +192,7 @@ public class AssetDistributionCollectorTests
 		{
 			InputPath = "test",
 			OutputPath = _testOutputPath,
-			Silent = true
+			Quiet = true
 		};
 		var collector = new AssetDistributionCollector(options);
 

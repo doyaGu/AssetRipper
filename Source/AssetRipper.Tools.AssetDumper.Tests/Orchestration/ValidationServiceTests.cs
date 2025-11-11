@@ -44,7 +44,7 @@ public class ValidationServiceTests : IDisposable
 		{
 			InputPath = "C:\\TestInput",
 			OutputPath = _testOutputPath,
-			Silent = true
+			Quiet = true
 		};
 
 		// Act

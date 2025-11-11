@@ -17,7 +17,7 @@ public class IndexGeneratorTests
 		var options = new Options
 		{
 			OutputPath = Path.Combine(Path.GetTempPath(), $"test_{Guid.NewGuid():N}"),
-			ExportIndexes = true
+			EnableIndexing = true
 		};
 
 		try
@@ -48,7 +48,7 @@ public class IndexGeneratorTests
 		var options = new Options
 		{
 			OutputPath = Path.Combine(Path.GetTempPath(), $"test_{Guid.NewGuid():N}"),
-			ExportIndexes = true
+			EnableIndexing = true
 		};
 
 		try
@@ -89,7 +89,7 @@ public class IndexGeneratorTests
 		var options = new Options
 		{
 			OutputPath = Path.Combine(Path.GetTempPath(), $"test_{Guid.NewGuid():N}"),
-			ExportIndexes = true
+			EnableIndexing = true
 		};
 
 		try
@@ -135,7 +135,7 @@ public class IndexGeneratorTests
 		var options = new Options
 		{
 			OutputPath = Path.Combine(Path.GetTempPath(), $"test_{Guid.NewGuid():N}"),
-			ExportIndexes = true
+			EnableIndexing = true
 		};
 
 		try
@@ -179,7 +179,7 @@ public class IndexGeneratorTests
 		var options = new Options
 		{
 			OutputPath = Path.Combine(Path.GetTempPath(), $"test_{Guid.NewGuid():N}"),
-			ExportIndexes = false // Disabled
+			EnableIndexing = false // Disabled
 		};
 
 		try
@@ -217,7 +217,7 @@ public class IndexGeneratorTests
 		var options = new Options
 		{
 			OutputPath = Path.Combine(Path.GetTempPath(), $"test_{Guid.NewGuid():N}"),
-			ExportIndexes = true
+			EnableIndexing = true
 		};
 
 		try
@@ -254,7 +254,7 @@ public class IndexGeneratorTests
 		var options = new Options
 		{
 			OutputPath = Path.Combine(Path.GetTempPath(), $"test_{Guid.NewGuid():N}"),
-			ExportIndexes = true
+			EnableIndexing = true
 		};
 
 		try

@@ -46,7 +46,7 @@ public class TypeFactsExporterTests : IDisposable
 		{
 			InputPath = "C:\\TestInput",
 			OutputPath = _testOutputPath,
-			Silent = true
+			Quiet = true
 		};
 
 		// Act
@@ -77,7 +77,7 @@ public class TypeFactsExporterTests : IDisposable
 		{
 			InputPath = "C:\\TestInput",
 			OutputPath = _testOutputPath,
-			Silent = true
+			Quiet = true
 		};
 		var exporter = new TypeFactsExporter(options);
 
@@ -95,7 +95,7 @@ public class TypeFactsExporterTests : IDisposable
 		{
 			InputPath = "C:\\TestInput",
 			OutputPath = _testOutputPath,
-			Silent = true
+			Quiet = true
 		};
 		var exporter = new TypeFactsExporter(options);
 		var entries = new List<TypeDictionaryEntry>();

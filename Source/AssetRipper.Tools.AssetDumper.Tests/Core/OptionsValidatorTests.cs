@@ -310,7 +310,7 @@ public class OptionsValidatorTests
             { 
                 InputPath = Directory.GetCurrentDirectory(),
                 OutputPath = testOutput,
-                ParallelDegree = -5
+                ParallelThreads = -5
             };
             var validator = new OptionsValidator(options);
 
@@ -340,7 +340,7 @@ public class OptionsValidatorTests
             { 
                 InputPath = Directory.GetCurrentDirectory(),
                 OutputPath = testOutput,
-                ParallelDegree = 1000 // Unreasonably high
+                ParallelThreads = 1000 // Unreasonably high
             };
             var validator = new OptionsValidator(options);
 
@@ -372,7 +372,7 @@ public class OptionsValidatorTests
             { 
                 InputPath = Directory.GetCurrentDirectory(),
                 OutputPath = testOutput,
-                ParallelDegree = parallelDegree
+                ParallelThreads = parallelDegree
             };
             var validator = new OptionsValidator(options);
 
@@ -466,12 +466,10 @@ public class OptionsValidatorTests
             { 
                 InputPath = Directory.GetCurrentDirectory(),
                 OutputPath = testOutput,
-                ExportCollections = false,
-                ExportFacts = false,
-                ExportRelations = false,
-                ExportManifest = false,
-                ExportIndexes = false,
-                ExportScenes = false
+                ExportDomains = "none",
+                FactTables = "none",
+                RelationTables = "none",
+                EnableIndexing = false
             };
             var validator = new OptionsValidator(options);
 
@@ -499,8 +497,7 @@ public class OptionsValidatorTests
             { 
                 InputPath = Directory.GetCurrentDirectory(),
                 OutputPath = testOutput,
-                EnableIndex = true,
-                ExportIndexes = false
+                EnableIndexing = false  // Explicitly disabled
             };
             var validator = new OptionsValidator(options);
 
@@ -533,7 +530,7 @@ public class OptionsValidatorTests
             { 
                 InputPath = Directory.GetCurrentDirectory(),
                 OutputPath = testOutput,
-                IncrementalProcessing = true
+                IncrementalMode = true
             };
             var validator = new OptionsValidator(options);
 
@@ -562,7 +559,7 @@ public class OptionsValidatorTests
         { 
             InputPath = "", // Invalid
             OutputPath = "", // Invalid
-            ParallelDegree = -5, // Invalid
+            ParallelThreads = -5, // Invalid
             SampleRate = 2.0 // Invalid
         };
         var validator = new OptionsValidator(options);

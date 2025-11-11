@@ -45,7 +45,7 @@ public class FactsExportPipelineTests : IDisposable
 		{
 			InputPath = "C:\\TestInput",
 			OutputPath = _testOutputPath,
-			Silent = true
+			Quiet = true
 		};
 		var context = CreateTestContext(options);
 

@@ -38,17 +38,15 @@ public class GRISEndToEndTests : IDisposable
 			OutputPath = _outputPath,
 
 			// Enable all features
-			ExportMetrics = true,
-			EnableIndex = true,
-			ExportScriptMetadata = true,
-			ExportScenes = true,
-			ExportBundleMetadata = true,
+			FactTables = "all",  // includes scripts, scenes, bundles, etc.
+			RelationTables = "all",
+			EnableIndexing = true,
 
 			// Compression and performance
 			Compression = "zstd",
 
 			// Output control
-			Silent = false,
+			Quiet = false,
 			Verbose = true
 		};
 
@@ -63,11 +61,10 @@ public class GRISEndToEndTests : IDisposable
 
 		// Assert - Verify options have correct properties
 		Assert.Equal("zstd", options.Compression);
-		Assert.True(options.EnableIndex);
-		Assert.True(options.ExportMetrics);
-		Assert.True(options.ExportScriptMetadata);
-		Assert.True(options.ExportScenes);
-		Assert.True(options.ExportBundleMetadata);
+		Assert.True(options.EnableIndexing);
+		Assert.True(options.ExportScriptMetadata);  // Computed from FactTables="all"
+		Assert.True(options.ExportScenes);           // Computed from FactTables="all"
+		Assert.True(options.ExportBundleMetadata);   // Computed from FactTables="all"
 		Assert.True(options.Verbose);
 
 		// Verify directory structure
@@ -116,10 +113,10 @@ public class GRISEndToEndTests : IDisposable
 		{
 			InputPath = GRIS_SAMPLE_PATH,
 			OutputPath = _outputPath,
-			EnableIndex = true,
+			EnableIndexing = true,
 			Compression = "none",
-			ExportMetrics = true,
-			Silent = false
+			// Metrics removed - now auto-generated,
+			Quiet = false
 		};
 
 		_output.WriteLine("Starting uncompressed export with indexing");
@@ -172,10 +169,10 @@ public class GRISEndToEndTests : IDisposable
 		{
 			InputPath = GRIS_SAMPLE_PATH,
 			OutputPath = _outputPath,
-			EnableIndex = true,
+			EnableIndexing = true,
 			Compression = "zstd",
-			ExportMetrics = true,
-			Silent = false
+			// Metrics removed - now auto-generated,
+			Quiet = false
 		};
 
 		_output.WriteLine("Starting seekable compression export with indexing");
@@ -248,9 +245,9 @@ public class GRISEndToEndTests : IDisposable
 			InputPath = GRIS_SAMPLE_PATH,
 			OutputPath = _outputPath,
 			Compression = compressionKind,
-			EnableIndex = true,
-			ExportMetrics = true,
-			Silent = true
+			EnableIndexing = true,
+			// Metrics removed - now auto-generated,
+			Quiet = true
 		};
 
 		Stopwatch sw = Stopwatch.StartNew();

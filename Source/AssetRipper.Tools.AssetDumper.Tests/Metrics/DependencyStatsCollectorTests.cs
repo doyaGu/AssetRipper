@@ -173,7 +173,7 @@ public class DependencyStatsCollectorTests
 		{
 			InputPath = "test",
 			OutputPath = _testOutputPath,
-			Silent = true
+			Quiet = true
 		};
 		var collector = new DependencyStatsCollector(options);
 
@@ -192,7 +192,7 @@ public class DependencyStatsCollectorTests
 		{
 			InputPath = "test",
 			OutputPath = _testOutputPath,
-			Silent = true
+			Quiet = true
 		};
 		var collector = new DependencyStatsCollector(options);
 

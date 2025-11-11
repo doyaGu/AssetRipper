@@ -31,8 +31,8 @@ public class GRISIntegrationTests
 		{
 			InputPath = GRIS_SAMPLE_PATH,
 			OutputPath = _outputPath,
-			ExportMetrics = true,
-			EnableIndex = true,
+			// Metrics removed - now auto-generated,
+			EnableIndexing = true,
 			Compression = "none"
 		};
 
@@ -42,8 +42,7 @@ public class GRISIntegrationTests
 		// Assert
 		Assert.True(Directory.Exists(options.InputPath), "Input path should exist");
 		Assert.Equal("none", options.Compression);
-		Assert.True(options.EnableIndex);
-		Assert.True(options.ExportMetrics);
+		Assert.True(options.EnableIndexing);
 
 		// Verify manifest exists
 		string manifestPath = Path.Combine(_outputPath, "manifest.json");
@@ -71,7 +70,7 @@ public class GRISIntegrationTests
 		{
 			InputPath = GRIS_SAMPLE_PATH,
 			OutputPath = _outputPath,
-			EnableIndex = true,
+			EnableIndexing = true,
 			Compression = "zstd"
 		};
 
@@ -81,7 +80,7 @@ public class GRISIntegrationTests
 		// Assert
 		Assert.True(Directory.Exists(options.InputPath), "Input path should exist");
 		Assert.Equal("zstd", options.Compression);
-		Assert.True(options.EnableIndex);
+		Assert.True(options.EnableIndexing);
 
 		// Verify indexes work with compression
 		string indexesPath = Path.Combine(_outputPath, "indexes");
@@ -107,7 +106,7 @@ public class GRISIntegrationTests
 		{
 			InputPath = GRIS_SAMPLE_PATH,
 			OutputPath = _outputPath,
-			ExportScriptMetadata = true
+			FactTables = "assets,collections,scenes,scripts,bundles,types"
 		};
 
 		// Act - Just verify options can be created and have expected properties
@@ -135,7 +134,7 @@ public class GRISIntegrationTests
 		{
 			InputPath = GRIS_SAMPLE_PATH,
 			OutputPath = _outputPath,
-			ExportScriptMetadata = true
+			FactTables = "assets,collections,scenes,scripts,bundles,types"
 		};
 
 		// Act - Just verify options can be created and have expected properties
@@ -209,9 +208,9 @@ public class GRISIntegrationTests
 		{
 			InputPath = GRIS_SAMPLE_PATH,
 			OutputPath = _outputPath,
-			ExportMetrics = true,
-			EnableIndex = true,
-			ExportScriptMetadata = true
+			// Metrics removed - now auto-generated,
+			EnableIndexing = true,
+			FactTables = "assets,collections,scenes,scripts,bundles,types"
 		};
 
 		// Act - Just verify options can be created and have expected properties
@@ -219,8 +218,7 @@ public class GRISIntegrationTests
 
 		// Assert
 		Assert.True(Directory.Exists(options.InputPath), "Input path should exist");
-		Assert.True(options.ExportMetrics);
-		Assert.True(options.EnableIndex);
+		Assert.True(options.EnableIndexing);
 		Assert.True(options.ExportScriptMetadata);
 
 		// Load and validate manifest

@@ -103,7 +103,7 @@ public class MetricsExporterTests
 		{
 			InputPath = "C:\\TestInput",
 			OutputPath = _testOutputPath,
-			Silent = true
+			Quiet = true
 		};
 		var exporter = new MetricsExporter(options);
 
@@ -123,7 +123,7 @@ public class MetricsExporterTests
 		{
 			InputPath = "C:\\TestInput",
 			OutputPath = _testOutputPath,
-			Silent = true
+			Quiet = true
 		};
 		var exporter = new MetricsExporter(options);
 
@@ -176,7 +176,7 @@ public class MetricsExporterTests
 		{
 			InputPath = "C:\\TestInput",
 			OutputPath = _testOutputPath,
-			Silent = true
+			Quiet = true
 		};
 		var exporter = new MetricsExporter(options);
 
@@ -192,7 +192,7 @@ public class MetricsExporterTests
 		{
 			InputPath = "C:\\TestInput",
 			OutputPath = _testOutputPath,
-			Silent = true
+			Quiet = true
 		};
 
 		// Act
@@ -210,7 +210,7 @@ public class MetricsExporterTests
 		{
 			InputPath = "C:\\TestInput",
 			OutputPath = _testOutputPath,
-			Silent = true
+			Quiet = true
 		};
 
 		// Act

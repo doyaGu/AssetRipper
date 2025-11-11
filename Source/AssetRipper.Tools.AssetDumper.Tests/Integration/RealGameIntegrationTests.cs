@@ -56,17 +56,13 @@ public class RealGameIntegrationTests : IDisposable
 		{
 			InputPath = GrisGamePath,
 			OutputPath = _testOutputPath,
-			ExportFacts = true,
-			ExportRelations = true,
-			ExportCollections = true,
-			ExportManifest = true,
-			ExportIndexes = false,
-			ExportMetrics = false,
-			ExportScenes = false,
-			ExportScriptMetadata = false,
-			Silent = false,
+			ExportDomains = "facts,relations",
+			FactTables = "assets,collections",
+			RelationTables = "dependencies,hierarchy",
+			EnableIndexing = false,
+			Quiet = false,
 			Compression = "none",
-			ValidateSchema = false
+			ValidateSchemas = false
 		};
 
 		var orchestrator = new ExportOrchestrator(options);
@@ -112,8 +108,8 @@ public class RealGameIntegrationTests : IDisposable
 		{
 			InputPath = GrisGamePath,
 			OutputPath = _testOutputPath,
-			ExportFacts = true,
-			Silent = true
+			ExportDomains = "facts",
+			Quiet = true
 		};
 
 		// Assert
@@ -137,7 +133,7 @@ public class RealGameIntegrationTests : IDisposable
 		{
 			InputPath = GrisGamePath,
 			OutputPath = customOutputPath,
-			Silent = true
+			Quiet = true
 		};
 
 		// Act

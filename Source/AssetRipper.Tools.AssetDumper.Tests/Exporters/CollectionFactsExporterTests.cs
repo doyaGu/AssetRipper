@@ -45,7 +45,7 @@ public class CollectionFactsExporterTests : IDisposable
 		{
 			InputPath = "C:\\TestInput",
 			OutputPath = _testOutputPath,
-			Silent = true
+			Quiet = true
 		};
 
 		// Act
@@ -75,7 +75,7 @@ public class CollectionFactsExporterTests : IDisposable
 		{
 			InputPath = "C:\\TestInput",
 			OutputPath = _testOutputPath,
-			Silent = true
+			Quiet = true
 		};
 
 		// Act
@@ -97,7 +97,7 @@ public class CollectionFactsExporterTests : IDisposable
 		{
 			InputPath = "C:\\TestInput",
 			OutputPath = _testOutputPath,
-			Silent = true
+			Quiet = true
 		};
 		var exporter = new CollectionFactsExporter(options, CompressionKind.None);
 

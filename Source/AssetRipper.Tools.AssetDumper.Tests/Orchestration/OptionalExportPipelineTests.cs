@@ -45,7 +45,7 @@ public class OptionalExportPipelineTests : IDisposable
 		{
 			InputPath = "C:\\TestInput",
 			OutputPath = _testOutputPath,
-			Silent = true
+			Quiet = true
 		};
 		var context = CreateTestContext(options);
 
@@ -64,7 +64,7 @@ public class OptionalExportPipelineTests : IDisposable
 		{
 			InputPath = "C:\\TestInput",
 			OutputPath = _testOutputPath,
-			Silent = true
+			Quiet = true
 		};
 		var context = CreateTestContext(options);
 
@@ -88,11 +88,8 @@ public class OptionalExportPipelineTests : IDisposable
 		{
 			InputPath = "C:\\TestInput",
 			OutputPath = _testOutputPath,
-			Silent = true,
-			ExportBundleMetadata = true,
-			ExportScenes = true,
-			ExportScriptMetadata = true,
-			ExportMetrics = true
+			Quiet = true,
+			FactTables = "bundles,scenes,scripts"
 		};
 		var context = CreateTestContext(options);
 
@@ -102,6 +99,9 @@ public class OptionalExportPipelineTests : IDisposable
 		// Assert
 		pipeline.Should().NotBeNull();
 		// Default constructor should allow all exports to run
+		options.ExportBundleMetadata.Should().BeTrue();
+		options.ExportScenes.Should().BeTrue();
+		options.ExportScriptMetadata.Should().BeTrue();
 	}
 
 	[Fact]
@@ -112,10 +112,8 @@ public class OptionalExportPipelineTests : IDisposable
 		{
 			InputPath = "C:\\TestInput",
 			OutputPath = _testOutputPath,
-			Silent = true,
-			ExportBundleMetadata = true,
-			ExportScenes = true,
-			ExportScriptMetadata = true
+			Quiet = true,
+			FactTables = "bundles,scenes,scripts"
 		};
 		var context = CreateTestContext(options);
 

@@ -173,7 +173,7 @@ public class SceneStatsCollectorTests
 		{
 			InputPath = "test",
 			OutputPath = _testOutputPath,
-			Silent = true
+			Quiet = true
 		};
 		var collector = new SceneStatsCollector(options);
 
@@ -192,7 +192,7 @@ public class SceneStatsCollectorTests
 		{
 			InputPath = "test",
 			OutputPath = _testOutputPath,
-			Silent = true
+			Quiet = true
 		};
 		var collector = new SceneStatsCollector(options);
 
