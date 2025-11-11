@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.assetripper.dev/assetdump/v2/facts/script_sources.schema.json",
+  "title": "AssetDump Script Source Facts",
+  "description": "Links MonoScripts to decompiled source code files with line counts and hashes.",
+  "$ref": "#/$defs/ScriptSourceRecord",
+  "$defs": {
+    "ScriptSourceRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "domain",
+        "pk",
+        "scriptPk",
+        "assemblyGuid",
+        "sourcePath",
+        "sourceSize",
+        "lineCount",
+        "sha256",
+        "language",
+        "decompiler"
+      ],
+      "properties": {
+        "domain": { "type": "string", "const": "script_sources" },
+        "pk": {
+          "$ref": "../core.schema.json#/$defs/UnityGuid",
+          "description": "Script GUID"
+        },
+        "scriptPk": {
+          "$ref": "../core.schema.json#/$defs/StableKey",
+          "description": "MonoScript primary key reference"
+        },
+        "assemblyGuid": {
+          "type": "string",
+          "description": "Assembly GUID reference",
+          "pattern": "^[0-9A-F]{32}$"
+        },
+        "sourcePath": {
+          "type": "string",
+          "description": "Relative path to decompiled source file",
+          "minLength": 1
+        },
+        "sourceSize": {
+          "type": "integer",
+          "description": "Source file size in bytes",
+          "minimum": 0
+        },
+        "lineCount": {
+          "type": "integer",
+          "description": "Number of lines in source file",
+          "minimum": 0
+        },
+        "characterCount": {
+          "type": "integer",
+          "description": "Total character count",
+          "minimum": 0
+        },
+        "sha256": {
+          "type": "string",
+          "description": "SHA256 hash of source file",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "language": {
+          "type": "string",
+          "description": "Programming language",
+          "enum": ["CSharp", "UnityShader", "HLSL", "JavaScript"]
+        },
+        "decompiler": {
+          "type": "string",
+          "description": "Decompiler used",
+          "minLength": 1
+        },
+        "decompilerVersion": {
+          "type": "string",
+          "description": "Decompiler version"
+        },
+        "hasAst": {
+          "type": "boolean",
+          "description": "Whether AST file exists"
+        },
+        "astPath": {
+          "type": "string",
+          "description": "Relative path to AST JSON file"
+        }
+      }
+    }
+  }
+}

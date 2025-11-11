@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.assetripper.dev/assetdump/v2/facts/type_members.schema.json",
+  "title": "AssetDump Type Member Facts",
+  "description": "Detailed type member information (fields, properties, methods) for code analysis.",
+  "$ref": "#/$defs/TypeMemberRecord",
+  "$defs": {
+    "TypeMemberRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "domain",
+        "pk",
+        "typeFullName",
+        "memberName",
+        "memberKind",
+        "memberType",
+        "visibility",
+        "isStatic",
+        "serialized"
+      ],
+      "properties": {
+        "domain": { "type": "string", "const": "type_members" },
+        "pk": {
+          "type": "string",
+          "description": "Composite key: ASSEMBLY:NAMESPACE:TYPENAME:MEMBERNAME",
+          "pattern": "^[^:]+:[^:]*:[^:]+:[^:]+$"
+        },
+        "typeFullName": {
+          "type": "string",
+          "description": "Fully qualified owner type name",
+          "minLength": 1
+        },
+        "memberName": {
+          "type": "string",
+          "description": "Member name",
+          "minLength": 1
+        },
+        "memberKind": {
+          "type": "string",
+          "description": "Member kind",
+          "enum": ["field", "property", "method", "event", "constructor"]
+        },
+        "memberType": {
+          "type": "string",
+          "description": "Member type (return type for methods)",
+          "minLength": 1
+        },
+        "visibility": {
+          "type": "string",
+          "description": "Member visibility",
+          "enum": ["public", "internal", "private", "protected"]
+        },
+        "isStatic": {
+          "type": "boolean",
+          "description": "Whether member is static"
+        },
+        "isVirtual": {
+          "type": "boolean",
+          "description": "Whether member is virtual"
+        },
+        "isOverride": {
+          "type": "boolean",
+          "description": "Whether member overrides base member"
+        },
+        "isSealed": {
+          "type": "boolean",
+          "description": "Whether member is sealed"
+        },
+        "serialized": {
+          "type": "boolean",
+          "description": "Whether Unity serializes this member"
+        },
+        "attributes": {
+          "type": "array",
+          "description": "Applied C# attributes",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

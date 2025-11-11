@@ -59,22 +59,30 @@ public sealed class FactsExportPipeline
 			Logger.Info("Exporting asset facts...");
 		}
 
-		AssetFactsExporter assetExporter = new AssetFactsExporter(
-			_context.Options,
-			_context.CompressionKind,
-			_context.EnableIndex);
-
-		DomainExportResult assetResult = assetExporter.ExportAssets(_context.GameData);
-		_context.AddResult(assetResult);
-
-		// Export type facts based on collected type dictionary
-		if (!_context.Options.Silent)
+		try
 		{
-			Logger.Info("Exporting type facts...");
-		}
+			AssetFactsExporter assetExporter = new AssetFactsExporter(
+				_context.Options,
+				_context.CompressionKind,
+				_context.EnableIndex);
 
-		TypeFactsExporter typeExporter = new TypeFactsExporter(_context.Options);
-		DomainExportResult typeResult = typeExporter.ExportTypes(assetExporter.TypeDictionary.Entries);
-		_context.AddResult(typeResult);
+			DomainExportResult assetResult = assetExporter.ExportAssets(_context.GameData);
+			_context.AddResult(assetResult);
+
+			// Export type facts based on collected type dictionary
+			if (!_context.Options.Silent)
+			{
+				Logger.Info("Exporting type facts...");
+			}
+
+			TypeFactsExporter typeExporter = new TypeFactsExporter(_context.Options);
+			DomainExportResult typeResult = typeExporter.ExportTypes(assetExporter.TypeDictionary.Entries);
+			_context.AddResult(typeResult);
+		}
+		catch (Exception ex)
+		{
+			Logger.Error("Failed to export asset facts", ex);
+			throw;
+		}
 	}
 }

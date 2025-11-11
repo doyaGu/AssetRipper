@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.assetripper.dev/assetdump/v2/relations/type_inheritance.schema.json",
+  "title": "AssetDump Type Inheritance Relations",
+  "description": "Type inheritance relationships for hierarchy analysis.",
+  "$ref": "#/$defs/TypeInheritanceRecord",
+  "$defs": {
+    "TypeInheritanceRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "domain",
+        "derivedType",
+        "baseType",
+        "isDirectBase",
+        "inheritanceDepth"
+      ],
+      "properties": {
+        "domain": { "type": "string", "const": "type_inheritance" },
+        "derivedType": {
+          "type": "string",
+          "description": "Fully qualified derived type name",
+          "minLength": 1
+        },
+        "baseType": {
+          "type": "string",
+          "description": "Fully qualified base type name",
+          "minLength": 1
+        },
+        "baseAssembly": {
+          "type": "string",
+          "description": "Assembly containing base type",
+          "minLength": 1
+        },
+        "isDirectBase": {
+          "type": "boolean",
+          "description": "Whether this is a direct inheritance (not transitive)"
+        },
+        "inheritanceDepth": {
+          "type": "integer",
+          "description": "Distance from System.Object in inheritance chain",
+          "minimum": 0
+        }
+      }
+    }
+  }
+}

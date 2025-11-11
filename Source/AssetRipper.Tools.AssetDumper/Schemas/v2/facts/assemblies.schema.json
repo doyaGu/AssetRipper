@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.assetripper.dev/assetdump/v2/facts/assemblies.schema.json",
+  "title": "AssetDump Assembly Facts",
+  "description": "Assembly metadata including DLL paths, version info, and type counts.",
+  "$ref": "#/$defs/AssemblyRecord",
+  "$defs": {
+    "AssemblyRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "domain",
+        "pk",
+        "name",
+        "fullName",
+        "scriptingBackend",
+        "typeCount",
+        "scriptCount",
+        "isDynamic",
+        "isEditor"
+      ],
+      "properties": {
+        "domain": { "type": "string", "const": "assemblies" },
+        "pk": {
+          "type": "string",
+          "description": "Assembly GUID (SHA256-based hash)",
+          "pattern": "^[0-9A-F]{32}$"
+        },
+        "name": {
+          "type": "string",
+          "description": "Assembly name (e.g., Assembly-CSharp)",
+          "minLength": 1
+        },
+        "fullName": {
+          "type": "string",
+          "description": "Fully qualified assembly name with version",
+          "minLength": 1
+        },
+        "version": {
+          "type": "string",
+          "description": "Assembly version (e.g., 0.0.0.0)",
+          "pattern": "^\\d+\\.\\d+\\.\\d+\\.\\d+$"
+        },
+        "targetFramework": {
+          "type": "string",
+          "description": "Target framework (e.g., netstandard2.1)"
+        },
+        "scriptingBackend": {
+          "type": "string",
+          "description": "Scripting backend type",
+          "enum": ["Mono", "IL2CPP", "Unknown"]
+        },
+        "runtime": {
+          "type": "string",
+          "description": "Runtime version (e.g., .NET Standard 2.1)"
+        },
+        "dllPath": {
+          "type": "string",
+          "description": "Relative path to exported DLL file"
+        },
+        "dllSize": {
+          "type": "integer",
+          "description": "DLL file size in bytes",
+          "minimum": 0
+        },
+        "dllSha256": {
+          "type": "string",
+          "description": "SHA256 hash of DLL file",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "typeCount": {
+          "type": "integer",
+          "description": "Number of types in assembly",
+          "minimum": 0
+        },
+        "scriptCount": {
+          "type": "integer",
+          "description": "Number of MonoScript assets referencing this assembly",
+          "minimum": 0
+        },
+        "isDynamic": {
+          "type": "boolean",
+          "description": "Whether assembly is dynamically generated"
+        },
+        "isEditor": {
+          "type": "boolean",
+          "description": "Whether assembly is editor-only"
+        },
+        "platform": {
+          "type": "string",
+          "description": "Target platform (e.g., StandaloneWindows64)"
+        }
+      }
+    }
+  }
+}

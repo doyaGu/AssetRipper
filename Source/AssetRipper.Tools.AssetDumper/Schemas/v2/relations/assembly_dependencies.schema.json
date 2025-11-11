@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.assetripper.dev/assetdump/v2/relations/assembly_dependencies.schema.json",
+  "title": "AssetDump Assembly Dependency Relations",
+  "description": "Assembly-to-assembly dependency references for dependency graph analysis.",
+  "$ref": "#/$defs/AssemblyDependencyRecord",
+  "$defs": {
+    "AssemblyDependencyRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "domain",
+        "sourceAssembly",
+        "targetAssembly",
+        "targetName",
+        "isResolved"
+      ],
+      "properties": {
+        "domain": { "type": "string", "const": "assembly_dependencies" },
+        "sourceAssembly": {
+          "type": "string",
+          "description": "Source assembly GUID",
+          "pattern": "^[0-9A-F]{32}$"
+        },
+        "targetAssembly": {
+          "type": "string",
+          "description": "Target assembly GUID (if resolved)",
+          "pattern": "^[0-9A-F]{32}$"
+        },
+        "targetName": {
+          "type": "string",
+          "description": "Target assembly name",
+          "minLength": 1
+        },
+        "version": {
+          "type": "string",
+          "description": "Required assembly version",
+          "pattern": "^\\d+\\.\\d+\\.\\d+\\.\\d+$"
+        },
+        "isResolved": {
+          "type": "boolean",
+          "description": "Whether dependency was successfully resolved"
+        },
+        "isFrameworkAssembly": {
+          "type": "boolean",
+          "description": "Whether target is a framework assembly"
+        }
+      }
+    }
+  }
+}

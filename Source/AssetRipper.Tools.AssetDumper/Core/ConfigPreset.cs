@@ -7,52 +7,54 @@ namespace AssetRipper.Tools.AssetDumper.Core;
 public enum ConfigPreset
 {
 	/// <summary>
-	/// Development preset - fast iteration with verbose output.
-	/// - Verbose logging enabled
-	/// - Incremental processing enabled
+	/// Fast preset - minimal export for quick iteration/testing.
+	/// - Facts only (assets, scripts)
+	/// - No code analysis
+	/// - Verbose logging
+	/// - Incremental mode
 	/// - No compression
-	/// - No schema validation
-	/// - Metrics enabled
 	/// </summary>
-	Development,
+	Fast,
 
 	/// <summary>
-	/// Production preset - optimized for production exports.
-	/// - Compressed output (zstd)
-	/// - Schema validation enabled
+	/// Full preset - complete export with all features.
+	/// - All facts, relations, and code analysis
+	/// - Decompilation and AST generation
+	/// - Compression (zstd)
+	/// - Schema validation
 	/// - Indexes enabled
-	/// - Compact JSON
-	/// - Full export (no incremental)
 	/// </summary>
-	Production,
+	Full,
 
 	/// <summary>
-	/// Debug preset - detailed debugging information.
-	/// - Verbose logging and dependency tracing
-	/// - Sequential processing (easier debugging)
-	/// - Extended timeouts
-	/// - All metadata included
-	/// - No compression
+	/// <summary>
+	/// Analysis preset - optimized for code analysis.
+	/// - Script facts and full code analysis
+	/// - Decompilation and AST
+	/// - Unity project code only
+	/// - Indexes enabled
+	/// - Compression (gzip)
 	/// </summary>
-	Debug,
+	Analysis,
 
 	/// <summary>
 	/// Minimal preset - smallest output size.
+	/// - Facts only (assets, collections)
+	/// - No code analysis
 	/// - Silent mode
-	/// - Minimal exports
-	/// - Maximum compression
-	/// - Compact JSON
-	/// - Skip optional metadata
+	/// - Maximum compression (zstd)
+	/// - Skip built-in resources
 	/// </summary>
 	Minimal,
 
 	/// <summary>
-	/// Analysis preset - optimized for static analysis tools.
-	/// - Scripts and AST export enabled
-	/// - Full metadata
-	/// - Indexes enabled
-	/// - Relations and metrics included
-	/// - Good compression (gzip for compatibility)
+	/// Debug preset - detailed debugging information.
+	/// - All domains exported
+	/// - Verbose logging and dependency tracing
+	/// - Sequential processing
+	/// - Extended timeouts
+	/// - No compression
+	/// - Schema validation
 	/// </summary>
-	Analysis
+	Debug
 }

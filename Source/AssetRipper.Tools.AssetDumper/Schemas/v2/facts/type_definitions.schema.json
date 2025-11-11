@@ -1,0 +1,117 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.assetripper.dev/assetdump/v2/facts/type_definitions.schema.json",
+  "title": "AssetDump Type Definition Facts",
+  "description": "Type definitions from assemblies with metadata and optional MonoScript linkage.",
+  "$ref": "#/$defs/TypeDefinitionRecord",
+  "$defs": {
+    "TypeDefinitionRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "domain",
+        "pk",
+        "assemblyGuid",
+        "assemblyName",
+        "typeName",
+        "fullName",
+        "isClass",
+        "isStruct",
+        "isInterface",
+        "isEnum",
+        "isAbstract",
+        "isSealed",
+        "isGeneric",
+        "visibility"
+      ],
+      "properties": {
+        "domain": { "type": "string", "const": "type_definitions" },
+        "pk": {
+          "type": "string",
+          "description": "Composite key: ASSEMBLY:NAMESPACE:TYPENAME",
+          "pattern": "^[^:]+:[^:]*:[^:]+$"
+        },
+        "assemblyGuid": {
+          "type": "string",
+          "description": "Assembly GUID reference",
+          "pattern": "^[0-9A-F]{32}$"
+        },
+        "assemblyName": {
+          "type": "string",
+          "description": "Assembly name for readability",
+          "minLength": 1
+        },
+        "namespace": {
+          "type": "string",
+          "description": "Type namespace (empty string for global namespace)"
+        },
+        "typeName": {
+          "type": "string",
+          "description": "Simple type name",
+          "minLength": 1
+        },
+        "fullName": {
+          "type": "string",
+          "description": "Fully qualified type name",
+          "minLength": 1
+        },
+        "isClass": {
+          "type": "boolean",
+          "description": "Whether type is a class"
+        },
+        "isStruct": {
+          "type": "boolean",
+          "description": "Whether type is a struct"
+        },
+        "isInterface": {
+          "type": "boolean",
+          "description": "Whether type is an interface"
+        },
+        "isEnum": {
+          "type": "boolean",
+          "description": "Whether type is an enum"
+        },
+        "isAbstract": {
+          "type": "boolean",
+          "description": "Whether type is abstract"
+        },
+        "isSealed": {
+          "type": "boolean",
+          "description": "Whether type is sealed"
+        },
+        "isGeneric": {
+          "type": "boolean",
+          "description": "Whether type is generic"
+        },
+        "genericParameterCount": {
+          "type": "integer",
+          "description": "Number of generic parameters",
+          "minimum": 0
+        },
+        "visibility": {
+          "type": "string",
+          "description": "Type visibility",
+          "enum": ["public", "internal", "private", "protected"]
+        },
+        "baseType": {
+          "type": "string",
+          "description": "Fully qualified base type name"
+        },
+        "scriptRef": {
+          "$ref": "#/$defs/ScriptReference",
+          "description": "Reference to associated MonoScript asset (if exists)"
+        }
+      }
+    },
+    "ScriptReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["collectionId", "pathId"],
+      "properties": {
+        "collectionId": { "$ref": "../core.schema.json#/$defs/CollectionID" },
+        "pathId": { "type": "integer" },
+        "scriptGuid": { "$ref": "../core.schema.json#/$defs/UnityGuid" }
+      }
+    }
+  }
+}

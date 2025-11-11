@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.assetripper.dev/assetdump/v2/relations/script_type_mapping.schema.json",
+  "title": "AssetDump Script-Type Mapping Relations",
+  "description": "Explicit mapping from MonoScript assets to TypeDefinitions with validation status.",
+  "$ref": "#/$defs/ScriptTypeMappingRecord",
+  "$defs": {
+    "ScriptTypeMappingRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "domain",
+        "scriptPk",
+        "scriptGuid",
+        "typeFullName",
+        "assemblyGuid",
+        "isValid"
+      ],
+      "properties": {
+        "domain": { "type": "string", "const": "script_type_mapping" },
+        "scriptPk": {
+          "$ref": "../core.schema.json#/$defs/StableKey",
+          "description": "MonoScript primary key"
+        },
+        "scriptGuid": {
+          "$ref": "../core.schema.json#/$defs/UnityGuid",
+          "description": "Script GUID"
+        },
+        "typeFullName": {
+          "type": "string",
+          "description": "Fully qualified type name",
+          "minLength": 1
+        },
+        "assemblyGuid": {
+          "type": "string",
+          "description": "Assembly GUID",
+          "pattern": "^[0-9A-F]{32}$"
+        },
+        "isValid": {
+          "type": "boolean",
+          "description": "Whether TypeDefinition was successfully resolved"
+        },
+        "failureReason": {
+          "type": "string",
+          "description": "Reason for resolution failure (if isValid=false)"
+        }
+      }
+    }
+  }
+}

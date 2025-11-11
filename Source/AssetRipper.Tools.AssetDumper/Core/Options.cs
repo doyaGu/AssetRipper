@@ -5,173 +5,219 @@ namespace AssetRipper.Tools.AssetDumper.Core;
 
 public class Options
 {
+	// ========================================
+	// Core I/O Options
+	// ========================================
+	
 	[Option('i', "input", Required = true,
-		HelpText = "Input path to Unity game directory")]
+		HelpText = "Input Unity game directory or data folder")]
 	public string InputPath { get; set; } = "";
 
-	[Option('o', "output", Required = false, Default = "./output",
-		HelpText = "Output directory for extracted data")]
-	public string OutputPath { get; set; } = "./output";
+	[Option('o', "output", Required = true,
+		HelpText = "Output directory for exported data")]
+	public string OutputPath { get; set; } = "";
 
-	[Option("collections", Required = false, Default = true,
-		HelpText = "Export asset collections (Resources, Addressables, etc.)")]
-	public bool ExportCollections { get; set; } = true;
+	[Option("preset", Required = false, Default = null,
+		HelpText = "Configuration preset: fast, full, analysis, minimal, debug")]
+	public string? Preset { get; set; }
 
-	[Option("facts", Required = false, Default = true,
-		HelpText = "Emit facts domain outputs (facts/*.ndjson)")]
-	public bool ExportFacts { get; set; } = true;
+	// ========================================
+	// Export Domains (what to export)
+	// ========================================
 
-	[Option("relations", Required = false, Default = true,
-		HelpText = "Emit relations domain outputs (relations/*.ndjson)")]
-	public bool ExportRelations { get; set; } = true;
+	[Option("export", Required = false, Default = "facts,relations",
+		HelpText = "Comma-separated export domains: facts, relations, scripts, assemblies, code-analysis")]
+	public string ExportDomains { get; set; } = "facts,relations";
 
-	[Option("manifest", Required = false, Default = true,
-		HelpText = "Generate manifest.json for the export")]
-	public bool ExportManifest { get; set; } = true;
+	[Option("facts", Required = false, Default = "assets,collections,scenes,scripts,bundles,types",
+		HelpText = "Fact tables to export (comma-separated): assets, collections, scenes, scripts, bundles, types, all, none")]
+	public string FactTables { get; set; } = "assets,collections,scenes,scripts,bundles,types";
 
-	[Option("indexes", Required = false, Default = true,
-		HelpText = "Generate key indexes when available (requires --enable-index)")]
-	public bool ExportIndexes { get; set; } = true;
+	[Option("relations", Required = false, Default = "dependencies,hierarchy",
+		HelpText = "Relation tables to export (comma-separated): dependencies, hierarchy, all, none")]
+	public string RelationTables { get; set; } = "dependencies,hierarchy";
 
-	[Option("metrics", Required = false, Default = false,
-		HelpText = "Generate metrics outputs (future use)")]
-	public bool ExportMetrics { get; set; }
+	[Option("code-analysis", Required = false, Default = "types,members,inheritance,mappings",
+		HelpText = "Code analysis tables: types, members, inheritance, mappings, dependencies, sources, all, none")]
+	public string CodeAnalysisTables { get; set; } = "types,members,inheritance,mappings";
 
-	[Option("validate-schema", Required = false, Default = false,
-		HelpText = "Validate exported NDJSON against Draft 2020-12 JSON Schemas")]
-	public bool ValidateSchema { get; set; }
+	// ========================================
+	// Script & Code Export
+	// ========================================
 
-	[Option("scenes", Required = false, Default = true,
-		HelpText = "Export scene hierarchy and asset data")]
-	public bool ExportScenes { get; set; } = true;
+	[Option("decompile", Required = false, Default = false,
+		HelpText = "Decompile C# assemblies to source code")]
+	public bool DecompileScripts { get; set; } = false;
 
-	[Option("script-metadata", Required = false, Default = true,
-		HelpText = "Export script facts (facts/scripts)")]
-	public bool ExportScriptMetadata { get; set; } = true;
-
-	[Option("bundle-metadata", Required = false, Default = true,
-		HelpText = "Export bundle metadata facts (facts/bundles)")]
-	public bool ExportBundleMetadata { get; set; } = true;
-
-	[Option("assemblies", Required = false, Default = false,
-		HelpText = "Export raw assembly DLL files")]
-	public bool ExportAssemblies { get; set; } = false;
-
-	[Option('s', "scripts", Required = false, Default = false,
-		HelpText = "Export decompiled C# scripts")]
-	public bool ExportScripts { get; set; } = false;
-
-	[Option('a', "ast", Required = false, Default = false,
-		HelpText = "Generate AST from decompiled scripts")]
+	[Option("generate-ast", Required = false, Default = false,
+		HelpText = "Generate abstract syntax trees from decompiled code")]
 	public bool GenerateAst { get; set; } = false;
 
-	[Option('v', "verbose", Required = false, Default = false,
-		HelpText = "Enable verbose logging output")]
-	public bool Verbose { get; set; }
+	[Option("export-assemblies", Required = false, Default = false,
+		HelpText = "Export raw assembly DLL files")]
+	public bool ExportAssemblyFiles { get; set; } = false;
 
-	[Option("trace-deps", Required = false, Default = false,
-		HelpText = "Emit per-asset dependency tracing logs (implies --verbose)")]
-	public bool TraceDependencies { get; set; }
+	// ========================================
+	// Filtering Options
+	// ========================================
 
-	[Option('q', "quiet", Required = false, Default = false,
-		HelpText = "Enable silent mode (minimal output)")]
-	public bool Silent { get; set; }
+	[Option("include", Required = false, Default = null,
+		HelpText = "Regex pattern to include assets/files (applied first)")]
+	public string? IncludePattern { get; set; }
 
-	[Option('c', "compact", Required = false, Default = false,
-		HelpText = "Generate compact JSON output (no indentation)")]
-	public bool CompactJson { get; set; }
-
-	[Option("ignore-nulls", Required = false, Default = true,
-		HelpText = "Ignore null values in JSON output")]
-	public bool IgnoreNullValues { get; set; } = true;
-
-	[Option("include-metadata", Required = false, Default = false,
-		HelpText = "Include additional metadata in asset exports")]
-	public bool IncludeAssetMetadata { get; set; }
-
-	[Option("ast-folder", Required = false, Default = "AST",
-		HelpText = "Name of folder for AST output")]
-	public string AstOutputFolder { get; set; } = "AST";
-
-	[Option("scenes-folder", Required = false, Default = "Scenes",
-		HelpText = "Name of folder for scene output")]
-	public string ScenesOutputFolder { get; set; } = "Scenes";
-
-	[Option("scene-filter", Required = false,
-		HelpText = "Regex pattern to filter scenes to export")]
-	public string? SceneFilter { get; set; }
-
-	[Option("assembly-filter", Required = false,
-		HelpText = "Regex pattern to filter assemblies for processing")]
-	public string? AssemblyFilter { get; set; }
-
-	[Option('e', "exclude", Required = false,
-		HelpText = "Regex pattern to exclude files from processing")]
+	[Option("exclude", Required = false, Default = null,
+		HelpText = "Regex pattern to exclude assets/files (applied after include)")]
 	public string? ExcludePattern { get; set; }
 
-	[Option("skip-auto-generated", Required = false, Default = true,
-		HelpText = "Skip auto-generated files (AssemblyInfo.cs, etc.)")]
-	public bool SkipAutoGenerated { get; set; } = true;
+	[Option("scenes", Required = false, Default = null,
+		HelpText = "Regex pattern to filter scenes (null = all scenes)")]
+	public string? SceneFilter { get; set; }
 
-	[Option("max-file-size", Required = false, Default = 1048576,
-		HelpText = "Maximum file size in bytes for processing (0 = unlimited)")]
-	public long MaxFileSizeBytes { get; set; } = 1048576;
-
-	[Option("incremental", Required = false, Default = true,
-		HelpText = "Skip processing if outputs already exist")]
-	public bool IncrementalProcessing { get; set; } = true;
-
-	[Option("sample-rate", Required = false, Default = 1.0,
-		HelpText = "Sample rate for processing files (0.1 = 10%, 1.0 = 100%)")]
-	public double SampleRate { get; set; } = 1.0;
+	[Option("assemblies", Required = false, Default = null,
+		HelpText = "Regex pattern to filter assemblies (null = all assemblies)")]
+	public string? AssemblyFilter { get; set; }
 
 	[Option("unity-only", Required = false, Default = false,
-		HelpText = "Process only Unity project files (skip third-party libraries)")]
+		HelpText = "Process only Unity game code (exclude framework/plugins)")]
 	public bool UnityProjectOnly { get; set; } = false;
 
-	[Option("min-lines", Required = false, Default = 3,
-		HelpText = "Minimum lines of code to process for AST")]
-	public int MinimumLines { get; set; } = 3;
+	[Option("skip-builtin", Required = false, Default = true,
+		HelpText = "Skip built-in Unity resources and dependencies")]
+	public bool SkipBuiltinResources { get; set; } = true;
 
-	[Option("preview-only", Required = false, Default = false,
-		HelpText = "Preview what would be processed without creating files")]
-	public bool PreviewOnly { get; set; } = false;
+	[Option("skip-generated", Required = false, Default = true,
+		HelpText = "Skip auto-generated files (AssemblyInfo.cs, etc.)")]
+	public bool SkipGeneratedFiles { get; set; } = true;
 
-	[Option("parallel-degree", Required = false, Default = 0,
-		HelpText = "Degree of parallelism for processing (0 = auto, 1 = sequential)")]
-	public int ParallelDegree { get; set; } = 0;
-
-	[Option("file-timeout", Required = false, Default = 30,
-		HelpText = "Timeout in seconds for processing individual files")]
-	public int FileTimeoutSeconds { get; set; } = 30;
-
-	[Option("minimal-output", Required = false, Default = false,
-		HelpText = "Minimize output size by excluding optional asset reference lists")]
-	public bool MinimalOutput { get; set; } = false;
-
-	[Option("enable-index", Required = false, Default = false,
-		HelpText = "Generate key index sidecars for fast lookups")]
-	public bool EnableIndex { get; set; } = false;
-
-	[Option("shard-size", Required = false, Default = 100000,
-		HelpText = "Maximum records per NDJSON shard (0 = unlimited)")]
-	public int ShardSize { get; set; } = 100000;
+	// ========================================
+	// Output Format & Quality
+	// ========================================
 
 	[Option("compression", Required = false, Default = "none",
-		HelpText = "Compression codec: none, gzip, zstd")]
+		HelpText = "Compression format: none, gzip, zstd")]
 	public string Compression { get; set; } = "none";
 
-	[Option("minimal-deps", Required = false, Default = false,
-		HelpText = "Export only cross-collection dependencies (exclude same-collection refs)")]
-	public bool MinimalDeps { get; set; } = false;
+	[Option("shard-size", Required = false, Default = 100000,
+		HelpText = "Maximum records per shard (0 = no sharding)")]
+	public int ShardSize { get; set; } = 100000;
 
-	[Option("skip-builtin-deps", Required = false, Default = true,
-		HelpText = "Skip dependencies to built-in Unity resources")]
-	public bool SkipBuiltinDeps { get; set; } = true;
+	[Option("enable-index", Required = false, Default = false,
+		HelpText = "Generate searchable key indexes (.idx files)")]
+	public bool EnableIndexing { get; set; } = false;
 
-	[Option("skip-self-refs", Required = false, Default = true,
-		HelpText = "Skip self-referential dependencies")]
-	public bool SkipSelfRefs { get; set; } = true;
+	[Option("validate-schema", Required = false, Default = false,
+		HelpText = "Validate output against JSON schemas")]
+	public bool ValidateSchemas { get; set; } = false;
+
+	[Option("include-metadata", Required = false, Default = false,
+		HelpText = "Include extended metadata in exports")]
+	public bool IncludeExtendedMetadata { get; set; } = false;
+
+	// ========================================
+	// Performance & Optimization
+	// ========================================
+
+	[Option("incremental", Required = false, Default = true,
+		HelpText = "Enable incremental processing (skip unchanged outputs)")]
+	public bool IncrementalMode { get; set; } = true;
+
+	[Option("parallel", Required = false, Default = 0,
+		HelpText = "Parallelism degree (0 = auto, 1 = sequential, N = N threads)")]
+	public int ParallelThreads { get; set; } = 0;
+
+	[Option("sample-rate", Required = false, Default = 1.0,
+		HelpText = "Asset sampling rate for testing (0.0-1.0, 1.0 = process all)")]
+	public double SampleRate { get; set; } = 1.0;
+
+	[Option("timeout", Required = false, Default = 30,
+		HelpText = "Timeout in seconds for processing individual assets")]
+	public int TimeoutSeconds { get; set; } = 30;
+
+	[Option("max-size", Required = false, Default = 0,
+		HelpText = "Maximum asset size to process in bytes (0 = unlimited)")]
+	public long MaxAssetSizeBytes { get; set; } = 0;
+
+	// ========================================
+	// Logging & Debugging
+	// ========================================
+
+	[Option('v', "verbose", Required = false, Default = false,
+		HelpText = "Enable verbose logging")]
+	public bool Verbose { get; set; } = false;
+
+	[Option('q', "quiet", Required = false, Default = false,
+		HelpText = "Suppress all non-error output")]
+	public bool Quiet { get; set; } = false;
+
+	[Option("trace-dependencies", Required = false, Default = false,
+		HelpText = "Trace dependency resolution (implies --verbose)")]
+	public bool TraceDependencies { get; set; } = false;
+
+	[Option("dry-run", Required = false, Default = false,
+		HelpText = "Analyze without writing outputs")]
+	public bool DryRun { get; set; } = false;
+
+	// ========================================
+	// Advanced Options
+	// ========================================
+
+	[Option("min-lines", Required = false, Default = 3,
+		HelpText = "Minimum code lines to process for AST generation")]
+	public int MinCodeLines { get; set; } = 3;
+
+	[Option("output-folders", Required = false, Default = null,
+		HelpText = "Custom output folder structure (JSON config)")]
+	public string? OutputFolderConfig { get; set; }
+
+	// ========================================
+	// Computed Properties (for backward compatibility)
+	// ========================================
+
+	public bool ExportFacts => ExportDomains.Contains("facts", StringComparison.OrdinalIgnoreCase);
+	public bool ExportRelations => ExportDomains.Contains("relations", StringComparison.OrdinalIgnoreCase);
+	public bool ExportScripts => DecompileScripts;
+	public bool ExportAssemblies => ExportAssemblyFiles;
+	public bool Silent => Quiet;
+	public bool EnableIndex => EnableIndexing;
+	public int ParallelDegree => ParallelThreads;
+	public int FileTimeoutSeconds => TimeoutSeconds;
+	public bool ValidateSchema => ValidateSchemas;
+	public bool SkipAutoGenerated => SkipGeneratedFiles;
+	public bool SkipBuiltinDeps => SkipBuiltinResources;
+	public bool IncrementalProcessing => IncrementalMode;
+	public bool PreviewOnly => DryRun;
+	public long MaxFileSizeBytes => MaxAssetSizeBytes;
+	public int MinimumLines => MinCodeLines;
+	public bool IncludeAssetMetadata => IncludeExtendedMetadata;
+
+	// Granular fact/relation flags (computed from tables)
+	public bool ExportCollections => FactTables.Contains("collections", StringComparison.OrdinalIgnoreCase) || FactTables.Contains("all", StringComparison.OrdinalIgnoreCase);
+	public bool ExportScenes => FactTables.Contains("scenes", StringComparison.OrdinalIgnoreCase) || FactTables.Contains("all", StringComparison.OrdinalIgnoreCase);
+	public bool ExportScriptMetadata => FactTables.Contains("scripts", StringComparison.OrdinalIgnoreCase) || FactTables.Contains("all", StringComparison.OrdinalIgnoreCase);
+	public bool ExportBundleMetadata => FactTables.Contains("bundles", StringComparison.OrdinalIgnoreCase) || FactTables.Contains("all", StringComparison.OrdinalIgnoreCase);
+	public bool ExportManifest => !FactTables.Contains("none", StringComparison.OrdinalIgnoreCase);
+	public bool ExportIndexes => EnableIndexing;
+	public bool ExportMetrics => false; // Deprecated
+
+	// Code analysis flags
+	public bool ExportScriptCodeAssociation => CodeAnalysisTables != "none";
+	public bool ExportTypeMembers => CodeAnalysisTables.Contains("members", StringComparison.OrdinalIgnoreCase) || CodeAnalysisTables.Contains("all", StringComparison.OrdinalIgnoreCase);
+	public bool LinkSourceFiles => CodeAnalysisTables.Contains("sources", StringComparison.OrdinalIgnoreCase) || CodeAnalysisTables.Contains("all", StringComparison.OrdinalIgnoreCase);
+
+	// Dependency filtering
+	public bool MinimalDeps => false; // Deprecated
+	public bool SkipSelfRefs => true;
+	public bool MinimalOutput => false;
+
+	// Removed/deprecated
+	public bool CompactJson => false;
+	public bool IgnoreNullValues => true;
+	public string AstOutputFolder => "ast";
+	public string ScenesOutputFolder => "scenes";
+
+	// ========================================
+	// Configuration Presets
+	// ========================================
 
 	/// <summary>
 	/// Apply a configuration preset to simplify common use cases.
@@ -180,89 +226,114 @@ public class Options
 	{
 		switch (preset)
 		{
-			case ConfigPreset.Development:
-				// Fast iteration for development
+			case ConfigPreset.Fast:
+				// Fast iteration for development/testing
+				ExportDomains = "facts";
+				FactTables = "assets,scripts";
+				CodeAnalysisTables = "none";
 				Verbose = true;
-				IncrementalProcessing = true;
-				ExportMetrics = true;
-				ParallelDegree = 0; // Auto
+				IncrementalMode = true;
+				ParallelThreads = 0; // Auto
 				Compression = "none";
-				ValidateSchema = false;
-				ExportIndexes = false;
+				ValidateSchemas = false;
+				EnableIndexing = false;
 				break;
 
-			case ConfigPreset.Production:
-				// Optimized for production exports
+			case ConfigPreset.Full:
+				// Complete export with all features
+				ExportDomains = "facts,relations,code-analysis";
+				FactTables = "all";
+				RelationTables = "all";
+				CodeAnalysisTables = "all";
+				DecompileScripts = true;
+				GenerateAst = true;
 				Verbose = false;
-				Silent = false;
-				IncrementalProcessing = false; // Full export
-				ExportMetrics = true;
-				ParallelDegree = 0; // Auto
-				Compression = "zstd"; // Good compression with speed
-				ValidateSchema = true;
-				ExportIndexes = true;
-				EnableIndex = true;
-				CompactJson = true;
-				break;
-
-			case ConfigPreset.Debug:
-				// Detailed debugging information
-				Verbose = true;
-				TraceDependencies = true;
-				IncrementalProcessing = false;
-				ExportMetrics = true;
-				ParallelDegree = 1; // Sequential for debugging
-				Compression = "none";
-				ValidateSchema = true;
-				ExportIndexes = true;
-				IncludeAssetMetadata = true;
-				MinimalOutput = false;
-				FileTimeoutSeconds = 120; // Longer timeout
-				break;
-
-			case ConfigPreset.Minimal:
-				// Minimal output size
-				Silent = true;
-				ExportMetrics = false;
-				ExportScriptMetadata = false;
-				ExportBundleMetadata = false;
-				ExportScenes = false;
-				ExportIndexes = false;
-				MinimalOutput = true;
-				MinimalDeps = true;
-				CompactJson = true;
+				Quiet = false;
+				IncrementalMode = false; // Full export
+				ParallelThreads = 0; // Auto
 				Compression = "zstd";
-				IgnoreNullValues = true;
+				ValidateSchemas = true;
+				EnableIndexing = true;
+				IncludeExtendedMetadata = true;
 				break;
 
 			case ConfigPreset.Analysis:
-				// Optimized for static analysis
-				ExportScripts = true;
+				// Optimized for code analysis
+				ExportDomains = "facts,code-analysis";
+				FactTables = "scripts,types";
+				CodeAnalysisTables = "all";
+				DecompileScripts = true;
 				GenerateAst = true;
-				ExportScriptMetadata = true;
-				ExportRelations = true;
-				ExportMetrics = true;
-				ExportIndexes = true;
-				EnableIndex = true;
+				ExportAssemblyFiles = true;
+				UnityProjectOnly = true; // Focus on game code
+				SkipGeneratedFiles = true;
 				Verbose = false;
-				Silent = false;
-				Compression = "gzip"; // Good compatibility
+				EnableIndexing = true;
+				Compression = "gzip";
+				break;
+
+			case ConfigPreset.Minimal:
+				// Minimal output for structure analysis
+				ExportDomains = "facts";
+				FactTables = "assets,collections";
+				CodeAnalysisTables = "none";
+				Quiet = true;
+				IncrementalMode = true;
+				Compression = "zstd";
+				SkipBuiltinResources = true;
+				EnableIndexing = false;
+				break;
+
+			case ConfigPreset.Debug:
+				// Detailed debugging
+				ExportDomains = "facts,relations,code-analysis";
+				FactTables = "all";
+				RelationTables = "all";
+				CodeAnalysisTables = "all";
+				Verbose = true;
+				TraceDependencies = true;
+				IncrementalMode = false;
+				ParallelThreads = 1; // Sequential
+				Compression = "none";
+				ValidateSchemas = true;
+				EnableIndexing = true;
+				IncludeExtendedMetadata = true;
+				TimeoutSeconds = 120;
 				break;
 		}
 	}
 
 	/// <summary>
-	/// Get a preset configuration by name.
+	/// Create options with a preset configuration.
 	/// </summary>
-	public static Options CreateWithPreset(ConfigPreset preset, string inputPath, string? outputPath = null)
+	public static Options CreateWithPreset(ConfigPreset preset, string inputPath, string outputPath)
 	{
 		var options = new Options
 		{
 			InputPath = inputPath,
-			OutputPath = outputPath ?? "./output"
+			OutputPath = outputPath
 		};
 		options.ApplyPreset(preset);
 		return options;
+	}
+
+	/// <summary>
+	/// Parse preset from string name.
+	/// </summary>
+	public static ConfigPreset? ParsePreset(string? presetName)
+	{
+		if (string.IsNullOrWhiteSpace(presetName))
+			return null;
+
+		return presetName.ToLowerInvariant() switch
+		{
+			"fast" => ConfigPreset.Fast,
+			"full" => ConfigPreset.Full,
+			"analysis" => ConfigPreset.Analysis,
+			"minimal" => ConfigPreset.Minimal,
+			"debug" => ConfigPreset.Debug,
+			_ => null
+		};
 	}
 
 	[Usage(ApplicationAlias = "AssetDumper")]
@@ -272,38 +343,54 @@ public class Options
 		{
 			return new List<Example>
 			{
-				new Example("Basic extraction", new Options {
+				new Example("Full export with preset", new Options {
 					InputPath = @"C:\Games\MyUnityGame",
-					OutputPath = @"C:\Output"
+					OutputPath = @"C:\Output",
+					Preset = "full"
 				}),
-				new Example("Fast processing with sampling", new Options {
+				new Example("Fast testing export", new Options {
 					InputPath = @"C:\Games\MyUnityGame",
-					SampleRate = 0.3,
+					OutputPath = @"C:\Output",
+					Preset = "fast"
+				}),
+				new Example("Code analysis only", new Options {
+					InputPath = @"C:\Games\MyUnityGame",
+					OutputPath = @"C:\Output",
+					Preset = "analysis"
+				}),
+				new Example("Custom export domains", new Options {
+					InputPath = @"C:\Games\MyUnityGame",
+					OutputPath = @"C:\Output",
+					ExportDomains = "facts,code-analysis",
+					FactTables = "assets,scripts",
+					CodeAnalysisTables = "types,members"
+				}),
+				new Example("Filtered export", new Options {
+					InputPath = @"C:\Games\MyUnityGame",
+					OutputPath = @"C:\Output",
+					AssemblyFilter = "Assembly-CSharp",
+					SceneFilter = "MainMenu|Level.*",
 					UnityProjectOnly = true
 				}),
-				new Example("Main assembly only", new Options {
+				new Example("Compressed output with indexing", new Options {
 					InputPath = @"C:\Games\MyUnityGame",
-					AssemblyFilter = "Assembly-CSharp"
+					OutputPath = @"C:\Output",
+					Compression = "zstd",
+					EnableIndexing = true,
+					ShardSize = 50000
 				}),
-				new Example("Scripts and facts only", new Options {
+				new Example("Debug mode", new Options {
 					InputPath = @"C:\Games\MyUnityGame",
-					ExportScenes = false,
-					ExportScriptMetadata = true,
-					ExportScripts = true
+					OutputPath = @"C:\Output",
+					Verbose = true,
+					TraceDependencies = true,
+					ParallelThreads = 1
 				}),
-				new Example("Preview mode", new Options {
+				new Example("Dry run analysis", new Options {
 					InputPath = @"C:\Games\MyUnityGame",
-					PreviewOnly = true,
+					OutputPath = @"C:\Output",
+					DryRun = true,
 					Verbose = true
-				}),
-				new Example("Silent mode", new Options {
-					InputPath = @"C:\Games\MyUnityGame",
-					Silent = true
-				}),
-				new Example("Sequential processing for debugging", new Options {
-					InputPath = @"C:\Games\MyUnityGame",
-					ParallelDegree = 1,
-					FileTimeoutSeconds = 60
 				})
 			};
 		}

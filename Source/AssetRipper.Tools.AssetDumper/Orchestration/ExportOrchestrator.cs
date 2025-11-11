@@ -5,6 +5,7 @@ using System.Diagnostics;
 using AssetRipper.Tools.AssetDumper.Core;
 using AssetRipper.Tools.AssetDumper.Helpers;
 using AssetRipper.Tools.AssetDumper.Processors;
+using AssetRipper.Tools.AssetDumper.Exporters.Records;
 
 namespace AssetRipper.Tools.AssetDumper.Orchestration;
 
@@ -55,6 +56,7 @@ public sealed class ExportOrchestrator
 			ExecuteFactsExport(context, existingManifest);
 			ExecuteRelationsExport(context, existingManifest);
 			ExecuteOptionalExports(context, existingManifest);
+			ExecuteScriptCodeExport(context, existingManifest);
 			GenerateManifest(context);
 			ProcessScripts(gameData);
 
@@ -218,6 +220,175 @@ public sealed class ExportOrchestrator
 
 			pipeline.Execute();
 		}
+	}
+
+	private void ExecuteScriptCodeExport(ExportContext context, Manifest? existingManifest)
+	{
+		if (!_options.ExportScriptCodeAssociation)
+		{
+			return;
+		}
+
+		// Phase A: Core tables (always required)
+		bool canReuseCoreData = existingManifest != null
+			&& _incrementalManager.ManifestContainsTables(existingManifest, 
+				"facts/assemblies", 
+				"facts/type_definitions",
+				"relations/script_type_mapping");
+
+		// Phase B: Enhanced relationship tables
+		bool canReuseEnhancedData = existingManifest != null
+			&& _incrementalManager.ManifestContainsTables(existingManifest,
+				"relations/assembly_dependencies",
+				"relations/type_inheritance");
+
+		// Phase C: Optional detailed member data
+		bool canReuseMemberData = _options.ExportTypeMembers 
+			&& existingManifest != null 
+			&& _incrementalManager.ManifestContainsTables(existingManifest, "facts/type_members");
+
+		// Source linking (optional)
+		bool canReuseSourceData = _options.LinkSourceFiles
+			&& existingManifest != null
+			&& _incrementalManager.ManifestContainsTables(existingManifest, "facts/script_sources");
+
+		// Determine what can be reused vs needs re-export
+		bool needsFullExport = !canReuseCoreData;
+
+		if (needsFullExport)
+		{
+			// Full export required - core data missing or invalid
+			if (!_options.Silent)
+			{
+				Logger.Info("Exporting script-code associations (full export)...");
+			}
+
+			ScriptCodeExportPipeline pipeline = new ScriptCodeExportPipeline(context);
+			pipeline.Execute();
+		}
+		else
+		{
+			// Incremental reuse with selective re-export
+			if (!_options.Silent)
+			{
+				Logger.Info("Reusing script-code association data (incremental)...");
+			}
+
+			// Reuse Phase A: Core data
+			ReuseManifestData(existingManifest!, context, 
+				"facts/assemblies",
+				"facts/type_definitions",
+				"relations/script_type_mapping");
+
+			// Reuse or re-export Phase B: Enhanced relationships
+			if (canReuseEnhancedData)
+			{
+				if (!_options.Silent)
+				{
+					Logger.Verbose(LogCategory.Export, "Reusing assembly dependencies and type inheritance data.");
+				}
+				ReuseManifestData(existingManifest!, context,
+					"relations/assembly_dependencies",
+					"relations/type_inheritance");
+			}
+			else
+			{
+				// Re-export Phase B data only
+				if (!_options.Silent)
+				{
+					Logger.Info("Re-exporting assembly dependencies and type inheritance (changed)...");
+				}
+				ExportPhaseB(context);
+			}
+
+			// Reuse or re-export Phase C: Type members
+			if (_options.ExportTypeMembers)
+			{
+				if (canReuseMemberData)
+				{
+					if (!_options.Silent)
+					{
+						Logger.Verbose(LogCategory.Export, "Reusing type member data.");
+					}
+					ReuseManifestData(existingManifest!, context, "facts/type_members");
+				}
+				else
+				{
+					if (!_options.Silent)
+					{
+						Logger.Info("Re-exporting type members (changed)...");
+					}
+					ExportPhaseC(context);
+				}
+			}
+
+			// Reuse or re-export source linking
+			if (_options.LinkSourceFiles)
+			{
+				if (canReuseSourceData)
+				{
+					if (!_options.Silent)
+					{
+						Logger.Verbose(LogCategory.Export, "Reusing script source data.");
+					}
+					ReuseManifestData(existingManifest!, context, "facts/script_sources");
+				}
+				else
+				{
+					if (!_options.Silent)
+					{
+						Logger.Info("Re-exporting script sources (changed)...");
+					}
+					ExportSourceLinking(context);
+				}
+			}
+		}
+	}
+
+	/// <summary>
+	/// Exports Phase B: Enhanced relationship data (assembly dependencies, type inheritance).
+	/// </summary>
+	private void ExportPhaseB(ExportContext context)
+	{
+		AssemblyDependencyExporter depExporter = new AssemblyDependencyExporter(
+			_options,
+			context.CompressionKind,
+			context.EnableIndex);
+		DomainExportResult depResult = depExporter.ExportDependencies(context.GameData);
+		context.AddResult(depResult);
+
+		TypeInheritanceExporter inhExporter = new TypeInheritanceExporter(
+			_options,
+			context.CompressionKind,
+			context.EnableIndex);
+		DomainExportResult inhResult = inhExporter.ExportInheritance(context.GameData);
+		context.AddResult(inhResult);
+	}
+
+	/// <summary>
+	/// Exports Phase C: Type member data.
+	/// </summary>
+	private void ExportPhaseC(ExportContext context)
+	{
+		TypeMemberExporter exporter = new TypeMemberExporter(
+			_options,
+			context.CompressionKind,
+			context.EnableIndex);
+		DomainExportResult result = exporter.ExportMembers(context.GameData);
+		context.AddResult(result);
+	}
+
+	/// <summary>
+	/// Exports source file linking data.
+	/// </summary>
+	private void ExportSourceLinking(ExportContext context)
+	{
+		ScriptSourceExporter exporter = new ScriptSourceExporter(
+			_options,
+			context.CompressionKind,
+			context.EnableIndex);
+		DomainExportResult result = exporter.ExportSources(context.GameData);
+		context.AddResult(result);
 	}
 
 	private void GenerateManifest(ExportContext context)

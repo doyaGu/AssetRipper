@@ -99,11 +99,25 @@ public sealed class AssetFactsExporter
 
 				foreach (IUnityObjectBase asset in collection.Assets.Values.OrderBy(static asset => asset.PathID))
 				{
-					SerializedObjectMetadata metadata = SerializedObjectMetadata.FromAsset(asset);
-					string stableKey = StableKeyHelper.Create(collectionId, asset.PathID);
-					JToken payload = walker.Serialize(asset);
-					AssetFactRecord record = CreateAssetFactRecord(collectionId, asset, metadata, payload);
-					bufferedRecords.Add((stableKey, record));
+					try
+					{
+						SerializedObjectMetadata metadata = SerializedObjectMetadata.FromAsset(asset);
+						string stableKey = StableKeyHelper.Create(collectionId, asset.PathID);
+						JToken payload = walker.Serialize(asset);
+						AssetFactRecord record = CreateAssetFactRecord(collectionId, asset, metadata, payload);
+						bufferedRecords.Add((stableKey, record));
+					}
+					catch (Exception ex)
+					{
+						// Log and skip problematic assets instead of failing entire export
+						string assetName = asset.GetBestName() ?? $"PathID:{asset.PathID}";
+						if (_options.Verbose)
+						{
+							Logger.Warning(LogCategory.Export, $"Failed to serialize asset '{assetName}' in collection '{collectionId}': {ex.Message}");
+						}
+						// Continue processing other assets
+						continue;
+					}
 				}
 			}
 

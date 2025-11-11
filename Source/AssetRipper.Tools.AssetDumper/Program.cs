@@ -31,6 +31,21 @@ internal static class Program
 	{
 		try
 		{
+			// Apply preset if specified
+			if (!string.IsNullOrWhiteSpace(options.Preset))
+			{
+				ConfigPreset? preset = Options.ParsePreset(options.Preset);
+				if (preset.HasValue)
+				{
+					Logger.Info($"Applying preset: {options.Preset}");
+					options.ApplyPreset(preset.Value);
+				}
+				else
+				{
+					Logger.Warning($"Unknown preset: {options.Preset}. Available presets: fast, full, analysis, minimal, debug");
+				}
+			}
+
 			int validationResult = ValidateOptions(options);
 			if (validationResult != 0)
 				return validationResult;
@@ -52,10 +67,10 @@ internal static class Program
 			options.Verbose = true;
 		}
 
-		if (options.Silent && options.Verbose)
+		if (options.Quiet && options.Verbose)
 		{
-			Logger.Warning("Both --silent and --verbose specified. Verbose mode takes precedence.");
-			options.Silent = false;
+			Logger.Warning("Both --quiet and --verbose specified. Verbose mode takes precedence.");
+			options.Verbose = false;
 		}
 
 		Logger.Clear();
