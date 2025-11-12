@@ -2,45 +2,97 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.assetripper.dev/assetdump/v2/metrics/scene_stats.schema.json",
   "title": "AssetDump v2 Metric: Scene Statistics",
-  "description": "Derived statistics for Unity scenes (counts of GameObjects, Components, etc.).",
+  "description": "Derived statistics for Unity scenes extracted from SceneHierarchyObject. Provides comprehensive counts of GameObjects, Components, Managers, and asset states.",
   "type": "object",
   "additionalProperties": false,
   "required": [
-    "scene",
+    "domain",
+    "sceneGuid",
+    "sceneName",
     "counts"
   ],
   "properties": {
-    "scene": {
-      "$ref": "https://schemas.assetripper.dev/assetdump/v2/core.schema.json#AssetPK"
+    "domain": {
+      "type": "string",
+      "const": "scene_stats",
+      "description": "Record domain identifier for multi-domain datasets"
+    },
+    "sceneGuid": {
+      "$ref": "https://schemas.assetripper.dev/assetdump/v2/core.schema.json#/$defs/UnityGuid",
+      "description": "Scene GUID (more stable identifier than AssetPK)"
+    },
+    "sceneName": {
+      "type": "string",
+      "description": "Scene name for human readability and display"
+    },
+    "scenePath": {
+      "type": "string",
+      "description": "Scene path relative to project root (e.g., 'Assets/Scenes/Level1.unity')"
+    },
+    "hierarchyAssetPk": {
+      "$ref": "https://schemas.assetripper.dev/assetdump/v2/core.schema.json#/$defs/AssetPK",
+      "description": "AssetPK of the SceneHierarchyObject that contains these statistics"
     },
     "counts": {
       "type": "object",
       "additionalProperties": false,
       "required": [
         "gameObjects",
-        "components"
+        "components",
+        "prefabInstances",
+        "managers",
+        "rootGameObjects"
       ],
       "properties": {
         "gameObjects": {
           "type": "integer",
-          "minimum": 0
+          "minimum": 0,
+          "description": "Total number of GameObjects in the scene (from SceneHierarchyObject.GameObjects)"
         },
         "components": {
           "type": "integer",
-          "minimum": 0
+          "minimum": 0,
+          "description": "Total number of Components in the scene (from SceneHierarchyObject.Components)"
         },
         "prefabInstances": {
           "type": "integer",
-          "minimum": 0
+          "minimum": 0,
+          "description": "Number of PrefabInstance assets (from SceneHierarchyObject.PrefabInstances)"
         },
         "managers": {
           "type": "integer",
-          "minimum": 0
+          "minimum": 0,
+          "description": "Number of LevelGameManager assets (from SceneHierarchyObject.Managers)"
+        },
+        "rootGameObjects": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of root GameObjects without parent (from SceneHierarchyObject.GetRoots())"
+        },
+        "strippedAssets": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of stripped assets (from GameObjectHierarchyObject.StrippedAssets)"
+        },
+        "hiddenAssets": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of hidden assets not included in YAML export (from GameObjectHierarchyObject.HiddenAssets)"
+        },
+        "collections": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Number of AssetCollections that make up this scene (from SceneDefinition.Collections)"
         }
       }
     },
+    "hasSceneRoots": {
+      "type": "boolean",
+      "description": "Whether the scene has a SceneRoots asset (from SceneHierarchyObject.SceneRoots)"
+    },
     "notes": {
-      "type": "string"
+      "type": "string",
+      "description": "Optional notes or metadata about the scene statistics"
     }
   }
 }

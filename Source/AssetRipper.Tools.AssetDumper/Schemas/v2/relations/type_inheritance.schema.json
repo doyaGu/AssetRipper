@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.assetripper.dev/assetdump/v2/relations/type_inheritance.schema.json",
   "title": "AssetDump Type Inheritance Relations",
-  "description": "Type inheritance relationships for hierarchy analysis.",
+  "description": "Type inheritance relationships for hierarchy and polymorphism analysis. Captures both class inheritance and interface implementations with full type hierarchy information.",
   "$ref": "#/$defs/TypeInheritanceRecord",
   "$defs": {
     "TypeInheritanceRecord": {
@@ -11,35 +11,62 @@
       "required": [
         "domain",
         "derivedType",
+        "derivedAssembly",
         "baseType",
-        "isDirectBase",
-        "inheritanceDepth"
+        "baseAssembly",
+        "relationshipType",
+        "inheritanceDistance"
       ],
       "properties": {
         "domain": { "type": "string", "const": "type_inheritance" },
         "derivedType": {
           "type": "string",
-          "description": "Fully qualified derived type name",
+          "description": "Fully qualified derived type name in format 'Namespace.TypeName'. For nested types, uses '+' separator (e.g., 'Outer+Inner'). Source: TypeDefinition.FullName",
+          "minLength": 1
+        },
+        "derivedAssembly": {
+          "type": "string",
+          "description": "Assembly containing the derived type. Source: AssemblyDefinition.Name",
           "minLength": 1
         },
         "baseType": {
           "type": "string",
-          "description": "Fully qualified base type name",
+          "description": "Fully qualified base type name. For class inheritance: immediate base class. For interface implementation: implemented interface. Source: TypeDefinition.BaseType or InterfaceImplementation.Interface",
           "minLength": 1
         },
         "baseAssembly": {
           "type": "string",
-          "description": "Assembly containing base type",
+          "description": "Assembly containing the base type. Resolved from TypeReference.Scope (AssemblyReference or ModuleReference). May be null for unresolved external types.",
           "minLength": 1
         },
-        "isDirectBase": {
-          "type": "boolean",
-          "description": "Whether this is a direct inheritance (not transitive)"
+        "relationshipType": {
+          "type": "string",
+          "enum": ["class_inheritance", "interface_implementation"],
+          "description": "Type of inheritance relationship. 'class_inheritance' for base class relationships (including abstract classes). 'interface_implementation' for implemented interfaces. Source: TypeDefinition.BaseType vs TypeDefinition.Interfaces"
+        },
+        "inheritanceDistance": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Distance in inheritance chain from derived to base type. Always 1 for direct relationships (immediate base class or directly implemented interface). For transitive relationships: 2 = grandparent, 3 = great-grandparent, etc."
         },
         "inheritanceDepth": {
           "type": "integer",
-          "description": "Distance from System.Object in inheritance chain",
-          "minimum": 0
+          "minimum": 0,
+          "description": "Depth of derived type in complete inheritance hierarchy from root. For Unity types: 0 = UnityObjectBase/UnityAssetBase, 1 = Object, 2 = Component, etc. For standard .NET types: distance from System.Object. Calculated by traversing BaseType chain. Source: Pass920_InterfaceInheritance.GetInheritanceDepth()",
+          "default": 0
+        },
+        "baseTypeArguments": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "description": "Fully qualified type argument name"
+          },
+          "description": "Type arguments if base type is generic (e.g., 'List<string>' has ['System.String']). Empty array or null for non-generic base types. Source: GenericInstanceTypeSignature.TypeArguments"
+        },
+        "descendantCount": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Total number of types that directly or transitively inherit from the derived type (including the type itself). Useful for identifying leaf types (count=1) vs base types with many descendants. Source: Pass011_ApplyInheritance.SetDescendantCount()"
         }
       }
     }

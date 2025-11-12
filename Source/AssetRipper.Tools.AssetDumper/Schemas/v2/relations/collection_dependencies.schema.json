@@ -2,11 +2,15 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.assetripper.dev/assetdump/v2/relations/collection_dependencies.schema.json",
   "title": "Collection Dependency Edges",
-  "description": "Records collection-level dependencies (AssetCollection.Dependencies).",
+  "description": "Records collection-level dependencies (AssetCollection.Dependencies) with enhanced resolution status and metadata.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["sourceCollection", "dependencyIndex", "targetCollection"],
+  "required": ["domain", "sourceCollection", "dependencyIndex", "targetCollection"],
   "properties": {
+    "domain": {
+      "type": "string",
+      "const": "collection_dependencies"
+    },
     "sourceCollection": {
       "$ref": "../core.schema.json#/$defs/CollectionID",
       "description": "The collection declaring the dependency."
@@ -14,23 +18,46 @@
     "dependencyIndex": {
       "type": "integer",
       "minimum": 0,
-      "description": "Index in the source collection's dependency list (0 is self)."
+      "description": "Index in the source collection's dependency list. Index 0 is always the collection itself (self-reference). Corresponds to PPtr.FileID values."
     },
     "targetCollection": {
       "anyOf": [
         { "$ref": "../core.schema.json#/$defs/CollectionID" },
         { "type": "null" }
       ],
-      "description": "The target collection; null if unresolved."
+      "description": "The target collection; null if unresolved or missing."
+    },
+    "resolved": {
+      "type": "boolean",
+      "description": "Whether the dependency was successfully resolved (targetCollection is not null). Enables quick filtering of missing dependencies."
+    },
+    "source": {
+      "type": "string",
+      "enum": [
+        "serialized",
+        "dynamic",
+        "builtin"
+      ],
+      "description": "How the dependency was discovered: 'serialized' (from SerializedFile.Dependencies), 'dynamic' (added via AddDependency), or 'builtin' (Unity built-in resources)."
     },
     "fileIdentifier": {
       "type": "object",
-      "description": "Original Unity FileIdentifier if available.",
+      "description": "Original Unity FileIdentifier from SerializedFile.Dependencies array. Present only for serialized dependencies.",
       "additionalProperties": false,
       "properties": {
-        "guid": { "$ref": "../core.schema.json#/$defs/UnityGuid" },
-        "type": { "type": "integer" },
-        "pathName": { "type": "string" }
+        "guid": { 
+          "$ref": "../core.schema.json#/$defs/UnityGuid",
+          "description": "Unity GUID of the dependency file."
+        },
+        "type": { 
+          "type": "integer",
+          "enum": [0, 1, 2, 3, 4],
+          "description": "FileIdentifier type: 0 = Asset, 1 = Serialized, 2 = Meta, 3 = BuiltinExtra, 4 = Unknown."
+        },
+        "pathName": { 
+          "type": "string",
+          "description": "Original file path from Unity (may be relative or absolute)."
+        }
       }
     }
   }

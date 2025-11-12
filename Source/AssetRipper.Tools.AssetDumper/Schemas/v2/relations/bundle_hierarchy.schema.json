@@ -2,15 +2,23 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.assetripper.dev/assetdump/v2/relations/bundle_hierarchy.schema.json",
   "title": "Bundle Hierarchy Edges",
-  "description": "Parent-child relationships between bundles.",
+  "description": "Parent-child relationships between bundles with enhanced metadata for hierarchy analysis.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["parentPk", "childPk", "childIndex"],
+  "required": ["domain", "parentPk", "childPk", "childIndex"],
   "properties": {
+    "domain": {
+      "type": "string",
+      "const": "bundle_hierarchy"
+    },
     "parentPk": {
       "type": "string",
       "pattern": "^[A-F0-9]{8}$",
       "description": "Stable PK of the parent bundle."
+    },
+    "parentName": {
+      "type": "string",
+      "description": "Name of the parent bundle (for readability and symmetric design)."
     },
     "childPk": {
       "type": "string",
@@ -20,11 +28,28 @@
     "childIndex": {
       "type": "integer",
       "minimum": 0,
-      "description": "Index of the child in the parent's child list."
+      "description": "Index of the child in the parent's child list. Preserves original order for BundlePath reconstruction."
     },
     "childName": {
       "type": "string",
       "description": "Name of the child bundle (for readability)."
+    },
+    "childBundleType": {
+      "type": "string",
+      "enum": [
+        "GameBundle",
+        "SerializedBundle",
+        "ProcessedBundle",
+        "ResourceFile",
+        "WebBundle",
+        "Unknown"
+      ],
+      "description": "Type of the child bundle for quick type identification without additional lookups."
+    },
+    "childDepth": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Depth of the child bundle in the hierarchy tree (root = 0). Enables depth-based queries and hierarchy analysis."
     }
   }
 }

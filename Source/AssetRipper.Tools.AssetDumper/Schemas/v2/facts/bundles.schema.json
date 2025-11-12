@@ -1,11 +1,12 @@
 {
-  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.assetripper.dev/assetdump/v2/facts/bundles.schema.json",
   "title": "AssetDump v2 Bundle Metadata Facts",
   "description": "Per-bundle metadata capturing hierarchy relationships, collection coverage, and aggregate counters.",
   "type": "object",
   "additionalProperties": false,
   "required": [
+    "domain",
     "pk",
     "name",
     "bundleType",
@@ -27,6 +28,10 @@
     "totalAssetCount"
   ],
   "properties": {
+    "domain": {
+      "type": "string",
+      "const": "bundles"
+    },
     "pk": {
       "type": "string",
       "pattern": "^[A-F0-9]{8}$",
@@ -74,7 +79,7 @@
     "bundleIndex": {
       "type": "integer",
       "minimum": 0,
-      "description": "Index of this bundle within its parent's child list (0-based)."
+      "description": "Index of this bundle within its parent's child list (0-based). Only present for non-root bundles."
     },
     "ancestorPath": {
       "type": "array",
@@ -109,6 +114,36 @@
             "description": "Original file path for the resource when known."
           }
         }
+      }
+    },
+    "failedFiles": {
+      "type": "array",
+      "description": "Direct failed files captured on the bundle. Corresponds to Bundle.FailedFiles.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Failed file name."
+          },
+          "filePath": {
+            "type": "string",
+            "description": "Original file path when known."
+          },
+          "error": {
+            "type": "string",
+            "description": "Error message describing why the file failed to load."
+          }
+        }
+      }
+    },
+    "scenes": {
+      "type": "array",
+      "description": "All scenes contained in this bundle's collections. Corresponds to Bundle.Scenes property.",
+      "items": {
+        "$ref": "https://schemas.assetripper.dev/assetdump/v2/core.schema.json#SceneRef"
       }
     },
     "directCollectionCount": {
@@ -171,5 +206,15 @@
       "minimum": 0,
       "description": "Asset count across the bundle subtree."
     }
+  },
+  "if": {
+    "properties": {
+      "isRoot": {
+        "const": false
+      }
+    }
+  },
+  "then": {
+    "required": ["parentPk", "bundleIndex"]
   }
 }

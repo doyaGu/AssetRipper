@@ -7,14 +7,14 @@
   "$defs": {
     "CollectionID": {
       "type": "string",
-      "description": "Stable identifier for a serialized collection (e.g., sharedassets1.assets, BUILTIN-EXTRA).",
+      "description": "Stable identifier for a serialized collection (e.g., sharedassets1.assets, BUILTIN-EXTRA). Supports both uppercase and lowercase.",
       "minLength": 1,
-      "pattern": "^[A-Z0-9:_-]{2,}$"
+      "pattern": "^[A-Za-z0-9:_-]{2,}$"
     },
     "StableKey": {
       "type": "string",
-      "description": "Deterministic key '<collectionId>:<pathId>' used for ordered indexing.",
-  "pattern": "^[A-Z0-9:_-]+:-?\\d+$"
+      "description": "Deterministic key '<collectionId>:<pathId>' used for lexicographic (dictionary order) indexing and sorting. Ensures consistent ordering across exports.",
+      "pattern": "^[A-Za-z0-9:_-]+:-?\\d+$"
     },
     "Timestamp": {
       "type": "string",
@@ -23,7 +23,7 @@
     },
     "UnityGuid": {
       "type": "string",
-      "description": "32 hex characters (or canonical GUID) produced by Unity tooling.",
+      "description": "Unity GUID in 32 hex characters (no dashes) or canonical GUID format (with dashes). Used for scene references and asset identification.",
       "pattern": "^([0-9A-Fa-f]{32}|[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12})$"
     },
     "CompressionCodec": {
@@ -43,7 +43,7 @@
     "AssetRef": {
       "$anchor": "AssetRef",
       "type": "object",
-      "description": "Structured reference to a Unity asset using collectionId + pathId.",
+      "description": "Structured reference to a Unity asset using collectionId + pathId. Corresponds to Unity's PPtr (Pointer) structure for cross-file asset references.",
       "additionalProperties": false,
       "required": [
         "collectionId",
@@ -61,7 +61,7 @@
     },
     "NullableAssetRef": {
       "$anchor": "NullableAssetRef",
-      "description": "Optional Unity asset reference; null denotes unresolved or intentionally empty edges.",
+      "description": "Optional Unity asset reference; null denotes unresolved or intentionally empty edges. Corresponds to Unity's null PPtr (FileID=0, PathID=0).",
       "anyOf": [
         {
           "$ref": "#AssetRef"
@@ -74,14 +74,14 @@
     "BundleRef": {
       "$anchor": "BundleRef",
       "type": "object",
-      "description": "Reference to a Bundle node using stable PK.",
+      "description": "Reference to a Bundle node using stable PK. Bundles represent container structures in AssetRipper's hierarchy (GameBundle, ProcessedBundle, etc.).",
       "additionalProperties": false,
       "required": ["bundlePk"],
       "properties": {
         "bundlePk": {
           "type": "string",
           "pattern": "^[A-F0-9]{8}$",
-          "description": "Stable 8-hex identifier for the bundle node."
+          "description": "Stable 8-character hex identifier for the bundle node, derived from its hierarchical lineage path."
         },
         "bundleName": {
           "type": "string",
@@ -92,7 +92,7 @@
     "SceneRef": {
       "$anchor": "SceneRef",
       "type": "object",
-      "description": "Reference to a Scene using GUID.",
+      "description": "Reference to a Scene using Unity GUID. GUID is the primary key as it's unique across the entire project.",
       "additionalProperties": false,
       "required": ["sceneGuid"],
       "properties": {
@@ -112,8 +112,9 @@
     "HierarchyPath": {
       "$anchor": "HierarchyPath",
       "type": "object",
-      "description": "Complete hierarchical path from root to target entity.",
+      "description": "Complete hierarchical path from root to target entity. Represents the full Bundle nesting structure in AssetRipper.",
       "additionalProperties": false,
+      "required": ["bundlePath", "depth"],
       "properties": {
         "bundlePath": {
           "type": "array",
@@ -121,23 +122,24 @@
             "type": "string",
             "pattern": "^[A-F0-9]{8}$"
           },
-          "description": "Ordered list of bundle PKs from root to current bundle."
+          "description": "Ordered list of bundle PKs from root to current bundle. First element is always the root GameBundle."
         },
         "bundleNames": {
           "type": "array",
           "items": { "type": "string" },
-          "description": "Human-readable bundle names corresponding to bundlePath."
+          "description": "Human-readable bundle names corresponding to bundlePath. Array length must match bundlePath."
         },
         "depth": {
           "type": "integer",
           "minimum": 0,
-          "description": "Hierarchy depth (root = 0)."
+          "description": "Hierarchy depth where root = 0. Equals bundlePath.length - 1."
         }
       }
     }
   },
   "$anchor": "AssetPK",
   "type": "object",
+  "description": "Primary key structure for Unity assets. Combines collection identifier with PathID to create a globally unique asset reference.",
   "additionalProperties": false,
   "required": [
     "collectionId",
@@ -149,7 +151,7 @@
     },
     "pathId": {
       "type": "integer",
-      "description": "Unity m_PathID that uniquely identifies an object inside the owning collection."
+      "description": "Unity m_PathID that uniquely identifies an object inside the owning collection. Corresponds to IUnityObjectBase.PathID."
     }
   }
 }

@@ -2,76 +2,242 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.assetripper.dev/assetdump/v2/metrics/asset_distribution.schema.json",
   "title": "AssetDump v2 Metric: Asset Distribution",
-  "description": "Statistics on asset distribution grouped by class type, including counts and size metrics.",
+  "description": "Statistics on asset distribution grouped by class type, including counts and size metrics. Tracks asset distribution at both global (byClass) and bundle (byBundle) levels with comprehensive byte size statistics including min/max/median metrics.",
   "type": "object",
   "additionalProperties": false,
   "required": [
+    "domain",
     "summary",
-    "byClass"
+    "byClass",
+    "byBundle"
   ],
   "properties": {
+    "domain": {
+      "type": "string",
+      "const": "asset_distribution",
+      "description": "Metric domain identifier for asset distribution statistics"
+    },
     "summary": {
       "type": "object",
       "additionalProperties": false,
       "required": [
         "totalAssets",
         "totalBytes",
-        "uniqueClasses"
+        "uniqueClasses",
+        "totalCollections",
+        "totalBundles",
+        "assetsWithByteSize"
       ],
       "properties": {
         "totalAssets": {
           "type": "integer",
           "minimum": 0,
-          "description": "Total number of assets across all classes"
+          "description": "Total number of assets across all classes in the entire project"
         },
         "totalBytes": {
           "type": "integer",
           "minimum": 0,
-          "description": "Total bytes occupied by all assets"
+          "description": "Total bytes occupied by all assets (sum of all asset byte sizes from SerializedFile ObjectInfo entries)"
         },
         "uniqueClasses": {
           "type": "integer",
           "minimum": 0,
-          "description": "Number of unique asset classes found"
+          "description": "Number of unique asset classes (classKey values) found across all collections"
+        },
+        "totalCollections": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total number of AssetCollection instances in the project (includes both scene and non-scene collections)"
+        },
+        "totalBundles": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total number of unique Bundle instances in the project"
+        },
+        "assetsWithByteSize": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of assets with valid ByteSize metadata available (SerializedObjectMetadata.ByteSize >= 0). Assets without byte size data are excluded from size statistics but included in counts."
         }
       }
     },
     "byClass": {
       "type": "array",
-      "description": "Per-class distribution statistics, sorted by count descending",
+      "description": "Global per-class distribution statistics aggregated across all bundles, sorted by count descending. Each entry represents a unique classKey (dense class identifier combining ClassID and MonoBehaviour script information).",
       "items": {
         "type": "object",
         "additionalProperties": false,
         "required": [
+          "classKey",
           "classId",
           "className",
           "count",
-          "totalBytes",
-          "averageBytes"
+          "countWithByteSize"
         ],
         "properties": {
+          "classKey": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Dense class identifier from TypeDictionary (0-based sequential). Distinguishes MonoBehaviour scripts with different script types. Used as stable key across all schemas."
+          },
           "classId": {
             "type": "integer",
-            "description": "Unity ClassID (e.g., 1=GameObject, 114=MonoBehaviour)"
+            "description": "Unity ClassID from SerializedObjectMetadata (e.g., 1=GameObject, 28=Texture2D, 114=MonoBehaviour). For MonoBehaviour, all scripts share ClassID 114 but have unique classKey values."
           },
           "className": {
             "type": "string",
-            "description": "Human-readable class name"
+            "description": "Human-readable class name from IUnityObjectBase.ClassName. For MonoBehaviour assets, this is the script class name (e.g., 'PlayerController'). Falls back to 'ClassID_{classId}' if unavailable."
           },
           "count": {
             "type": "integer",
             "minimum": 0,
-            "description": "Number of assets of this class"
+            "description": "Total number of assets with this classKey across all collections"
+          },
+          "countWithByteSize": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Number of assets with valid ByteSize data (SerializedObjectMetadata.ByteSize >= 0). May be less than count if some assets lack serialized metadata."
           },
           "totalBytes": {
             "type": "integer",
             "minimum": 0,
-            "description": "Total bytes occupied by assets of this class"
+            "description": "Sum of ByteSize values for all assets with this classKey that have valid byte size data"
           },
           "averageBytes": {
             "type": "integer",
             "minimum": 0,
-            "description": "Average bytes per asset of this class"
+            "description": "Mean byte size: totalBytes / countWithByteSize. Only calculated when countWithByteSize > 0."
+          },
+          "minBytes": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Minimum ByteSize value among assets with this classKey. Only present when countWithByteSize > 0."
+          },
+          "maxBytes": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Maximum ByteSize value among assets with this classKey. Only present when countWithByteSize > 0."
+          },
+          "medianBytes": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Median ByteSize value among assets with this classKey. For even-count datasets, uses the lower-middle value. Only present when countWithByteSize > 0."
+          }
+        }
+      }
+    },
+    "byBundle": {
+      "type": "array",
+      "description": "Per-bundle distribution statistics showing asset counts and sizes grouped by bundle. Sorted by totalAssets descending. Each bundle may contain multiple AssetCollection instances (scenes and non-scene collections).",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "bundleName",
+          "collections",
+          "totalAssets",
+          "assetsWithByteSize",
+          "uniqueClasses"
+        ],
+        "properties": {
+          "bundleName": {
+            "type": "string",
+            "description": "Bundle.Name property from AssetRipper. Represents the bundle file name or identifier."
+          },
+          "collections": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Number of AssetCollection instances in this bundle (sum of scene and non-scene collections)"
+          },
+          "totalAssets": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Total number of assets across all collections in this bundle"
+          },
+          "assetsWithByteSize": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Number of assets in this bundle with valid ByteSize metadata"
+          },
+          "totalBytes": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Sum of ByteSize values for all assets in this bundle with valid byte size data"
+          },
+          "averageBytes": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Mean byte size per asset: totalBytes / assetsWithByteSize. Only calculated when assetsWithByteSize > 0."
+          },
+          "uniqueClasses": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Number of unique classKey values found in this bundle"
+          },
+          "byClass": {
+            "type": "array",
+            "description": "Per-class statistics within this bundle, sorted by count descending. Top 20 classes by asset count.",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "classKey",
+                "classId",
+                "className",
+                "count",
+                "countWithByteSize"
+              ],
+              "properties": {
+                "classKey": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "Dense class identifier from TypeDictionary"
+                },
+                "classId": {
+                  "type": "integer",
+                  "description": "Unity ClassID"
+                },
+                "className": {
+                  "type": "string",
+                  "description": "Human-readable class name"
+                },
+                "count": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "Number of assets with this classKey in this bundle"
+                },
+                "countWithByteSize": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "Number of assets with valid ByteSize data in this bundle"
+                },
+                "totalBytes": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "Sum of ByteSize values for assets with this classKey in this bundle"
+                },
+                "averageBytes": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "Mean byte size for this classKey in this bundle"
+                },
+                "minBytes": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "Minimum ByteSize for this classKey in this bundle"
+                },
+                "maxBytes": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "Maximum ByteSize for this classKey in this bundle"
+                },
+                "medianBytes": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "Median ByteSize for this classKey in this bundle"
+                }
+              }
+            }
           }
         }
       }

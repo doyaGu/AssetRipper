@@ -2,35 +2,95 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.assetripper.dev/assetdump/v2/facts/types.schema.json",
   "title": "AssetDump v2 Types Dictionary",
-  "description": "Mapping between classKey and Unity ClassID/ClassName pairs shared across assets.",
+  "description": "Mapping between classKey and Unity ClassID/ClassName pairs shared across assets. From IUnityObjectBase.ClassID/ClassName and SerializedType metadata.",
   "type": "object",
   "additionalProperties": false,
   "required": [
+    "domain",
     "classKey",
     "classId",
     "className"
   ],
   "properties": {
+    "domain": {
+      "type": "string",
+      "const": "types",
+      "description": "Fixed domain identifier for types table"
+    },
     "classKey": {
       "type": "integer",
-      "description": "Stable integer identifier assigned by the exporter."
+      "description": "Stable integer identifier assigned by the exporter, used to reference types from assets.classKey"
     },
     "classId": {
       "type": "integer",
-      "description": "Unity ClassID (114 = MonoBehaviour, etc.)."
+      "description": "Unity ClassID (114 = MonoBehaviour, etc.), from IUnityObjectBase.ClassID or ObjectInfo.ClassID"
     },
     "className": {
       "type": "string",
-      "description": "Unity type name."
+      "description": "Unity type name, from IUnityObjectBase.ClassName"
+    },
+    "typeId": {
+      "type": "integer",
+      "description": "Type ID of the object (from ObjectInfo.TypeID). For non-MonoBehaviour types, equals classId. For MonoBehaviour (ClassID 114), this is the script's unique identifier."
+    },
+    "serializedTypeIndex": {
+      "type": "integer",
+      "description": "Index in the SerializedFile.Types array (Unity 5+, from ObjectInfo.SerializedTypeIndex). -1 if not applicable or Unity 4 or earlier."
     },
     "scriptTypeIndex": {
-      "type": "integer"
+      "type": "integer",
+      "description": "Script type index for MonoBehaviour types (from SerializedType.ScriptTypeIndex or ObjectInfo.ScriptTypeIndex). -1 if not a MonoBehaviour."
     },
     "isStripped": {
-      "type": "boolean"
+      "type": "boolean",
+      "description": "Whether the type definition was stripped from the build (from SerializedType.IsStrippedType or ObjectInfo.Stripped)"
+    },
+    "originalClassName": {
+      "type": "string",
+      "description": "Original Unity type name before any processing or renaming by AssetRipper (from UniversalClass.OriginalName)"
+    },
+    "baseClassName": {
+      "type": "string",
+      "description": "Name of the base class if it exists (from UniversalClass.Base?.Name)"
+    },
+    "isAbstract": {
+      "type": "boolean",
+      "description": "Whether the class is abstract (from UniversalClass.IsAbstract)"
+    },
+    "isEditorOnly": {
+      "type": "boolean",
+      "description": "Whether the class only appears in editor builds (from UniversalClass.EditorRootNode != null && UniversalClass.ReleaseRootNode == null)"
+    },
+    "isReleaseOnly": {
+      "type": "boolean",
+      "description": "Whether the class only appears in game builds (from UniversalClass.ReleaseRootNode != null && UniversalClass.EditorRootNode == null)"
+    },
+    "monoScript": {
+      "type": "object",
+      "description": "MonoScript information for MonoBehaviour types (ClassID 114). Retrieved from the associated MonoScript asset.",
+      "additionalProperties": false,
+      "properties": {
+        "assemblyName": {
+          "type": "string",
+          "description": "Assembly name containing the script (from MonoScript.AssemblyName)"
+        },
+        "namespace": {
+          "type": "string",
+          "description": "Namespace of the script class (from MonoScript.Namespace)"
+        },
+        "className": {
+          "type": "string",
+          "description": "Class name of the script (from MonoScript.ClassName)"
+        },
+        "scriptGuid": {
+          "$ref": "../core.schema.json#/$defs/UnityGuid",
+          "description": "GUID of the MonoScript asset (from MonoScript GUID)"
+        }
+      }
     },
     "notes": {
-      "type": "string"
+      "type": "string",
+      "description": "Additional notes or comments about this type"
     }
   }
 }

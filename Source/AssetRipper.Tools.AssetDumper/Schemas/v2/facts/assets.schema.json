@@ -6,21 +6,53 @@
   "type": "object",
   "additionalProperties": false,
   "required": [
+    "domain",
     "pk",
-    "classKey",
-    "data"
+    "classKey"
   ],
   "properties": {
+    "domain": {
+      "type": "string",
+      "const": "assets"
+    },
     "pk": {
       "$ref": "https://schemas.assetripper.dev/assetdump/v2/core.schema.json#AssetPK"
     },
+    "pathId": {
+      "type": "integer",
+      "description": "PathID within the containing collection. Unique identifier for the asset in its collection."
+    },
     "classKey": {
       "type": "integer",
-      "description": "Join key into facts/types.ndjson."
+      "description": "Join key into facts/types.ndjson for efficient type information lookup."
+    },
+    "className": {
+      "type": "string",
+      "description": "Unity class name (e.g., GameObject, MonoBehaviour, Texture2D). Provides human-readable type information."
     },
     "name": {
       "type": "string",
-      "description": "Best-effort asset name (Unity m_Name or derived)."
+      "description": "Best-effort asset name (Unity m_Name or derived from INamed interface)."
+    },
+    "originalPath": {
+      "type": "string",
+      "description": "Original path of the asset in the Unity project (e.g., Assets/Textures/logo.png)."
+    },
+    "originalDirectory": {
+      "type": "string",
+      "description": "Original directory path without filename."
+    },
+    "originalName": {
+      "type": "string",
+      "description": "Original filename without extension."
+    },
+    "originalExtension": {
+      "type": "string",
+      "description": "Original file extension (e.g., .png, .fbx)."
+    },
+    "assetBundleName": {
+      "type": "string",
+      "description": "Name of the asset bundle containing this asset, if applicable."
     },
     "hierarchy": {
       "$ref": "https://schemas.assetripper.dev/assetdump/v2/core.schema.json#HierarchyPath",
@@ -45,30 +77,37 @@
       "properties": {
         "classId": {
           "type": "integer",
-          "description": "Unity ClassID (e.g., 1 = GameObject, 114 = MonoBehaviour)."
+          "description": "Unity ClassID (e.g., 1 = GameObject, 114 = MonoBehaviour). Native type identifier."
         },
         "typeId": {
           "type": "integer",
-          "description": "SerializedType.TypeID when available."
+          "description": "SerializedType.TypeID when available. Used in SerializedFile format."
         },
         "serializedTypeIndex": {
-          "type": "integer"
+          "type": "integer",
+          "description": "Index into the SerializedFile's type tree array."
         },
         "scriptTypeIndex": {
-          "type": "integer"
+          "type": "integer",
+          "description": "Script type index for MonoBehaviour assets. Links to script metadata."
         },
         "isStripped": {
-          "type": "boolean"
+          "type": "boolean",
+          "description": "True if the asset's type information was stripped during build."
+        },
+        "serializedVersion": {
+          "type": "integer",
+          "description": "SerializedVersion of the asset type. Used for handling format changes across Unity versions."
         }
       }
     },
     "data": {
-      "description": "Serialized Unity object payload emitted inline as JSON.",
+      "description": "Serialized Unity object payload emitted inline as JSON. Null for unreadable assets (UnreadableObject, UnknownObject).",
       "type": ["object", "array", "string", "number", "boolean", "null"]
     },
     "hash": {
       "type": "string",
-      "description": "Optional content hash (e.g., sha1:<hex>)."
+      "description": "Optional content hash (e.g., sha1:<hex>) for deduplication and integrity verification."
     }
   }
 }

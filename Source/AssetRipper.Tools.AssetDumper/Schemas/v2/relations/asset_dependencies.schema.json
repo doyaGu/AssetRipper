@@ -2,43 +2,75 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.assetripper.dev/assetdump/v2/relations/asset_dependencies.schema.json",
   "title": "AssetDump v2 Asset Dependency Relations",
-  "description": "Edges representing Unity PPtr references between assets.",
+  "description": "Edges representing Unity PPtr references between assets. Each record captures a single dependency relationship extracted from FetchDependencies().",
   "type": "object",
   "additionalProperties": false,
   "required": [
+    "domain",
     "from",
     "to",
     "edge"
   ],
   "properties": {
+    "domain": {
+      "type": "string",
+      "const": "asset_dependencies"
+    },
     "from": {
-      "$ref": "https://schemas.assetripper.dev/assetdump/v2/core.schema.json#AssetPK"
+      "$ref": "https://schemas.assetripper.dev/assetdump/v2/core.schema.json#AssetPK",
+      "description": "Source asset that owns the reference (initiating side of the dependency)."
     },
     "to": {
-      "$ref": "https://schemas.assetripper.dev/assetdump/v2/core.schema.json#AssetPK"
+      "$ref": "https://schemas.assetripper.dev/assetdump/v2/core.schema.json#AssetPK",
+      "description": "Target asset being referenced (receiving side of the dependency)."
     },
     "edge": {
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "kind"
+        "kind",
+        "field"
       ],
       "properties": {
         "kind": {
           "type": "string",
           "enum": [
-            "serializedRef",
-            "weakRef",
-            "fileRef"
-          ]
+            "pptr",
+            "external",
+            "internal",
+            "array_element",
+            "dictionary_key",
+            "dictionary_value"
+          ],
+          "description": "Type of dependency relationship. 'pptr' for standard PPtr serialized references, 'external' for cross-file references (FileID > 0), 'internal' for same-file references (FileID == 0), 'array_element' for references in arrays/lists, 'dictionary_key' for dictionary key references, 'dictionary_value' for dictionary value references."
         },
         "field": {
           "type": "string",
-          "description": "Serialized field holding the reference (e.g., m_Material)."
+          "minLength": 1,
+          "description": "Full field path from FetchDependencies() holding the reference (e.g., 'm_Material', 'm_Materials[2]', 'components[0].m_GameObject'). This is the first element of the (string, PPtr) tuple returned by FetchDependencies()."
+        },
+        "fieldType": {
+          "type": "string",
+          "description": "Type of the field holding the reference (e.g., 'PPtr<Material>', 'PPtr<GameObject>[]'). Useful for type-based dependency analysis."
+        },
+        "fileId": {
+          "type": "integer",
+          "description": "Original FileID from PPtr structure. 0 for same-file references, > 0 for index into dependency list, < 0 for built-in resources (-1=BuiltinExtra, -2=DefaultResource, -3=EditorResource)."
+        },
+        "arrayIndex": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Zero-based index if the reference is in an array or list (extracted from field path like 'm_Materials[2]'). Null if not applicable."
+        },
+        "isNullable": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether the reference field can legally be null (PathID == 0). Useful for distinguishing intentional null references from missing assets."
         },
         "optional": {
           "type": "boolean",
-          "default": false
+          "default": false,
+          "description": "Legacy field for backward compatibility. Prefer using 'isNullable' for new implementations."
         }
       }
     },
@@ -48,12 +80,20 @@
         "Resolved",
         "Missing",
         "External",
-        "SelfReference"
+        "SelfReference",
+        "Null",
+        "InvalidFileID",
+        "TypeMismatch"
       ],
-      "description": "Optional diagnostic state for exporters that capture resolution results."
+      "description": "Resolution state of the dependency. 'Resolved': target asset found successfully; 'Missing': target asset/collection not found; 'External': cross-collection reference; 'SelfReference': from==to; 'Null': PathID==0 (intentional null reference); 'InvalidFileID': FileID exceeds dependency list bounds; 'TypeMismatch': target asset type doesn't match expected field type."
+    },
+    "targetType": {
+      "type": "string",
+      "description": "Expected Unity class name of the target asset (e.g., 'Material', 'GameObject', 'Texture2D'). Extracted from PPtr generic parameter or field type."
     },
     "notes": {
-      "type": "string"
+      "type": "string",
+      "description": "Human-readable diagnostic information about resolution failures, warnings, or special cases. Examples: 'Target asset pathID 123 not found in owning collection', 'Unresolved dependency: fileID=5, pathID=789 (collection not in dependency list)'."
     }
   }
 }

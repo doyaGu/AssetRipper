@@ -1,20 +1,26 @@
 {
-  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.assetripper.dev/assetdump/v2/facts/script_metadata.schema.json",
   "title": "AssetDump v2 Script Metadata Facts",
   "description": "Per-MonoScript fact rows capturing Unity metadata, assembly linkage, and scene provenance when available.",
   "type": "object",
   "additionalProperties": false,
   "required": [
+    "domain",
     "pk",
     "collectionId",
     "pathId",
     "classId",
     "className",
     "fullName",
-    "assemblyName"
+    "assemblyName",
+    "isPresent"
   ],
   "properties": {
+    "domain": {
+      "type": "string",
+      "const": "script_metadata"
+    },
     "pk": {
       "$ref": "https://schemas.assetripper.dev/assetdump/v2/core.schema.json#/$defs/StableKey"
     },
@@ -31,11 +37,11 @@
     },
     "className": {
       "type": "string",
-      "description": "Short class name recorded on the MonoScript."
+      "description": "Short class name recorded on the MonoScript (from ClassName_R)."
     },
     "fullName": {
       "type": "string",
-      "description": "Fully qualified type name derived from namespace and class name."
+      "description": "Fully qualified type name derived from namespace and class name (from MonoScriptExtensions.GetFullName())."
     },
     "namespace": {
       "type": "string",
@@ -43,7 +49,24 @@
     },
     "assemblyName": {
       "type": "string",
-      "description": "Managed assembly name (Assembly-CSharp, etc.)."
+      "description": "Managed assembly name after applying SpecialFileNames.FixAssemblyName() (Assembly-CSharp, etc.). Use GetAssemblyNameFixed() method."
+    },
+    "assemblyNameRaw": {
+      "type": "string",
+      "description": "Original assembly name as recorded in the MonoScript, before FixAssemblyName() processing."
+    },
+    "isPresent": {
+      "type": "boolean",
+      "description": "Whether the script type definition is present in the loaded assemblies (from MonoScriptExtensions.IsScriptPresents())."
+    },
+    "isGeneric": {
+      "type": "boolean",
+      "description": "Whether the script is a generic type definition."
+    },
+    "genericParameterCount": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Number of generic type parameters if isGeneric is true."
     },
     "executionOrder": {
       "type": "integer",
@@ -63,12 +86,17 @@
     },
     "propertiesHash": {
       "type": "string",
-      "pattern": "^[0-9a-f]{32}$",
-      "description": "Lowercase hex representation of MonoScript m_PropertiesHash."
+      "pattern": "^[0-9a-f]{8}$|^[0-9a-f]{32}$",
+      "description": "Lowercase hex representation of MonoScript m_PropertiesHash. May be 8 chars (UInt32 for old versions) or 32 chars (Hash128_5 for new versions)."
     },
     "scene": {
       "type": "object",
       "additionalProperties": false,
+      "required": [
+        "name",
+        "path",
+        "guid"
+      ],
       "properties": {
         "name": {
           "type": "string",

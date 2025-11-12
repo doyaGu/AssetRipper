@@ -18,26 +18,27 @@
         "lineCount",
         "sha256",
         "language",
-        "decompiler"
+        "decompiler",
+        "decompilationStatus"
       ],
       "properties": {
         "domain": { "type": "string", "const": "script_sources" },
         "pk": {
           "$ref": "../core.schema.json#/$defs/UnityGuid",
-          "description": "Script GUID"
+          "description": "Script GUID from ScriptHashing.CalculateScriptGuid()"
         },
         "scriptPk": {
           "$ref": "../core.schema.json#/$defs/StableKey",
-          "description": "MonoScript primary key reference"
+          "description": "MonoScript primary key reference (collectionId:pathId)"
         },
         "assemblyGuid": {
           "type": "string",
-          "description": "Assembly GUID reference",
+          "description": "Assembly GUID from ScriptHashing.CalculateAssemblyGuid()",
           "pattern": "^[0-9A-F]{32}$"
         },
         "sourcePath": {
           "type": "string",
-          "description": "Relative path to decompiled source file",
+          "description": "Relative path to decompiled source file within export directory",
           "minLength": 1
         },
         "sourceSize": {
@@ -52,35 +53,56 @@
         },
         "characterCount": {
           "type": "integer",
-          "description": "Total character count",
+          "description": "Total character count (optional)",
           "minimum": 0
         },
         "sha256": {
           "type": "string",
-          "description": "SHA256 hash of source file",
+          "description": "SHA256 hash of source file content for integrity verification",
           "pattern": "^[0-9a-f]{64}$"
         },
         "language": {
           "type": "string",
-          "description": "Programming language",
-          "enum": ["CSharp", "UnityShader", "HLSL", "JavaScript"]
+          "description": "Programming language (UnityScript for legacy JavaScript support)",
+          "enum": ["CSharp", "UnityShader", "HLSL", "UnityScript"]
         },
         "decompiler": {
           "type": "string",
-          "description": "Decompiler used",
+          "description": "Decompiler used (typically 'ILSpy' in AssetRipper)",
           "minLength": 1
         },
         "decompilerVersion": {
           "type": "string",
-          "description": "Decompiler version"
+          "description": "Decompiler version string"
+        },
+        "decompilationStatus": {
+          "type": "string",
+          "enum": ["success", "failed", "empty", "skipped"],
+          "description": "Status of the decompilation process. 'empty' indicates an EmptyScript placeholder was generated."
+        },
+        "isEmpty": {
+          "type": "boolean",
+          "description": "Whether this is an empty placeholder script (EmptyScript) generated when type is missing"
+        },
+        "errorMessage": {
+          "type": "string",
+          "description": "Error message if decompilation failed"
+        },
+        "isPresent": {
+          "type": "boolean",
+          "description": "Whether the script type is present in the assembly (from MonoScriptExtensions.IsScriptPresents())"
+        },
+        "isGeneric": {
+          "type": "boolean",
+          "description": "Whether the script is a generic type definition"
         },
         "hasAst": {
           "type": "boolean",
-          "description": "Whether AST file exists"
+          "description": "Whether AST file exists (future feature, not currently implemented)"
         },
         "astPath": {
           "type": "string",
-          "description": "Relative path to AST JSON file"
+          "description": "Relative path to AST JSON file (future feature)"
         }
       }
     }

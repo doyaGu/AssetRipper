@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.assetripper.dev/assetdump/v2/facts/type_definitions.schema.json",
   "title": "AssetDump Type Definition Facts",
-  "description": "Type definitions from assemblies with metadata and optional MonoScript linkage.",
+  "description": "Type definitions from assemblies with metadata and optional MonoScript linkage. Extracted from AsmResolver TypeDefinition.",
   "$ref": "#/$defs/TypeDefinitionRecord",
   "$defs": {
     "TypeDefinitionRecord": {
@@ -25,81 +25,127 @@
         "visibility"
       ],
       "properties": {
-        "domain": { "type": "string", "const": "type_definitions" },
+        "domain": {
+          "type": "string",
+          "const": "type_definitions",
+          "description": "Fixed domain identifier for type_definitions table"
+        },
         "pk": {
           "type": "string",
-          "description": "Composite key: ASSEMBLY:NAMESPACE:TYPENAME",
-          "pattern": "^[^:]+:[^:]*:[^:]+$"
+          "description": "Composite key: ASSEMBLY::NAMESPACE::TYPENAME (using :: to avoid conflicts with type names containing :)",
+          "pattern": "^[^:]+::[^:]*::[^:]+$"
         },
         "assemblyGuid": {
           "type": "string",
-          "description": "Assembly GUID reference",
-          "pattern": "^[0-9A-F]{32}$"
+          "description": "Assembly GUID reference (from ScriptHashing.CalculateAssemblyGuid), links to assemblies.pk",
+          "pattern": "^[0-9A-Fa-f]{16}$"
         },
         "assemblyName": {
           "type": "string",
-          "description": "Assembly name for readability",
+          "description": "Assembly name for readability (from TypeDefinition.Module.Assembly.Name)",
           "minLength": 1
         },
         "namespace": {
           "type": "string",
-          "description": "Type namespace (empty string for global namespace)"
+          "description": "Type namespace (empty string for global namespace, from TypeDefinition.Namespace)"
         },
         "typeName": {
           "type": "string",
-          "description": "Simple type name",
+          "description": "Simple type name (from TypeDefinition.Name)",
           "minLength": 1
         },
         "fullName": {
           "type": "string",
-          "description": "Fully qualified type name",
+          "description": "Fully qualified type name (from TypeDefinition.FullName)",
           "minLength": 1
         },
         "isClass": {
           "type": "boolean",
-          "description": "Whether type is a class"
+          "description": "Whether type is a class (TypeDefinition.IsClass)"
         },
         "isStruct": {
           "type": "boolean",
-          "description": "Whether type is a struct"
+          "description": "Whether type is a struct (TypeDefinition.IsValueType && !IsEnum)"
         },
         "isInterface": {
           "type": "boolean",
-          "description": "Whether type is an interface"
+          "description": "Whether type is an interface (TypeDefinition.IsInterface)"
         },
         "isEnum": {
           "type": "boolean",
-          "description": "Whether type is an enum"
+          "description": "Whether type is an enum (TypeDefinition.IsEnum)"
         },
         "isAbstract": {
           "type": "boolean",
-          "description": "Whether type is abstract"
+          "description": "Whether type is abstract (TypeDefinition.IsAbstract)"
         },
         "isSealed": {
           "type": "boolean",
-          "description": "Whether type is sealed"
+          "description": "Whether type is sealed (TypeDefinition.IsSealed)"
         },
         "isGeneric": {
           "type": "boolean",
-          "description": "Whether type is generic"
+          "description": "Whether type is generic (TypeDefinition.GenericParameters.Count > 0)"
         },
         "genericParameterCount": {
           "type": "integer",
-          "description": "Number of generic parameters",
+          "description": "Number of generic parameters (from TypeDefinition.GenericParameters.Count)",
           "minimum": 0
         },
         "visibility": {
           "type": "string",
-          "description": "Type visibility",
-          "enum": ["public", "internal", "private", "protected"]
+          "description": "Type visibility (from TypeDefinition.Attributes)",
+          "enum": ["public", "internal", "private", "protected", "protected internal", "private protected"]
         },
         "baseType": {
           "type": "string",
-          "description": "Fully qualified base type name"
+          "description": "Fully qualified base type name (from TypeDefinition.BaseType?.FullName)"
+        },
+        "isNested": {
+          "type": "boolean",
+          "description": "Whether this is a nested type (TypeDefinition.IsNested)"
+        },
+        "declaringType": {
+          "type": "string",
+          "description": "Fully qualified name of declaring type for nested types (from TypeDefinition.DeclaringType?.FullName)"
+        },
+        "interfaces": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Fully qualified names of implemented interfaces (from TypeDefinition.Interfaces)"
+        },
+        "fieldCount": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of fields in the type (from TypeDefinition.Fields.Count)"
+        },
+        "methodCount": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of methods in the type (from TypeDefinition.Methods.Count)"
+        },
+        "propertyCount": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of properties in the type (from TypeDefinition.Properties.Count)"
+        },
+        "isMonoBehaviour": {
+          "type": "boolean",
+          "description": "Whether type derives from MonoBehaviour (checked via TypeDefinitionExtensions.IsSubclassOf)"
+        },
+        "isScriptableObject": {
+          "type": "boolean",
+          "description": "Whether type derives from ScriptableObject (checked via TypeDefinitionExtensions.IsSubclassOf)"
+        },
+        "isSerializable": {
+          "type": "boolean",
+          "description": "Whether type is serializable by Unity (checked via BaseManager.IsValid)"
         },
         "scriptRef": {
           "$ref": "#/$defs/ScriptReference",
-          "description": "Reference to associated MonoScript asset (if exists)"
+          "description": "Reference to associated MonoScript asset (if exists, via MonoScriptExtensions.GetTypeDefinition)"
         }
       }
     },
@@ -108,9 +154,18 @@
       "additionalProperties": false,
       "required": ["collectionId", "pathId"],
       "properties": {
-        "collectionId": { "$ref": "../core.schema.json#/$defs/CollectionID" },
-        "pathId": { "type": "integer" },
-        "scriptGuid": { "$ref": "../core.schema.json#/$defs/UnityGuid" }
+        "collectionId": {
+          "$ref": "../core.schema.json#/$defs/CollectionID",
+          "description": "Collection ID where MonoScript asset resides"
+        },
+        "pathId": {
+          "type": "integer",
+          "description": "PathID of the MonoScript asset"
+        },
+        "scriptGuid": {
+          "$ref": "../core.schema.json#/$defs/UnityGuid",
+          "description": "GUID of the MonoScript asset"
+        }
       }
     }
   }

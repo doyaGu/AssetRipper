@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.assetripper.dev/assetdump/v2/relations/script_type_mapping.schema.json",
   "title": "AssetDump Script-Type Mapping Relations",
-  "description": "Explicit mapping from MonoScript assets to TypeDefinitions with validation status.",
+  "description": "Explicit mapping from MonoScript assets to .NET TypeDefinitions with validation status, enabling script resolution analysis and debugging.",
   "$ref": "#/$defs/ScriptTypeMappingRecord",
   "$defs": {
     "ScriptTypeMappingRecord": {
@@ -14,36 +14,76 @@
         "scriptGuid",
         "typeFullName",
         "assemblyGuid",
+        "assemblyName",
         "isValid"
       ],
       "properties": {
-        "domain": { "type": "string", "const": "script_type_mapping" },
+        "domain": { 
+          "type": "string", 
+          "const": "script_type_mapping",
+          "description": "Domain identifier for script-type mapping relations"
+        },
         "scriptPk": {
           "$ref": "../core.schema.json#/$defs/StableKey",
-          "description": "MonoScript primary key"
+          "description": "MonoScript primary key (collectionId:pathId format). Links to assets with ClassID 115 (MonoScript)"
         },
         "scriptGuid": {
           "$ref": "../core.schema.json#/$defs/UnityGuid",
-          "description": "Script GUID"
+          "description": "Script GUID computed via ScriptHashing.CalculateScriptGuid(). Used for cross-reference with Unity's .meta files"
         },
         "typeFullName": {
           "type": "string",
-          "description": "Fully qualified type name",
+          "description": "Fully qualified .NET type name (Namespace.ClassName). Source: MonoScriptExtensions.GetFullName(). Example: 'UnityEngine.UI.Button'",
           "minLength": 1
         },
         "assemblyGuid": {
           "type": "string",
-          "description": "Assembly GUID",
+          "description": "Assembly GUID (32-character hex string, uppercase). Links to assemblies.pk. Source: ScriptHashing.CalculateAssemblyGuid()",
           "pattern": "^[0-9A-F]{32}$"
+        },
+        "assemblyName": {
+          "type": "string",
+          "description": "Assembly name after FixAssemblyName() processing (e.g., 'Assembly-CSharp', 'UnityEngine.CoreModule'). Source: MonoScriptExtensions.GetAssemblyNameFixed()",
+          "minLength": 1
+        },
+        "namespace": {
+          "type": "string",
+          "description": "Type namespace (empty string for global namespace). Source: IMonoScript.Namespace. Example: 'Game.Controllers'"
+        },
+        "className": {
+          "type": "string",
+          "description": "Simple class name without namespace. Source: IMonoScript.ClassName_R. Example: 'PlayerController'",
+          "minLength": 1
         },
         "isValid": {
           "type": "boolean",
-          "description": "Whether TypeDefinition was successfully resolved"
+          "description": "Whether TypeDefinition was successfully resolved via MonoScriptExtensions.GetBehaviourType(). True if type exists in assembly, false if resolution failed"
         },
         "failureReason": {
           "type": "string",
-          "description": "Reason for resolution failure (if isValid=false)"
+          "description": "Human-readable reason for resolution failure (present only if isValid=false). Source: GetBehaviourType() out parameter. Example: 'Can't find type: Game.Controllers.PlayerController'"
+        },
+        "isGeneric": {
+          "type": "boolean",
+          "description": "Whether the script represents a generic type (e.g., List<T>). Source: TypeDefinition.HasGenericParameters"
+        },
+        "genericParameterCount": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of generic type parameters (0 for non-generic types). Source: TypeDefinition.GenericParameters.Count"
+        },
+        "scriptIdentifier": {
+          "type": "string",
+          "description": "ScriptIdentifier.UniqueName for debugging (format: AssemblyName::Namespace::ClassName). Useful for diagnosing resolution failures"
         }
+      },
+      "if": {
+        "properties": { 
+          "isValid": { "const": false } 
+        }
+      },
+      "then": {
+        "required": ["failureReason"]
       }
     }
   }

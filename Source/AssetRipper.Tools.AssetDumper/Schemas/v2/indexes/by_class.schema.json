@@ -2,27 +2,48 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.assetripper.dev/assetdump/v2/indexes/by_class.schema.json",
   "title": "AssetDump v2 Index: Assets By Class",
-  "description": "Secondary index listing AssetPK references grouped by classKey.",
+  "description": "Secondary index listing AssetPK references grouped by classKey. Enables fast type-based asset queries without scanning all asset records. Assets are sorted by collectionId then pathId for deterministic ordering.",
   "type": "object",
   "additionalProperties": false,
   "required": [
+    "domain",
     "classKey",
-    "assets"
+    "assets",
+    "count"
   ],
   "properties": {
+    "domain": {
+      "type": "string",
+      "const": "by_class",
+      "description": "Domain identifier for by_class index records"
+    },
     "classKey": {
-      "type": "integer"
+      "type": "integer",
+      "description": "Dense class key referencing types.schema.json. Maps to TypeDictionaryEntry.classKey. This is NOT the Unity ClassID directly - use classId field for that.",
+      "minimum": 1
     },
     "assets": {
       "type": "array",
       "items": {
         "$ref": "https://schemas.assetripper.dev/assetdump/v2/core.schema.json#AssetPK"
-      }
+      },
+      "description": "Array of asset primary keys (collectionId + pathId) for all assets of this type. Sorted by collectionId then pathId for deterministic ordering and efficient lookups.",
+      "minItems": 0
     },
     "count": {
       "type": "integer",
       "minimum": 0,
-      "description": "Optional cached count of assets for convenience."
+      "description": "Number of assets of this type. MUST equal assets.length. Provided for fast statistics without loading the entire assets array."
+    },
+    "className": {
+      "type": "string",
+      "description": "Unity type name for human readability (e.g., 'GameObject', 'MonoBehaviour', 'Transform'). Source: IUnityObjectBase.ClassName or generated as 'ClassID_{classId}' for unknown types.",
+      "minLength": 1
+    },
+    "classId": {
+      "type": "integer",
+      "description": "Unity ClassID for reference and external tool integration (e.g., 1=GameObject, 4=Transform, 114=MonoBehaviour). Source: IUnityObjectBase.ClassID",
+      "minimum": -2
     }
   }
 }

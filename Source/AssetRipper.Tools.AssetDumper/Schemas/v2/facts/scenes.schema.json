@@ -14,17 +14,10 @@
         "sceneGuid",
         "scenePath",
         "exportedAt",
-        "collectionId",
-        "collection",
         "version",
         "platform",
         "sceneCollectionCount",
         "collectionIds",
-        "hierarchy",
-        "hierarchyAssetId",
-        "pathID",
-        "classID",
-        "className",
         "assetCount",
         "gameObjectCount",
         "componentCount",
@@ -43,8 +36,6 @@
         "sceneGuid": { "$ref": "../core.schema.json#/$defs/UnityGuid" },
         "scenePath": { "type": "string" },
         "exportedAt": { "$ref": "../core.schema.json#/$defs/Timestamp" },
-        "collectionId": { "$ref": "../core.schema.json#/$defs/CollectionID" },
-        "collection": { "type": "string" },
         "version": { "type": "string" },
         "platform": { "type": "string" },
         "flags": { "type": "string" },
@@ -60,15 +51,16 @@
         "collections": {
           "type": "array",
           "items": { "$ref": "#/$defs/SceneCollectionDescriptor" },
-          "default": []
+          "default": [],
+          "description": "Deprecated: Use collectionDetails instead. Legacy list of collection names."
         },
         "primaryCollectionId": {
           "$ref": "../core.schema.json#/$defs/CollectionID",
-          "description": "The primary (first) collection in this scene."
+          "description": "The first collection added to this scene, used as the primary collection for export purposes."
         },
         "bundle": {
           "$ref": "../core.schema.json#BundleRef",
-          "description": "The bundle containing the primary collection."
+          "description": "The bundle containing the primary (first) collection. Note: Different collections may belong to different bundles."
         },
         "collectionDetails": {
           "type": "array",
@@ -78,17 +70,35 @@
             "properties": {
               "collectionId": { "$ref": "../core.schema.json#/$defs/CollectionID" },
               "bundle": { "$ref": "../core.schema.json#BundleRef" },
-              "isPrimary": { "type": "boolean" },
+              "isPrimary": { 
+                "type": "boolean",
+                "description": "True if this is the first collection in the scene's collection list."
+              },
               "assetCount": { "type": "integer", "minimum": 0 }
             }
           },
-          "description": "Detailed metadata for each collection composing this scene."
+          "description": "Detailed metadata for each collection composing this scene, including their respective bundles."
         },
-        "hierarchy": { "$ref": "../core.schema.json#AssetRef" },
-        "hierarchyAssetId": { "$ref": "../core.schema.json#/$defs/StableKey" },
-        "pathID": { "type": "integer" },
-        "classID": { "type": "integer" },
-        "className": { "type": "string" },
+        "hierarchy": { 
+          "$ref": "../core.schema.json#AssetRef",
+          "description": "Reference to the SceneHierarchyObject asset. Only present after scene processing."
+        },
+        "hierarchyAssetId": { 
+          "$ref": "../core.schema.json#/$defs/StableKey",
+          "description": "Stable key of the SceneHierarchyObject asset. Only present after scene processing."
+        },
+        "pathID": { 
+          "type": "integer",
+          "description": "PathID of the SceneHierarchyObject asset. Only present after scene processing."
+        },
+        "classID": { 
+          "type": "integer",
+          "description": "ClassID of the SceneHierarchyObject asset. Only present after scene processing."
+        },
+        "className": { 
+          "type": "string",
+          "description": "Class name of the SceneHierarchyObject asset. Only present after scene processing."
+        },
         "assetCount": { "type": "integer", "minimum": 0 },
         "gameObjectCount": { "type": "integer", "minimum": 0 },
         "componentCount": { "type": "integer", "minimum": 0 },
@@ -137,7 +147,10 @@
         "isProcessed": { "type": "boolean" },
         "isSceneCollection": { "type": "boolean" },
         "sceneName": { "type": "string" },
-        "isPrimary": { "type": "boolean" },
+        "isPrimary": { 
+          "type": "boolean",
+          "description": "True if this is the first collection in the scene's collection list."
+        },
         "assetCount": { 
           "type": "integer", 
           "minimum": 0,

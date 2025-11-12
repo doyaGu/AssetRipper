@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.assetripper.dev/assetdump/v2/facts/type_members.schema.json",
   "title": "AssetDump Type Member Facts",
-  "description": "Detailed type member information (fields, properties, methods) for code analysis.",
+  "description": "Detailed type member information (fields, properties, methods) for code analysis. Captures member metadata from .NET assemblies including documentation, Unity-specific attributes, and member-specific details.",
   "$ref": "#/$defs/TypeMemberRecord",
   "$defs": {
     "TypeMemberRecord": {
@@ -11,6 +11,7 @@
       "required": [
         "domain",
         "pk",
+        "assemblyGuid",
         "typeFullName",
         "memberName",
         "memberKind",
@@ -20,63 +21,164 @@
         "serialized"
       ],
       "properties": {
-        "domain": { "type": "string", "const": "type_members" },
+        "domain": { 
+          "type": "string", 
+          "const": "type_members",
+          "description": "Domain identifier for type members table"
+        },
         "pk": {
           "type": "string",
-          "description": "Composite key: ASSEMBLY:NAMESPACE:TYPENAME:MEMBERNAME",
-          "pattern": "^[^:]+:[^:]*:[^:]+:[^:]+$"
+          "description": "Composite key: ASSEMBLY::NAMESPACE::TYPENAME::MEMBERNAME (using :: separator to avoid conflicts). Example: 'Assembly-CSharp::Game.Controllers::PlayerController::currentHealth'",
+          "pattern": "^[^:]+::[^:]*::[^:]+::[^:]+$"
+        },
+        "assemblyGuid": {
+          "type": "string",
+          "description": "Assembly GUID (16-char hex, links to assemblies.pk). Source: FNV1a.ComputeHash(AssemblyDefinition.FullName)",
+          "pattern": "^[0-9A-Fa-f]{16}$"
         },
         "typeFullName": {
           "type": "string",
-          "description": "Fully qualified owner type name",
+          "description": "Fully qualified owner type name. Source: TypeDefinition.FullName",
           "minLength": 1
         },
         "memberName": {
           "type": "string",
-          "description": "Member name",
+          "description": "Member name. Source: FieldDefinition.Name / PropertyDefinition.Name / MethodDefinition.Name",
           "minLength": 1
         },
         "memberKind": {
           "type": "string",
-          "description": "Member kind",
-          "enum": ["field", "property", "method", "event", "constructor"]
+          "description": "Member kind enumeration. Distinguishes fields, properties, methods, events, constructors, and nested types",
+          "enum": ["field", "property", "method", "event", "constructor", "nestedType"]
         },
         "memberType": {
           "type": "string",
-          "description": "Member type (return type for methods)",
+          "description": "Member type (field type, property type, or method return type). Source: FieldDefinition.FieldType.FullName / PropertyDefinition.PropertyType.FullName / MethodDefinition.ReturnType.FullName",
           "minLength": 1
         },
         "visibility": {
           "type": "string",
-          "description": "Member visibility",
-          "enum": ["public", "internal", "private", "protected"]
+          "description": "Member visibility (6 .NET access levels). Source: Attributes flags",
+          "enum": ["public", "internal", "private", "protected", "protected internal", "private protected"]
         },
         "isStatic": {
           "type": "boolean",
-          "description": "Whether member is static"
+          "description": "Whether member is static. Source: FieldDefinition.IsStatic / MethodDefinition.IsStatic / PropertyDefinition.GetMethod.IsStatic"
         },
         "isVirtual": {
           "type": "boolean",
-          "description": "Whether member is virtual"
+          "description": "Whether member is virtual (methods/properties only). Source: MethodDefinition.IsVirtual"
         },
         "isOverride": {
           "type": "boolean",
-          "description": "Whether member overrides base member"
+          "description": "Whether member overrides base member. Source: MethodDefinition.IsReuseSlot && MethodDefinition.IsVirtual"
         },
         "isSealed": {
           "type": "boolean",
-          "description": "Whether member is sealed"
+          "description": "Whether member is sealed (prevents further override). Source: MethodDefinition.IsFinal"
         },
         "serialized": {
           "type": "boolean",
-          "description": "Whether Unity serializes this member"
+          "description": "Whether Unity serializes this member. Checks Unity serialization rules (public fields, [SerializeField], not [NonSerialized], supported types)"
         },
         "attributes": {
           "type": "array",
-          "description": "Applied C# attributes",
+          "description": "Applied C# attributes (fully qualified names). Source: MemberDefinition.CustomAttributes",
           "items": {
             "type": "string"
           }
+        },
+        "documentationString": {
+          "type": "string",
+          "description": "XML documentation summary. Source: DocumentationHandler / AssemblyParser.DocumentationString"
+        },
+        "obsoleteMessage": {
+          "type": "string",
+          "description": "Obsolete attribute message if member is deprecated. Source: AssemblyParser.ObsoleteMessage / [Obsolete] attribute"
+        },
+        "nativeName": {
+          "type": "string",
+          "description": "Unity native name for this member. Source: AssemblyParser.NativeName / [NativeName] attribute"
+        },
+        "isCompilerGenerated": {
+          "type": "boolean",
+          "description": "Whether member is compiler-generated (should be excluded from documentation). Source: MemberDefinition.IsCompilerGenerated() / [CompilerGenerated] attribute"
+        },
+        "hasGetter": {
+          "type": "boolean",
+          "description": "Property has getter (properties only). Source: PropertyDefinition.GetMethod != null"
+        },
+        "hasSetter": {
+          "type": "boolean",
+          "description": "Property has setter (properties only). Source: PropertyDefinition.SetMethod != null"
+        },
+        "hasParameters": {
+          "type": "boolean",
+          "description": "Property has parameters (indexer, properties only). Source: PropertyDefinition.HasParameters()"
+        },
+        "isConst": {
+          "type": "boolean",
+          "description": "Field is const (fields only). Source: FieldDefinition.IsLiteral"
+        },
+        "isReadOnly": {
+          "type": "boolean",
+          "description": "Field is readonly (fields only). Source: FieldDefinition.IsInitOnly"
+        },
+        "constantValue": {
+          "type": ["string", "number", "boolean", "null"],
+          "description": "Constant value for const fields. Source: FieldDefinition.Constant (for IsLiteral fields)"
+        },
+        "parameterCount": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of method parameters (methods/constructors only). Source: MethodDefinition.Parameters.Count"
+        },
+        "parameters": {
+          "type": "array",
+          "description": "Method parameter details (methods/constructors only). Source: MethodDefinition.Parameters",
+          "items": {
+            "type": "object",
+            "required": ["name", "type"],
+            "properties": {
+              "name": { 
+                "type": "string",
+                "description": "Parameter name. Source: ParameterDefinition.Name"
+              },
+              "type": { 
+                "type": "string",
+                "description": "Parameter type (fully qualified). Source: ParameterDefinition.ParameterType.FullName"
+              },
+              "isOptional": {
+                "type": "boolean",
+                "description": "Parameter is optional. Source: ParameterDefinition.IsOptional"
+              },
+              "defaultValue": {
+                "type": ["string", "number", "boolean", "null"],
+                "description": "Default value for optional parameters. Source: ParameterDefinition.Constant"
+              }
+            }
+          }
+        },
+        "serializeField": {
+          "type": "boolean",
+          "description": "Has [SerializeField] attribute (forces Unity serialization for private fields). Source: FieldDefinition.CustomAttributes"
+        },
+        "hideInInspector": {
+          "type": "boolean",
+          "description": "Has [HideInInspector] attribute (hides from Unity Inspector). Source: FieldDefinition.CustomAttributes"
+        },
+        "isAbstract": {
+          "type": "boolean",
+          "description": "Whether member is abstract (methods/properties only). Source: MethodDefinition.IsAbstract"
+        },
+        "isGeneric": {
+          "type": "boolean",
+          "description": "Whether method/type is generic. Source: MethodDefinition.HasGenericParameters"
+        },
+        "genericParameterCount": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of generic parameters (generic methods only). Source: MethodDefinition.GenericParameters.Count"
         }
       }
     }

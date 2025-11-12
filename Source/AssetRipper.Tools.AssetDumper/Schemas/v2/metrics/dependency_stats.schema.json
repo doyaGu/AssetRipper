@@ -2,37 +2,73 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.assetripper.dev/assetdump/v2/metrics/dependency_stats.schema.json",
   "title": "AssetDump v2 Metric: Dependency Statistics",
-  "description": "Graph-level metrics for asset dependencies, including degree distribution and health indicators.",
+  "description": "Graph-level metrics for asset dependencies at the asset level (PPtr references), including degree distribution, reference type classification, and dependency health indicators. Analyzes FetchDependencies() results to track how assets reference each other within and across collections/bundles.",
   "type": "object",
   "additionalProperties": false,
   "required": [
+    "domain",
     "edges",
     "degree",
     "health"
   ],
   "properties": {
+    "domain": {
+      "type": "string",
+      "const": "dependency_stats",
+      "description": "Metric domain identifier for dependency statistics"
+    },
     "edges": {
       "type": "object",
+      "description": "Edge-level statistics tracking PPtr references between assets",
       "additionalProperties": false,
       "required": [
         "total",
-        "averagePerAsset"
+        "averagePerAsset",
+        "internalReferences",
+        "externalReferences",
+        "crossBundleReferences"
       ],
       "properties": {
         "total": {
           "type": "integer",
           "minimum": 0,
-          "description": "Total number of dependency edges in the graph"
+          "description": "Total number of dependency edges in the graph. Each edge represents a unique (source asset, target asset) PPtr reference obtained from FetchDependencies(). Self-references and null PPtrs are excluded. Duplicate references from same source to same target are counted only once."
         },
         "averagePerAsset": {
           "type": "number",
           "minimum": 0,
-          "description": "Average number of edges per asset"
+          "description": "Average number of outgoing dependency edges per asset (total edges / totalAssets). Represents typical asset reference count."
+        },
+        "internalReferences": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of references where source and target assets are in the same AssetCollection (same SerializedFile). These are collection-local references resolved without external dependencies."
+        },
+        "externalReferences": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of references where source and target assets are in different AssetCollections, but within the same Bundle. These references require collection-level dependency resolution but remain bundle-local."
+        },
+        "crossBundleReferences": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of references where source and target assets are in different Bundles (collection.Bundle.Name differs). These references cross bundle boundaries and represent inter-bundle dependencies."
+        },
+        "nullReferences": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of PPtr references encountered where pptr.IsNull == true. Null references are excluded from total edge count but tracked separately as they may indicate missing assets or intentional empty references."
+        },
+        "unresolvedReferences": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of non-null PPtr references that could not be resolved to an asset (collection.TryGetAsset(pptr) returned null). These references may point to stripped assets, external dependencies, or unloaded collections."
         }
       }
     },
     "degree": {
       "type": "object",
+      "description": "Degree distribution statistics tracking incoming and outgoing reference counts per asset",
       "additionalProperties": false,
       "required": [
         "outgoing",
@@ -41,41 +77,67 @@
       "properties": {
         "outgoing": {
           "type": "object",
+          "description": "Out-degree statistics measuring how many other assets each asset references (FetchDependencies() result count)",
           "additionalProperties": false,
           "required": [
             "average",
-            "max"
+            "min",
+            "max",
+            "median"
           ],
           "properties": {
             "average": {
               "type": "number",
               "minimum": 0,
-              "description": "Average out-degree (references made by assets)"
+              "description": "Mean out-degree across all assets (sum of all out-degrees / totalAssets)"
+            },
+            "min": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Minimum out-degree observed. Typically 0 for leaf assets (textures, audio clips) that reference no other assets."
             },
             "max": {
               "type": "integer",
               "minimum": 0,
-              "description": "Maximum out-degree observed"
+              "description": "Maximum out-degree observed. High values indicate assets with many dependencies (e.g., complex prefabs, scenes)."
+            },
+            "median": {
+              "type": "number",
+              "minimum": 0,
+              "description": "Median out-degree (50th percentile). For even-count datasets, uses the lower-middle value for integer consistency. More robust than mean for skewed distributions."
             }
           }
         },
         "incoming": {
           "type": "object",
+          "description": "In-degree statistics measuring how many other assets reference each asset (reverse dependency count)",
           "additionalProperties": false,
           "required": [
             "average",
-            "max"
+            "min",
+            "max",
+            "median"
           ],
           "properties": {
             "average": {
               "type": "number",
               "minimum": 0,
-              "description": "Average in-degree (references to assets)"
+              "description": "Mean in-degree across all assets (sum of all in-degrees / totalAssets)"
+            },
+            "min": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Minimum in-degree observed. Typically 0 for unused or root assets (e.g., unreferenced textures, top-level GameObjects)."
             },
             "max": {
               "type": "integer",
               "minimum": 0,
-              "description": "Maximum in-degree observed"
+              "description": "Maximum in-degree observed. High values indicate heavily-shared assets (e.g., common materials, frequently-used prefabs)."
+            },
+            "median": {
+              "type": "number",
+              "minimum": 0,
+              "description": "Median in-degree (50th percentile). For even-count datasets, uses the lower-middle value. Indicates typical asset reuse level."
             }
           }
         }
@@ -83,21 +145,84 @@
     },
     "health": {
       "type": "object",
+      "description": "Dependency health indicators identifying problematic patterns and potential issues",
       "additionalProperties": false,
       "required": [
-        "isolatedAssets",
-        "totalAssets"
+        "totalAssets",
+        "noOutgoingRefs",
+        "noIncomingRefs",
+        "completelyIsolated"
       ],
       "properties": {
-        "isolatedAssets": {
-          "type": "integer",
-          "minimum": 0,
-          "description": "Number of assets with no incoming or outgoing references"
-        },
         "totalAssets": {
           "type": "integer",
           "minimum": 0,
-          "description": "Total number of assets in the dependency graph"
+          "description": "Total number of assets analyzed in the dependency graph (count of assets from all collections)"
+        },
+        "noOutgoingRefs": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of assets with out-degree == 0 (no outgoing references). Common for leaf assets like Texture2D, AudioClip, Mesh that are consumed by other assets but don't reference others. High percentage is normal."
+        },
+        "noIncomingRefs": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of assets with in-degree == 0 (no incoming references). These are unreferenced assets that may be unused and removable. Includes root objects like scene GameObjects that aren't referenced but are still necessary."
+        },
+        "completelyIsolated": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of assets with both in-degree == 0 and out-degree == 0 (neither referenced nor referencing). These are truly isolated assets with no connections to the dependency graph. Strong candidates for removal unless they're root scene objects or intentionally unused assets."
+        }
+      }
+    },
+    "byType": {
+      "type": "array",
+      "description": "Dependency statistics grouped by asset ClassID. Shows how different asset types have different reference patterns (e.g., textures typically have 0 out-degree, prefabs have high out-degree). Sorted by asset count descending. Top 30 types by count.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "classId",
+          "className",
+          "count",
+          "averageOutDegree",
+          "averageInDegree"
+        ],
+        "properties": {
+          "classId": {
+            "type": "integer",
+            "description": "Unity ClassID (e.g., 1=GameObject, 28=Texture2D, 43=Mesh, 114=MonoBehaviour)"
+          },
+          "className": {
+            "type": "string",
+            "description": "Human-readable class name from IUnityObjectBase.ClassName"
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Number of assets of this ClassID in the dependency graph"
+          },
+          "averageOutDegree": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Mean out-degree for assets of this type. Indicates typical reference count for this asset class."
+          },
+          "averageInDegree": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Mean in-degree for assets of this type. Indicates how frequently this asset type is referenced/shared."
+          },
+          "maxOutDegree": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Maximum out-degree observed for this type. Identifies most complex asset of this class."
+          },
+          "maxInDegree": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Maximum in-degree observed for this type. Identifies most heavily-shared asset of this class."
+          }
         }
       }
     }
