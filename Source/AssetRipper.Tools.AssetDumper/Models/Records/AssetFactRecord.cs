@@ -8,14 +8,38 @@ namespace AssetRipper.Tools.AssetDumper.Models;
 /// </summary>
 public sealed class AssetFactRecord
 {
+	[JsonProperty("domain")]
+	public string Domain { get; set; } = "assets";
+
 	[JsonProperty("pk")]
 	public AssetPrimaryKey PrimaryKey { get; set; } = new();
+
+	[JsonProperty("pathId", NullValueHandling = NullValueHandling.Ignore)]
+	public long? PathId { get; set; }
 
 	[JsonProperty("classKey")]
 	public int ClassKey { get; set; }
 
+	[JsonProperty("className", NullValueHandling = NullValueHandling.Ignore)]
+	public string? ClassName { get; set; }
+
 	[JsonProperty("name", NullValueHandling = NullValueHandling.Ignore)]
 	public string? Name { get; set; }
+
+	[JsonProperty("originalPath", NullValueHandling = NullValueHandling.Ignore)]
+	public string? OriginalPath { get; set; }
+
+	[JsonProperty("originalDirectory", NullValueHandling = NullValueHandling.Ignore)]
+	public string? OriginalDirectory { get; set; }
+
+	[JsonProperty("originalName", NullValueHandling = NullValueHandling.Ignore)]
+	public string? OriginalName { get; set; }
+
+	[JsonProperty("originalExtension", NullValueHandling = NullValueHandling.Ignore)]
+	public string? OriginalExtension { get; set; }
+
+	[JsonProperty("assetBundleName", NullValueHandling = NullValueHandling.Ignore)]
+	public string? AssetBundleName { get; set; }
 
 	[JsonProperty("hierarchy", NullValueHandling = NullValueHandling.Ignore)]
 	public HierarchyPath? Hierarchy { get; set; }
@@ -90,4 +114,7 @@ public sealed class AssetUnityMetadata
 
 	[JsonProperty("isStripped", NullValueHandling = NullValueHandling.Ignore)]
 	public bool? IsStripped { get; set; }
+
+	[JsonProperty("serializedVersion", NullValueHandling = NullValueHandling.Ignore)]
+	public int? SerializedVersion { get; set; }
 }

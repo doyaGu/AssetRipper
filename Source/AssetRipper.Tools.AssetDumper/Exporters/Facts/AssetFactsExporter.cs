@@ -166,6 +166,13 @@ public sealed class AssetFactsExporter
 		string? bundleName = collection.Bundle?.Name;
 		string? sceneName = collection.IsScene ? collection.Scene?.Name : null;
 
+		// New: Get path-related properties
+		string? originalPath = string.IsNullOrWhiteSpace(asset.OriginalPath) ? null : asset.OriginalPath;
+		string? originalDirectory = string.IsNullOrWhiteSpace(asset.OriginalDirectory) ? null : asset.OriginalDirectory;
+		string? originalName = string.IsNullOrWhiteSpace(asset.OriginalName) ? null : asset.OriginalName;
+		string? originalExtension = string.IsNullOrWhiteSpace(asset.OriginalExtension) ? null : asset.OriginalExtension;
+		string? assetBundleName = string.IsNullOrWhiteSpace(asset.AssetBundleName) ? null : asset.AssetBundleName;
+
 		AssetFactRecord fact = new AssetFactRecord
 		{
 			PrimaryKey = new AssetPrimaryKey
@@ -173,8 +180,15 @@ public sealed class AssetFactsExporter
 				CollectionId = collectionId,
 				PathId = asset.PathID
 			},
+			PathId = asset.PathID,
 			ClassKey = classKey,
+			ClassName = asset.ClassName,
 			Name = string.IsNullOrWhiteSpace(bestName) ? null : bestName,
+			OriginalPath = originalPath,
+			OriginalDirectory = originalDirectory,
+			OriginalName = originalName,
+			OriginalExtension = originalExtension,
+			AssetBundleName = assetBundleName,
 			Hierarchy = hierarchy,
 			CollectionName = collectionName,
 			BundleName = bundleName,
@@ -200,6 +214,8 @@ public sealed class AssetFactsExporter
 			SerializedTypeIndex = metadata.SerializedTypeIndex >= 0 ? metadata.SerializedTypeIndex : null,
 			ScriptTypeIndex = metadata.ScriptTypeIndex >= 0 ? metadata.ScriptTypeIndex : null,
 			IsStripped = metadata.IsStripped ? true : (bool?)null
+			// Note: SerializedVersion would need to be extracted from the actual asset type,
+			// not available in SerializedObjectMetadata
 		};
 
 		return unity;
@@ -230,10 +246,9 @@ public sealed class AssetFactsExporter
 
 		foreach (Bundle b in lineage)
 		{
-			List<Bundle> pathToBundle = lineage.Take(lineage.IndexOf(b) + 1).ToList();
-			string bundlePk = ComputeBundleStableKey(pathToBundle);
+			string bundlePk = ExportHelper.ComputeBundlePk(b);
 			bundlePath.Add(bundlePk);
-			bundleNames.Add(b.Name);
+			bundleNames.Add(b.Name ?? string.Empty);
 		}
 
 		return new HierarchyPath

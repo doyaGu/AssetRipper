@@ -547,6 +547,18 @@ public sealed class AssetDependencyRelationsExporter
 
         string resolvedCollectionId = collectionResolved ? targetCollectionId : FileConstants.MissingCollectionId;
 
+        // Determine dependency kind based on FileID and field path
+        string kind = DetermineKind(pointer.FileID, fieldName);
+        
+        // Extract array index if present in field path (e.g., "m_Materials[2]" -> 2)
+        int? arrayIndex = ExtractArrayIndex(fieldName);
+        
+        // Extract field type if available (would need asset type reflection - placeholder for now)
+        string? fieldType = null; // TODO: Implement via reflection on asset type
+        
+        // Determine if field is nullable based on PPtr characteristics
+        bool? isNullable = pointer.PathID == 0 ? true : (bool?)null;
+
         AssetDependencyRelation relation = new AssetDependencyRelation
         {
             From = from,
@@ -557,11 +569,16 @@ public sealed class AssetDependencyRelationsExporter
             },
             Edge = new AssetDependencyEdge
             {
-                Kind = "serializedRef",
-                Field = sanitizedField,
-                Optional = null
+                Kind = kind,
+                Field = fieldName, // Use original field name (required by schema)
+                FieldType = fieldType,
+                FileId = pointer.FileID,
+                ArrayIndex = arrayIndex,
+                IsNullable = isNullable,
+                Optional = null // Legacy field, kept for backward compatibility
             },
-            Status = DetermineStatus(ownerCollectionId, resolvedCollectionId, owner.PathID, targetPathId, collectionResolved, assetResolved),
+            Status = DetermineStatus(ownerCollectionId, resolvedCollectionId, owner.PathID, targetPathId, collectionResolved, assetResolved, pointer),
+            TargetType = null, // TODO: Extract from PPtr generic parameter via reflection
             Notes = notes
         };
 
@@ -574,11 +591,25 @@ public sealed class AssetDependencyRelationsExporter
         long ownerPathId,
         long targetPathId,
         bool collectionResolved,
-        bool assetResolved)
+        bool assetResolved,
+        PPtr pointer)
     {
+        // Check for null reference (PathID == 0)
+        if (pointer.PathID == 0)
+        {
+            return "Null";
+        }
+
+        // Check for self-reference
         if (string.Equals(ownerCollectionId, targetCollectionId, StringComparison.Ordinal) && ownerPathId == targetPathId)
         {
             return "SelfReference";
+        }
+
+        // Check for invalid FileID (exceeds dependency list bounds)
+        if (pointer.FileID > 0 && !collectionResolved)
+        {
+            return "InvalidFileID";
         }
 
         if (!collectionResolved)
@@ -597,6 +628,70 @@ public sealed class AssetDependencyRelationsExporter
         }
 
         return collectionResolved ? "External" : "Missing";
+    }
+
+    /// <summary>
+    /// Determines the kind of dependency based on FileID and field path structure.
+    /// </summary>
+    private static string DetermineKind(int fileId, string fieldPath)
+    {
+        // Check if field path contains array indexing (e.g., "m_Materials[2]")
+        if (!string.IsNullOrEmpty(fieldPath) && fieldPath.Contains('[') && fieldPath.Contains(']'))
+        {
+            return "array_element";
+        }
+
+        // Check for dictionary patterns (heuristic: contains "Key" or "Value" in field name)
+        if (!string.IsNullOrEmpty(fieldPath))
+        {
+            if (fieldPath.Contains(".Key", StringComparison.OrdinalIgnoreCase))
+            {
+                return "dictionary_key";
+            }
+            if (fieldPath.Contains(".Value", StringComparison.OrdinalIgnoreCase))
+            {
+                return "dictionary_value";
+            }
+        }
+
+        // Distinguish internal vs external based on FileID
+        if (fileId == 0)
+        {
+            return "internal";
+        }
+        else if (fileId > 0)
+        {
+            return "external";
+        }
+
+        // Default to standard pptr
+        return "pptr";
+    }
+
+    /// <summary>
+    /// Extracts array index from field path (e.g., "m_Materials[2]" -> 2).
+    /// Returns null if no array index present.
+    /// </summary>
+    private static int? ExtractArrayIndex(string fieldPath)
+    {
+        if (string.IsNullOrEmpty(fieldPath))
+        {
+            return null;
+        }
+
+        int openBracket = fieldPath.LastIndexOf('[');
+        int closeBracket = fieldPath.LastIndexOf(']');
+
+        if (openBracket > 0 && closeBracket > openBracket)
+        {
+            string indexStr = fieldPath.Substring(openBracket + 1, closeBracket - openBracket - 1);
+            if (int.TryParse(indexStr, out int index) && index >= 0)
+            {
+                return index;
+            }
+        }
+
+        return null;
     }
 
     private bool ShouldSkip(DependencyResolutionContext context)

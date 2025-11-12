@@ -21,11 +21,13 @@ public sealed class FactsExportPipeline
 	/// </summary>
 	public void Execute()
 	{
+		// Export collections
 		if (_context.Options.ExportCollections)
 		{
 			ExportCollectionFacts();
 		}
 
+		// Export assets
 		ExportAssetFacts();
 	}
 

@@ -1,6 +1,7 @@
 using AssetRipper.Assets.Bundles;
 using AssetRipper.Assets.Collections;
 using AssetRipper.Import.Logging;
+using AssetRipper.IO.Files;
 using AssetRipper.IO.Files.ResourceFiles;
 using AssetRipper.Processing;
 using AssetRipper.Tools.AssetDumper.Models;
@@ -138,6 +139,8 @@ internal sealed class BundleMetadataExporter
 
 		List<string>? collectionIds = BuildCollectionIdList(bundle);
 		List<BundleResourceRecord>? resourceRecords = BuildResourceRecords(bundle.Resources);
+		List<BundleFailedFileRecord>? failedFileRecords = BuildFailedFileRecords(bundle);
+		List<SceneRefRecord>? sceneRecords = BuildSceneRecords(bundle);
 
 		// New: Collect child bundle information
 		List<string>? childBundlePks = null;
@@ -218,6 +221,8 @@ internal sealed class BundleMetadataExporter
 			AncestorPath = ancestorPath,
 			CollectionIds = collectionIds,
 			Resources = resourceRecords,
+			FailedFiles = failedFileRecords,
+			Scenes = sceneRecords,
 			DirectCollectionCount = directCollectionCount,
 			TotalCollectionCount = totals.CollectionCount,
 			DirectSceneCollectionCount = directSceneCount,
@@ -274,6 +279,55 @@ internal sealed class BundleMetadataExporter
 			{
 				Name = resource.Name,
 				FilePath = filePath
+			});
+		}
+
+		return records;
+	}
+
+	private static List<BundleFailedFileRecord>? BuildFailedFileRecords(Bundle bundle)
+	{
+		if (bundle.FailedFiles.Count == 0)
+		{
+			return null;
+		}
+
+		List<BundleFailedFileRecord> records = new(bundle.FailedFiles.Count);
+		foreach (FailedFile failedFile in bundle.FailedFiles)
+		{
+			string? filePath = string.IsNullOrWhiteSpace(failedFile.FilePath) ? null : failedFile.FilePath;
+			string? error = string.IsNullOrWhiteSpace(failedFile.StackTrace) ? null : failedFile.StackTrace;
+			records.Add(new BundleFailedFileRecord
+			{
+				Name = failedFile.Name,
+				FilePath = filePath,
+				Error = error
+			});
+		}
+
+		return records;
+	}
+
+	private static List<SceneRefRecord>? BuildSceneRecords(Bundle bundle)
+	{
+		var scenes = bundle.Scenes.ToList();
+		if (scenes.Count == 0)
+		{
+			return null;
+		}
+
+		List<SceneRefRecord> records = new(scenes.Count);
+		foreach (SceneDefinition scene in scenes)
+		{
+			string sceneGuid = scene.GUID.ToString();
+			string? sceneName = string.IsNullOrWhiteSpace(scene.Name) ? null : scene.Name;
+			string? scenePath = string.IsNullOrWhiteSpace(scene.Path) ? null : scene.Path;
+			
+			records.Add(new SceneRefRecord
+			{
+				SceneGuid = sceneGuid,
+				SceneName = sceneName,
+				ScenePath = scenePath
 			});
 		}
 

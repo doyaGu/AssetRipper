@@ -95,10 +95,8 @@ internal sealed class ScriptTypeMappingExporter
 		int totalExported = 0;
 		int validMappings = 0;
 		int invalidMappings = 0;
-
 		try
 		{
-			// Process mappings with parallel processing
 			List<ScriptTypeMappingRecordWithKey> recordsWithKeys = ParallelProcessor.ProcessInParallelWithNulls(
 				scriptsToMap,
 				scriptInfo =>
@@ -110,7 +108,7 @@ internal sealed class ScriptTypeMappingExporter
 					}
 					catch (Exception ex)
 					{
-						Logger.Warning(LogCategory.Export, $"Failed to map script {scriptInfo.Script.ClassName}: {ex.Message}");
+						Logger.Warning(LogCategory.Export, $"Failed to map script {scriptInfo.Script.GetFullName()}: {ex.Message}");
 						return null;
 					}
 				},
@@ -153,7 +151,7 @@ internal sealed class ScriptTypeMappingExporter
 		string scriptGuid = ScriptHashing.CalculateScriptGuid(script).ToString();
 		string assemblyName = script.GetAssemblyNameFixed();
 		string namespaceName = script.Namespace.String ?? string.Empty;
-		string className = script.ClassName;
+		string className = script.ClassName_R.String ?? script.ClassName;
 		string fullName = script.GetFullName();
 		string assemblyGuid = ComputeAssemblyGuid(assemblyName);
 
@@ -164,6 +162,9 @@ internal sealed class ScriptTypeMappingExporter
 			ScriptGuid = scriptGuid,
 			TypeFullName = fullName,
 			AssemblyGuid = assemblyGuid,
+			AssemblyName = assemblyName,
+			Namespace = string.IsNullOrEmpty(namespaceName) ? null : namespaceName,
+			ClassName = className,
 			IsValid = false,
 			FailureReason = null
 		};
@@ -173,11 +174,14 @@ internal sealed class ScriptTypeMappingExporter
 		{
 			ScriptIdentifier scriptId = gameData.AssemblyManager.GetScriptID(assemblyName, namespaceName, className);
 			
+			// Store ScriptIdentifier for debugging
+			record.ScriptIdentifier = $"{assemblyName}::{namespaceName}::{className}";
+			
 			if (gameData.AssemblyManager.IsPresent(scriptId))
 			{
 				if (gameData.AssemblyManager.IsValid(scriptId))
 				{
-					// Try to get type definition to confirm resolution
+					// Try to get type definition to confirm resolution and extract generic info
 					try
 					{
 						AsmResolver.DotNet.TypeDefinition? typeDef = gameData.AssemblyManager.GetTypeDefinition(scriptId);
@@ -185,6 +189,13 @@ internal sealed class ScriptTypeMappingExporter
 						{
 							record.IsValid = true;
 							record.FailureReason = null;
+							
+							// Extract generic information
+							if (typeDef.GenericParameters.Count > 0)
+							{
+								record.IsGeneric = true;
+								record.GenericParameterCount = typeDef.GenericParameters.Count;
+							}
 						}
 						else
 						{
@@ -207,7 +218,7 @@ internal sealed class ScriptTypeMappingExporter
 			else
 			{
 				record.IsValid = false;
-				record.FailureReason = "ScriptIdentifier not present in assembly";
+				record.FailureReason = $"Can't find type: {scriptId.UniqueName}";
 			}
 		}
 		catch (Exception ex)

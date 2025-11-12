@@ -8,11 +8,17 @@ namespace AssetRipper.Tools.AssetDumper.Models;
 /// </summary>
 public sealed class CollectionFactRecord
 {
+	[JsonProperty("domain")]
+	public string Domain { get; set; } = "collections";
+
 	[JsonProperty("collectionId")]
 	public string CollectionId { get; set; } = string.Empty;
 
 	[JsonProperty("name")]
 	public string Name { get; set; } = string.Empty;
+
+	[JsonProperty("collectionType", NullValueHandling = NullValueHandling.Ignore)]
+	public string? CollectionType { get; set; }
 
 	[JsonProperty("friendlyName", NullValueHandling = NullValueHandling.Ignore)]
 	public string? FriendlyName { get; set; }
@@ -28,6 +34,9 @@ public sealed class CollectionFactRecord
 
 	[JsonProperty("unityVersion")]
 	public string UnityVersion { get; set; } = string.Empty;
+
+	[JsonProperty("originalUnityVersion", NullValueHandling = NullValueHandling.Ignore)]
+	public string? OriginalUnityVersion { get; set; }
 
 	[JsonProperty("formatVersion", NullValueHandling = NullValueHandling.Ignore)]
 	public int? FormatVersion { get; set; }

@@ -67,9 +67,9 @@ internal class ScriptRecordExporter
 		long maxBytesPerShard = 50 * 1024 * 1024; // 50MB per shard
 
 		DomainExportResult result = new DomainExportResult(
-			domain: "scripts",
-			tableId: "facts/scripts",
-			schemaPath: "Schemas/v2/facts/scripts.schema.json");
+			domain: "script_metadata",
+			tableId: "facts/script_metadata",
+			schemaPath: "Schemas/v2/facts/script_metadata.schema.json");
 
 		ShardedNdjsonWriter writer = new ShardedNdjsonWriter(
 			_options.OutputPath,
@@ -102,7 +102,7 @@ internal class ScriptRecordExporter
 					{
 						try
 						{
-							ScriptRecord record = CreateScriptRecord(script, collection, collectionId, out string stableKey);
+							ScriptRecord record = CreateScriptRecord(script, collection, collectionId, gameData, out string stableKey);
 							return new ScriptRecordWithKey(record, stableKey);
 						}
 						catch (Exception ex)
@@ -138,30 +138,41 @@ internal class ScriptRecordExporter
 		return result;
 	}
 
-	private ScriptRecord CreateScriptRecord(IMonoScript script, AssetCollection collection, string collectionId, out string stableKey)
+	private ScriptRecord CreateScriptRecord(IMonoScript script, AssetCollection collection, string collectionId, GameData gameData, out string stableKey)
 	{
 		stableKey = StableKeyHelper.Create(collectionId, script.PathID);
 
+		string resolvedClassName = script.ClassName_R.String ?? script.ClassName;
+
 		ScriptRecord record = new ScriptRecord
 		{
-			Domain = "scripts",
+			Domain = "script_metadata",
 			Pk = stableKey,
 			CollectionId = collectionId,
 
 			PathId = script.PathID,
 			ClassId = script.ClassID,
-			ClassName = script.ClassName,
+			ClassName = resolvedClassName,
 			Namespace = string.IsNullOrWhiteSpace(script.Namespace.String) ? null : script.Namespace.String,
 			FullName = script.GetFullName(),
 			AssemblyName = script.GetAssemblyNameFixed(),
 			ExecutionOrder = script.ExecutionOrder
 		};
 
+		// Add raw assembly name if different from fixed name
+		string rawAssemblyName = script.AssemblyName;
+		string fixedAssemblyName = record.AssemblyName;
+		if (!string.IsNullOrEmpty(rawAssemblyName) && rawAssemblyName != fixedAssemblyName)
+		{
+			record.AssemblyNameRaw = rawAssemblyName;
+		}
+
 		record.ScriptGuid = SafeCompute(script, "script guid", static s => ScriptHashing.CalculateScriptGuid(s).ToString(), (string?)null);
 		record.AssemblyGuid = SafeCompute(script, "assembly guid", static s => ScriptHashing.CalculateAssemblyGuid(s).ToString(), (string?)null);
 		record.ScriptFileId = SafeCompute(script, "script file id", static s => (int?)ScriptHashing.CalculateScriptFileID(s), (int?)null);
 
 		TryAssignPropertiesHash(script, record);
+		TryAssignTypeInfo(script, gameData, record);
 		AssignSceneMetadata(collection, record);
 
 		return record;
@@ -196,6 +207,49 @@ internal class ScriptRecordExporter
 		{
 			Logger.Warning(LogCategory.Export,
 				$"Failed to read properties hash for script {script.GetFullName()}: {ex.Message}");
+		}
+	}
+
+	private static void TryAssignTypeInfo(IMonoScript script, GameData gameData, ScriptRecord record)
+	{
+		if (gameData.AssemblyManager?.IsSet != true)
+		{
+			return;
+		}
+
+		try
+		{
+			// Check if the script is present in assemblies
+			bool isPresent = script.IsScriptPresents(gameData.AssemblyManager);
+			record.IsPresent = isPresent;
+
+			if (isPresent)
+			{
+				// Try to get the type definition to check for generics
+				try
+				{
+					AsmResolver.DotNet.TypeDefinition? typeDef = script.GetTypeDefinition(gameData.AssemblyManager);
+					if (typeDef != null)
+					{
+						bool isGeneric = typeDef.GenericParameters.Count > 0;
+						if (isGeneric)
+						{
+							record.IsGeneric = true;
+							record.GenericParameterCount = typeDef.GenericParameters.Count;
+						}
+					}
+				}
+				catch (Exception ex)
+				{
+					Logger.Warning(LogCategory.Export,
+						$"Failed to get type definition for script {script.GetFullName()}: {ex.Message}");
+				}
+			}
+		}
+		catch (Exception ex)
+		{
+			Logger.Warning(LogCategory.Export,
+				$"Failed to check script presence for {script.GetFullName()}: {ex.Message}");
 		}
 	}
 

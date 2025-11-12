@@ -158,6 +158,7 @@ internal sealed class AssemblyDependencyExporter
 
 		ModuleDefinition module = assembly.Modules[0];
 		string sourceGuid = ComputeAssemblyGuid(module);
+		string? sourceModule = module.Name?.Value;
 
 		// Process assembly references
 		foreach (AssemblyReference assemblyRef in module.AssemblyReferences)
@@ -170,31 +171,100 @@ internal sealed class AssemblyDependencyExporter
 
 			// Try to resolve the target assembly GUID
 			string? targetGuid = null;
+			string? failureReason = null;
 			if (assemblyIndex.TryGetValue(refName, out string? resolvedGuid))
 			{
 				targetGuid = resolvedGuid;
 			}
+			else
+			{
+				failureReason = $"Assembly '{refName}' not found in loaded assemblies";
+			}
 
-			// Classify if it's a framework assembly
+			// Classify dependency type
+			string dependencyType = DetermineDependencyType(refName);
 			bool? isFrameworkAssembly = ClassifyAsFrameworkAssembly(refName);
 
 			// Extract version info
 			string? version = assemblyRef.Version?.ToString();
 
+			// Extract public key token (8 bytes as 16-character hex string)
+			string? publicKeyToken = null;
+			if (assemblyRef.HasPublicKey)
+			{
+				byte[]? token = assemblyRef.GetPublicKeyToken();
+				if (token != null && token.Length == 8)
+				{
+					publicKeyToken = BitConverter.ToString(token).Replace("-", "").ToLowerInvariant();
+				}
+			}
+
+			// Extract culture info
+			string? culture = assemblyRef.Culture?.Value;
+			if (string.IsNullOrEmpty(culture) || culture == "neutral")
+			{
+				culture = "neutral";
+			}
+
 			AssemblyDependencyRecord record = new AssemblyDependencyRecord
 			{
 				SourceAssembly = sourceGuid,
+				SourceModule = sourceModule,
 				TargetAssembly = targetGuid,
 				TargetName = refName,
 				Version = version,
+				PublicKeyToken = publicKeyToken,
+				Culture = culture,
 				IsResolved = targetGuid != null,
-				IsFrameworkAssembly = isFrameworkAssembly
+				DependencyType = dependencyType,
+				IsFrameworkAssembly = isFrameworkAssembly,
+				FailureReason = failureReason
 			};
 
 			deps.Add(record);
 		}
 
 		return deps;
+	}
+
+	/// <summary>
+	/// Determines the type of dependency based on assembly name patterns.
+	/// </summary>
+	/// <param name="assemblyName">The assembly name to classify.</param>
+	/// <returns>Dependency type: "direct", "framework", "plugin", or "unknown".</returns>
+	private static string DetermineDependencyType(string assemblyName)
+	{
+		// Framework assemblies (.NET BCL)
+		if (assemblyName.StartsWith("System", StringComparison.Ordinal) ||
+		    assemblyName.StartsWith("mscorlib", StringComparison.Ordinal) ||
+		    assemblyName.StartsWith("netstandard", StringComparison.Ordinal) ||
+		    assemblyName.StartsWith("Microsoft.", StringComparison.Ordinal))
+		{
+			return "framework";
+		}
+
+		// Unity framework assemblies
+		if (assemblyName.StartsWith("UnityEngine", StringComparison.Ordinal) ||
+		    assemblyName.StartsWith("UnityEditor", StringComparison.Ordinal))
+		{
+			return "framework";
+		}
+
+		// Plugin assemblies
+		if (assemblyName.Contains("Plugin") || 
+		    assemblyName.Contains("ThirdParty") ||
+		    assemblyName.StartsWith("Newtonsoft.", StringComparison.Ordinal))
+		{
+			return "plugin";
+		}
+
+		// User assemblies (direct dependencies)
+		if (assemblyName.StartsWith("Assembly-", StringComparison.Ordinal))
+		{
+			return "direct";
+		}
+
+		return "unknown";
 	}
 
 	/// <summary>

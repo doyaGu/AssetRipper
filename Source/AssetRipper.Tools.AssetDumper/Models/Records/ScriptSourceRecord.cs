@@ -43,6 +43,21 @@ public sealed class ScriptSourceRecord
 	[JsonProperty("decompilerVersion", NullValueHandling = NullValueHandling.Ignore)]
 	public string? DecompilerVersion { get; set; }
 
+	[JsonProperty("decompilationStatus")]
+	public string DecompilationStatus { get; set; } = "success";
+
+	[JsonProperty("isEmpty", NullValueHandling = NullValueHandling.Ignore)]
+	public bool? IsEmpty { get; set; }
+
+	[JsonProperty("errorMessage", NullValueHandling = NullValueHandling.Ignore)]
+	public string? ErrorMessage { get; set; }
+
+	[JsonProperty("isPresent", NullValueHandling = NullValueHandling.Ignore)]
+	public bool? IsPresent { get; set; }
+
+	[JsonProperty("isGeneric", NullValueHandling = NullValueHandling.Ignore)]
+	public bool? IsGeneric { get; set; }
+
 	[JsonProperty("hasAst", NullValueHandling = NullValueHandling.Ignore)]
 	public bool? HasAst { get; set; }
 

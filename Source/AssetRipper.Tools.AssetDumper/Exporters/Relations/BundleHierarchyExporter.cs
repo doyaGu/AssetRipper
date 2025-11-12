@@ -88,25 +88,53 @@ public sealed class BundleHierarchyExporter
 	{
 		lineage.Add(bundle);
 		string parentPk = ComputeBundleStableKey(lineage);
+		string parentName = bundle.Name;
+		int parentDepth = lineage.Count - 1;
 
 		for (int i = 0; i < bundle.Bundles.Count; i++)
 		{
 			Bundle child = bundle.Bundles[i];
 			List<Bundle> childLineage = new(lineage) { child };
 			string childPk = ComputeBundleStableKey(childLineage);
+			int childDepth = parentDepth + 1;
+			string childBundleType = DetermineBundleType(child);
 
 			edges.Add(new BundleHierarchyRecord
 			{
 				ParentPk = parentPk,
+				ParentName = parentName,
 				ChildPk = childPk,
 				ChildIndex = i,
-				ChildName = child.Name
+				ChildName = child.Name,
+				ChildBundleType = childBundleType,
+				ChildDepth = childDepth
 			});
 
 			TraverseForEdges(child, lineage, edges);
 		}
 
 		lineage.RemoveAt(lineage.Count - 1);
+	}
+
+	/// <summary>
+	/// Determines the type of a bundle based on its runtime type.
+	/// Maps AssetRipper bundle types to schema enum values.
+	/// </summary>
+	/// <param name="bundle">The bundle to classify.</param>
+	/// <returns>String representation of bundle type.</returns>
+	private static string DetermineBundleType(Bundle bundle)
+	{
+		string typeName = bundle.GetType().Name;
+		
+		return typeName switch
+		{
+			"GameBundle" => "GameBundle",
+			"SerializedBundle" => "SerializedBundle",
+			"ProcessedBundle" => "ProcessedBundle",
+			"ResourceFile" => "ResourceFile",
+			"WebBundle" => "WebBundle",
+			_ => "Unknown"
+		};
 	}
 
 	private static string ComputeBundleStableKey(List<Bundle> lineage)

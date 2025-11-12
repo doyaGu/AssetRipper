@@ -1,24 +1,25 @@
 using AssetRipper.Assets;
 using AssetRipper.Assets.Collections;
 using AssetRipper.Processing;
+using AssetRipper.Processing.Prefabs;
 using AssetRipper.SourceGenerated.Classes.ClassID_1;
-using AssetRipper.SourceGenerated.Classes.ClassID_4;
 using AssetRipper.SourceGenerated.Extensions;
 using AssetRipper.Tools.AssetDumper.Core;
+using Newtonsoft.Json;
 
 namespace AssetRipper.Tools.AssetDumper.Metrics;
 
 /// <summary>
-/// Collects statistics about scenes in the game data.
-/// Implements the scene_stats metric as defined in whitepaper section 6.4.
+/// Collects statistics about scenes in the game data from SceneHierarchyObject.
+/// Implements the scene_stats metric extracting comprehensive scene metadata.
 /// </summary>
 public sealed class SceneStatsCollector : BaseMetricsCollector
 {
 	public override string MetricsId => "scene_stats";
-	public override string SchemaUri => "https://example.org/assetdump/v2/metrics/scene_stats.schema.json";
+	public override string SchemaUri => "https://schemas.assetripper.dev/assetdump/v2/metrics/scene_stats.schema.json";
 	public override bool HasData => _sceneStats.Count > 0;
 
-	private readonly List<SceneStat> _sceneStats = new();
+	private readonly List<SceneStatRecord> _sceneStats = new();
 
 	public SceneStatsCollector(Options options) : base(options)
 	{
@@ -31,90 +32,50 @@ public sealed class SceneStatsCollector : BaseMetricsCollector
 		if (gameData == null)
 			return;
 
+		// Iterate through all collections to find SceneHierarchyObject instances
 		foreach (AssetCollection collection in gameData.GameBundle.FetchAssetCollections())
 		{
-			// Look for scene collections (typically have Scene_XXX asset or .unity extension)
-			bool isScene = collection.Name.Contains("scene", StringComparison.OrdinalIgnoreCase) ||
-						   collection.Name.EndsWith(".unity", StringComparison.OrdinalIgnoreCase);
-
-			if (!isScene)
-				continue;
-
-			SceneStat stat = CollectSceneStats(collection);
-			if (stat.Counts.GameObjects > 0) // Only include scenes with content
+			foreach (IUnityObjectBase asset in collection)
 			{
-				_sceneStats.Add(stat);
-			}
-		}
-	}
-
-	private SceneStat CollectSceneStats(AssetCollection collection)
-	{
-		int gameObjectCount = 0;
-		int componentCount = 0;
-		int maxDepth = 0;
-
-		// Count GameObjects and Components
-		foreach (IUnityObjectBase asset in collection)
-		{
-			if (asset is IGameObject gameObject)
-			{
-				gameObjectCount++;
-				
-				// Count components precisely using GameObjectExtensions.GetComponentCount()
-				componentCount += gameObject.GetComponentCount();
-			}
-		}
-
-		// Calculate hierarchy depth by traversing transforms
-		Dictionary<long, int> depthMap = new();
-		foreach (IUnityObjectBase asset in collection)
-		{
-			if (asset is ITransform transform)
-			{
-				int depth = CalculateDepth(transform, depthMap, collection);
-				if (depth > maxDepth)
+				if (asset is SceneHierarchyObject sceneHierarchy)
 				{
-					maxDepth = depth;
+					SceneStatRecord stat = CollectSceneStats(sceneHierarchy);
+					_sceneStats.Add(stat);
 				}
 			}
 		}
-
-		return new SceneStat
-		{
-			Scene = new AssetPK
-			{
-				CollectionId = collection.Name, // Simplified - in real implementation would use stable ID
-				PathId = 0 // Scene root
-			},
-			Counts = new SceneCounts
-			{
-				GameObjects = gameObjectCount,
-				Components = componentCount,
-				MaxHierarchyDepth = maxDepth
-			}
-		};
 	}
 
-	private int CalculateDepth(ITransform transform, Dictionary<long, int> depthMap, AssetCollection collection)
+	private SceneStatRecord CollectSceneStats(SceneHierarchyObject sceneHierarchy)
 	{
-		long pathId = transform.PathID;
-		
-		if (depthMap.ContainsKey(pathId))
-			return depthMap[pathId];
+		SceneDefinition scene = sceneHierarchy.Scene;
 
-		// If no parent, depth is 0
-		ITransform? father = transform.Father_C4P;
-		if (father == null)
+		// Count root GameObjects
+		int rootCount = sceneHierarchy.GetRoots().Count();
+
+		return new SceneStatRecord
 		{
-			depthMap[pathId] = 0;
-			return 0;
-		}
-
-		// Calculate depth recursively
-		int depth = 1 + CalculateDepth(father, depthMap, collection);
-		depthMap[pathId] = depth;
-		return depth;
+			SceneGuid = scene.GUID.ToString(),
+			SceneName = scene.Name,
+			ScenePath = scene.Path,
+			HierarchyAssetPk = new AssetPKRecord
+			{
+				CollectionId = sceneHierarchy.Collection.Name,
+				PathId = sceneHierarchy.PathID
+			},
+			Counts = new SceneCountsRecord
+			{
+				GameObjects = sceneHierarchy.GameObjects.Count,
+				Components = sceneHierarchy.Components.Count,
+				PrefabInstances = sceneHierarchy.PrefabInstances.Count,
+				Managers = sceneHierarchy.Managers.Count,
+				RootGameObjects = rootCount,
+				StrippedAssets = sceneHierarchy.StrippedAssets.Count,
+				HiddenAssets = sceneHierarchy.HiddenAssets.Count,
+				Collections = scene.Collections.Count
+			},
+			HasSceneRoots = sceneHierarchy.SceneRoots != null
+		};
 	}
 
 	protected override object? GetMetricsData()
@@ -122,22 +83,75 @@ public sealed class SceneStatsCollector : BaseMetricsCollector
 		return _sceneStats.Count > 0 ? _sceneStats : null;
 	}
 
-	private class SceneStat
+	/// <summary>
+	/// Record for a single scene's statistics.
+	/// </summary>
+	private class SceneStatRecord
 	{
-		public AssetPK Scene { get; set; } = new();
-		public SceneCounts Counts { get; set; } = new();
+		[JsonProperty("domain")]
+		public string Domain { get; set; } = "scene_stats";
+
+		[JsonProperty("sceneGuid")]
+		public string SceneGuid { get; set; } = string.Empty;
+
+		[JsonProperty("sceneName")]
+		public string SceneName { get; set; } = string.Empty;
+
+		[JsonProperty("scenePath", NullValueHandling = NullValueHandling.Ignore)]
+		public string? ScenePath { get; set; }
+
+		[JsonProperty("hierarchyAssetPk", NullValueHandling = NullValueHandling.Ignore)]
+		public AssetPKRecord? HierarchyAssetPk { get; set; }
+
+		[JsonProperty("counts")]
+		public SceneCountsRecord Counts { get; set; } = new();
+
+		[JsonProperty("hasSceneRoots", NullValueHandling = NullValueHandling.Ignore)]
+		public bool? HasSceneRoots { get; set; }
+
+		[JsonProperty("notes", NullValueHandling = NullValueHandling.Ignore)]
+		public string? Notes { get; set; }
 	}
 
-	private class SceneCounts
+	/// <summary>
+	/// Counts for various scene elements.
+	/// </summary>
+	private class SceneCountsRecord
 	{
+		[JsonProperty("gameObjects")]
 		public int GameObjects { get; set; }
+
+		[JsonProperty("components")]
 		public int Components { get; set; }
-		public int MaxHierarchyDepth { get; set; }
+
+		[JsonProperty("prefabInstances")]
+		public int PrefabInstances { get; set; }
+
+		[JsonProperty("managers")]
+		public int Managers { get; set; }
+
+		[JsonProperty("rootGameObjects")]
+		public int RootGameObjects { get; set; }
+
+		[JsonProperty("strippedAssets", NullValueHandling = NullValueHandling.Ignore)]
+		public int? StrippedAssets { get; set; }
+
+		[JsonProperty("hiddenAssets", NullValueHandling = NullValueHandling.Ignore)]
+		public int? HiddenAssets { get; set; }
+
+		[JsonProperty("collections", NullValueHandling = NullValueHandling.Ignore)]
+		public int? Collections { get; set; }
 	}
 
-	private class AssetPK
+	/// <summary>
+	/// Asset primary key reference.
+	/// </summary>
+	private class AssetPKRecord
 	{
+		[JsonProperty("collectionId")]
 		public string CollectionId { get; set; } = string.Empty;
+
+		[JsonProperty("pathId")]
 		public long PathId { get; set; }
 	}
 }

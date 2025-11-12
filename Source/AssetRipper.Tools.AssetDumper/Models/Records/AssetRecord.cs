@@ -26,6 +26,9 @@ public class AssetRecord
 	[JsonProperty("bestName", NullValueHandling = NullValueHandling.Ignore)]
 	public string? BestName { get; set; }
 
+	[JsonProperty("hierarchy", NullValueHandling = NullValueHandling.Ignore)]
+	public HierarchyPath? Hierarchy { get; set; }
+
 	[JsonIgnore]
 	public string? BundleName { get; set; }
 

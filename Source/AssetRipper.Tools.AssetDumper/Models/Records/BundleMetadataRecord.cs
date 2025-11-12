@@ -7,6 +7,9 @@ namespace AssetRipper.Tools.AssetDumper.Models;
 /// </summary>
 public sealed class BundleMetadataRecord
 {
+	[JsonProperty("domain")]
+	public string Domain { get; set; } = "bundles";
+
 	[JsonProperty("pk")]
 	public string Pk { get; set; } = string.Empty;
 
@@ -45,6 +48,12 @@ public sealed class BundleMetadataRecord
 
 	[JsonProperty("resources", NullValueHandling = NullValueHandling.Ignore)]
 	public List<BundleResourceRecord>? Resources { get; set; }
+
+	[JsonProperty("failedFiles", NullValueHandling = NullValueHandling.Ignore)]
+	public List<BundleFailedFileRecord>? FailedFiles { get; set; }
+
+	[JsonProperty("scenes", NullValueHandling = NullValueHandling.Ignore)]
+	public List<SceneRefRecord>? Scenes { get; set; }
 
 	[JsonProperty("directCollectionCount")]
 	public int DirectCollectionCount { get; set; }
@@ -93,4 +102,34 @@ public sealed class BundleResourceRecord
 
 	[JsonProperty("filePath", NullValueHandling = NullValueHandling.Ignore)]
 	public string? FilePath { get; set; }
+}
+
+/// <summary>
+/// Failed file information associated with a bundle.
+/// </summary>
+public sealed class BundleFailedFileRecord
+{
+	[JsonProperty("name")]
+	public string Name { get; set; } = string.Empty;
+
+	[JsonProperty("filePath", NullValueHandling = NullValueHandling.Ignore)]
+	public string? FilePath { get; set; }
+
+	[JsonProperty("error", NullValueHandling = NullValueHandling.Ignore)]
+	public string? Error { get; set; }
+}
+
+/// <summary>
+/// Scene reference in a bundle.
+/// </summary>
+public sealed class SceneRefRecord
+{
+	[JsonProperty("sceneGuid")]
+	public string SceneGuid { get; set; } = string.Empty;
+
+	[JsonProperty("sceneName", NullValueHandling = NullValueHandling.Ignore)]
+	public string? SceneName { get; set; }
+
+	[JsonProperty("scenePath", NullValueHandling = NullValueHandling.Ignore)]
+	public string? ScenePath { get; set; }
 }

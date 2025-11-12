@@ -98,7 +98,7 @@ internal class SceneRecordExporter
 			// Sequential write phase (thread-safe writer handles locking)
 			foreach (SceneRecord record in records)
 			{
-				string stableKey = record.HierarchyAssetId;
+				string stableKey = record.HierarchyAssetId ?? string.Empty;
 				string? indexKey = _enableIndex ? stableKey : null;
 				writer.WriteRecord(record, stableKey, indexKey);
 				exportedCount++;
@@ -166,6 +166,13 @@ internal class SceneRecordExporter
 				.Select(c => ExportHelper.ComputeCollectionId(c))
 				.ToList(),
 
+			// New fields
+			PrimaryCollectionId = primaryCollectionId,
+			Bundle = primaryCollection.Bundle != null ? BuildBundleRef(primaryCollection.Bundle) : null,
+			CollectionDetails = scene.Collections
+				.Select((c, index) => CreateSceneCollectionDetail(c, index == 0))
+				.ToList(),
+
 			Hierarchy = hierarchyRef,
 			HierarchyAssetId = StableKeyHelper.Create(hierarchyRef),
 			PathId = hierarchy.PathID,
@@ -227,6 +234,7 @@ internal class SceneRecordExporter
 			CollectionId = collectionId,
 			Name = collection.Name,
 			BundleName = collection.Bundle?.Name,
+			BundlePk = collection.Bundle != null ? ExportHelper.ComputeBundlePk(collection.Bundle) : null,
 			CollectionType = GetCollectionType(collection),
 			FilePath = collection.FilePath,
 			Version = collection.Version.ToString(),
@@ -235,7 +243,31 @@ internal class SceneRecordExporter
 			IsProcessed = collection is ProcessedAssetCollection,
 			IsSceneCollection = collection.IsScene,
 			SceneName = collection.Scene?.Name,
-			IsPrimary = isPrimary
+			IsPrimary = isPrimary,
+			AssetCount = collection.Count
+		};
+	}
+
+	private SceneCollectionDetail CreateSceneCollectionDetail(AssetCollection collection, bool isPrimary)
+	{
+		string collectionId = ExportHelper.ComputeCollectionId(collection);
+		BundleRef bundleRef = BuildBundleRef(collection.Bundle);
+
+		return new SceneCollectionDetail
+		{
+			CollectionId = collectionId,
+			Bundle = bundleRef,
+			IsPrimary = isPrimary,
+			AssetCount = collection.Count
+		};
+	}
+
+	private BundleRef BuildBundleRef(AssetRipper.Assets.Bundles.Bundle bundle)
+	{
+		return new BundleRef
+		{
+			BundlePk = ExportHelper.ComputeBundlePk(bundle),
+			BundleName = bundle.Name
 		};
 	}
 

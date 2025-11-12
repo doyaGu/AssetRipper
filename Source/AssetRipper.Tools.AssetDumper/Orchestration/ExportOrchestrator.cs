@@ -366,7 +366,7 @@ public sealed class ExportOrchestrator
 	}
 
 	/// <summary>
-	/// Exports Phase C: Type member data.
+	/// Exports Phase C: Type member data (V2 schema with enhanced metadata).
 	/// </summary>
 	private void ExportPhaseC(ExportContext context)
 	{

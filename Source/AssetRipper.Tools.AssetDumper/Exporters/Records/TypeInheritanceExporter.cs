@@ -14,7 +14,7 @@ namespace AssetRipper.Tools.AssetDumper.Exporters.Records;
 
 /// <summary>
 /// Exports type inheritance relationships for hierarchy and polymorphism analysis.
-/// Phase B exporter that tracks base classes and interface implementations.
+/// Phase B exporter that tracks base classes and interface implementations with full hierarchy information.
 /// </summary>
 internal sealed class TypeInheritanceExporter
 {
@@ -51,6 +51,10 @@ internal sealed class TypeInheritanceExporter
 		Dictionary<string, TypeInfo> typeIndex = BuildTypeIndex(gameData.AssemblyManager);
 		Logger.Info(LogCategory.Export, $"Built type index with {typeIndex.Count} types");
 
+		// Build descendant count map
+		Dictionary<string, int> descendantCounts = CalculateDescendantCounts(gameData.AssemblyManager, typeIndex);
+		Logger.Info(LogCategory.Export, $"Calculated descendant counts for {descendantCounts.Count} types");
+
 		// Collect all inheritance relationships
 		List<TypeInheritanceRecord> inheritanceRecords = new List<TypeInheritanceRecord>();
 
@@ -65,7 +69,7 @@ internal sealed class TypeInheritanceExporter
 					if (ShouldExportType(type))
 					{
 						List<TypeInheritanceRecord> typeRecords = ExtractInheritanceForType(
-							type, assemblyName, typeIndex);
+							type, assemblyName, typeIndex, descendantCounts);
 						inheritanceRecords.AddRange(typeRecords);
 					}
 				}
@@ -147,17 +151,15 @@ internal sealed class TypeInheritanceExporter
 				{
 					if (ShouldExportType(type))
 					{
-						string namespaceName = type.Namespace?.Value ?? string.Empty;
-						string typeName = type.Name?.Value ?? "Unknown";
-						string typeKey = CreateTypeKey(assemblyName, namespaceName, typeName);
+						string fullName = type.FullName ?? $"{type.Namespace?.Value ?? string.Empty}.{type.Name?.Value ?? "Unknown"}";
 
-						index[typeKey] = new TypeInfo
+						TypeInfo typeInfo = new TypeInfo
 						{
 							Assembly = assemblyName,
-							Namespace = namespaceName,
-							TypeName = typeName,
-							FullName = type.FullName ?? $"{namespaceName}.{typeName}"
+							FullName = fullName
 						};
+
+						index[fullName] = typeInfo;
 					}
 				}
 			}
@@ -167,28 +169,103 @@ internal sealed class TypeInheritanceExporter
 	}
 
 	/// <summary>
+	/// Calculates descendant counts for all types.
+	/// </summary>
+	private Dictionary<string, int> CalculateDescendantCounts(
+		IAssemblyManager assemblyManager,
+		Dictionary<string, TypeInfo> typeIndex)
+	{
+		Dictionary<string, int> counts = new Dictionary<string, int>(StringComparer.Ordinal);
+		Dictionary<string, HashSet<string>> childrenMap = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
+
+		// Build children map
+		foreach (AssemblyDefinition assembly in assemblyManager.GetAssemblies())
+		{
+			foreach (ModuleDefinition module in assembly.Modules)
+			{
+				foreach (TypeDefinition type in module.TopLevelTypes)
+				{
+					if (ShouldExportType(type))
+					{
+						string derivedFullName = type.FullName ?? $"{type.Namespace?.Value ?? string.Empty}.{type.Name?.Value ?? "Unknown"}";
+
+						if (type.BaseType != null)
+						{
+							string? baseFullName = ExtractFullTypeName(type.BaseType);
+							if (baseFullName != null)
+							{
+								if (!childrenMap.ContainsKey(baseFullName))
+								{
+									childrenMap[baseFullName] = new HashSet<string>(StringComparer.Ordinal);
+								}
+								childrenMap[baseFullName].Add(derivedFullName);
+							}
+						}
+					}
+				}
+			}
+		}
+
+		// Calculate descendant counts recursively
+		foreach (string typeName in typeIndex.Keys)
+		{
+			counts[typeName] = CalculateDescendantCountRecursive(typeName, childrenMap, new HashSet<string>(StringComparer.Ordinal));
+		}
+
+		return counts;
+	}
+
+	private int CalculateDescendantCountRecursive(
+		string typeName,
+		Dictionary<string, HashSet<string>> childrenMap,
+		HashSet<string> visited)
+	{
+		if (visited.Contains(typeName))
+		{
+			return 0; // Circular reference guard
+		}
+
+		visited.Add(typeName);
+		int count = 1; // Count the type itself
+
+		if (childrenMap.TryGetValue(typeName, out HashSet<string>? children))
+		{
+			foreach (string child in children)
+			{
+				count += CalculateDescendantCountRecursive(child, childrenMap, visited);
+			}
+		}
+
+		return count;
+	}
+
+	/// <summary>
 	/// Extracts all inheritance relationships for a single type.
 	/// </summary>
 	private List<TypeInheritanceRecord> ExtractInheritanceForType(
 		TypeDefinition type,
 		string assemblyName,
-		Dictionary<string, TypeInfo> typeIndex)
+		Dictionary<string, TypeInfo> typeIndex,
+		Dictionary<string, int> descendantCounts)
 	{
 		List<TypeInheritanceRecord> records = new List<TypeInheritanceRecord>();
 
-		string namespaceName = type.Namespace?.Value ?? string.Empty;
-		string typeName = type.Name?.Value ?? "Unknown";
-		string derivedTypeKey = CreateTypeKey(assemblyName, namespaceName, typeName);
+		string derivedFullName = type.FullName ?? $"{type.Namespace?.Value ?? string.Empty}.{type.Name?.Value ?? "Unknown"}";
+		int inheritanceDepth = CalculateInheritanceDepth(type);
+		int? descendantCount = descendantCounts.TryGetValue(derivedFullName, out int count) ? count : null;
 
 		// Process base type (class inheritance)
 		if (type.BaseType != null)
 		{
 			TypeInheritanceRecord? baseRecord = CreateInheritanceRecord(
-				derivedTypeKey,
+				derivedFullName,
+				assemblyName,
 				type.BaseType,
 				typeIndex,
-				isDirectBase: true,
-				depth: 1);
+				"class_inheritance",
+				inheritanceDistance: 1,
+				inheritanceDepth: inheritanceDepth,
+				descendantCount: descendantCount);
 
 			if (baseRecord != null)
 			{
@@ -202,11 +279,14 @@ internal sealed class TypeInheritanceExporter
 			if (iface.Interface != null)
 			{
 				TypeInheritanceRecord? ifaceRecord = CreateInheritanceRecord(
-					derivedTypeKey,
+					derivedFullName,
+					assemblyName,
 					iface.Interface,
 					typeIndex,
-					isDirectBase: true,
-					depth: 1);
+					"interface_implementation",
+					inheritanceDistance: 1,
+					inheritanceDepth: inheritanceDepth,
+					descendantCount: descendantCount);
 
 				if (ifaceRecord != null)
 				{
@@ -219,71 +299,171 @@ internal sealed class TypeInheritanceExporter
 	}
 
 	/// <summary>
+	/// Calculates inheritance depth by traversing the BaseType chain.
+	/// </summary>
+	private int CalculateInheritanceDepth(TypeDefinition type)
+	{
+		int depth = 0;
+		TypeDefinition? current = type;
+
+		while (current?.BaseType != null)
+		{
+			depth++;
+			
+			// Try to resolve the base type
+			if (current.BaseType is TypeDefinition baseDef)
+			{
+				current = baseDef;
+			}
+			else if (current.BaseType is TypeReference typeRef)
+			{
+				current = typeRef.Resolve();
+			}
+			else
+			{
+				break;
+			}
+
+			// Safety check to prevent infinite loops
+			if (depth > 100)
+			{
+				break;
+			}
+		}
+
+		return depth;
+	}
+
+	/// <summary>
 	/// Creates an inheritance record for a base type or interface.
 	/// </summary>
 	private TypeInheritanceRecord? CreateInheritanceRecord(
-		string derivedTypeKey,
+		string derivedFullName,
+		string derivedAssembly,
 		ITypeDescriptor baseTypeDescriptor,
 		Dictionary<string, TypeInfo> typeIndex,
-		bool isDirectBase,
-		int depth)
+		string relationshipType,
+		int inheritanceDistance,
+		int inheritanceDepth,
+		int? descendantCount)
 	{
-		// Try to extract base type information
-		string? baseNamespace = null;
-		string? baseTypeName = null;
-		string? baseAssemblyName = null;
-
-		if (baseTypeDescriptor is TypeDefinition baseDef)
-		{
-			baseNamespace = baseDef.Namespace?.Value ?? string.Empty;
-			baseTypeName = baseDef.Name?.Value;
-			
-			// TypeDefinition is already part of an assembly - we'll need to track it differently
-			// For now, we'll resolve it via the type index lookup
-		}
-		else if (baseTypeDescriptor is TypeReference typeRef)
-		{
-			baseNamespace = typeRef.Namespace?.Value ?? string.Empty;
-			baseTypeName = typeRef.Name?.Value;
-
-			// Try to resolve assembly from scope
-			if (typeRef.Scope is AssemblyReference asmRef)
-			{
-				baseAssemblyName = asmRef.Name?.Value;
-			}
-			else if (typeRef.Scope is ModuleReference modRef)
-			{
-				baseAssemblyName = modRef.Name?.Value;
-			}
-		}
-
-		if (string.IsNullOrEmpty(baseTypeName))
+		string? baseFullName = ExtractFullTypeName(baseTypeDescriptor);
+		if (baseFullName == null)
 		{
 			return null;
 		}
 
-		// Build base type key
-		string baseTypeKey = !string.IsNullOrEmpty(baseAssemblyName)
-			? CreateTypeKey(baseAssemblyName, baseNamespace ?? string.Empty, baseTypeName)
-			: $"{baseNamespace}.{baseTypeName}";
-
-		// Check if base type exists in our index
-		string? resolvedBaseAssembly = null;
-		if (!string.IsNullOrEmpty(baseAssemblyName) && typeIndex.ContainsKey(baseTypeKey))
-		{
-			resolvedBaseAssembly = baseAssemblyName;
-		}
+		string? baseAssemblyName = ExtractAssemblyName(baseTypeDescriptor);
+		string[]? baseTypeArguments = ExtractGenericTypeArguments(baseTypeDescriptor);
 
 		TypeInheritanceRecord record = new TypeInheritanceRecord
 		{
-			DerivedType = derivedTypeKey,
-			BaseType = baseTypeKey,
-			BaseAssembly = resolvedBaseAssembly,
-			IsDirectBase = isDirectBase,
-			InheritanceDepth = depth
+			DerivedType = derivedFullName,
+			DerivedAssembly = derivedAssembly,
+			BaseType = baseFullName,
+			BaseAssembly = baseAssemblyName ?? string.Empty,
+			RelationshipType = relationshipType,
+			InheritanceDistance = inheritanceDistance,
+			InheritanceDepth = inheritanceDepth,
+			BaseTypeArguments = baseTypeArguments,
+			DescendantCount = descendantCount
 		};
 
 		return record;
+	}
+
+	/// <summary>
+	/// Extracts the full type name from a type descriptor.
+	/// </summary>
+	private string? ExtractFullTypeName(ITypeDescriptor typeDescriptor)
+	{
+		if (typeDescriptor is TypeDefinition typeDef)
+		{
+			return typeDef.FullName;
+		}
+		else if (typeDescriptor is TypeReference typeRef)
+		{
+			return typeRef.FullName;
+		}
+		else if (typeDescriptor is TypeSpecification typeSpec)
+		{
+			// For generic instances, get the base type name
+			return typeSpec.Signature?.ToString();
+		}
+
+		return null;
+	}
+
+	/// <summary>
+	/// Extracts the assembly name from a type descriptor.
+	/// </summary>
+	private string? ExtractAssemblyName(ITypeDescriptor typeDescriptor)
+	{
+		if (typeDescriptor is TypeDefinition typeDef)
+		{
+			// TypeDefinition doesn't directly expose Module in AsmResolver
+			// We need to find the assembly through the declaring type or from context
+			return null; // Will be resolved through type index lookup
+		}
+		else if (typeDescriptor is TypeReference typeRef)
+		{
+			if (typeRef.Scope is AssemblyReference asmRef)
+			{
+				return asmRef.Name;
+			}
+			else if (typeRef.Scope is ModuleReference modRef)
+			{
+				return modRef.Name;
+			}
+		}
+
+		return null;
+	}
+
+	/// <summary>
+	/// Extracts generic type arguments from a type descriptor.
+	/// </summary>
+	private string[]? ExtractGenericTypeArguments(ITypeDescriptor typeDescriptor)
+	{
+		// Check if it's a generic instance
+		if (typeDescriptor is TypeSpecification typeSpec)
+		{
+			// Try to get generic arguments from the signature
+			string? sigString = typeSpec.Signature?.ToString();
+			if (!string.IsNullOrEmpty(sigString) && sigString.Contains("<") && sigString.Contains(">"))
+			{
+				// Simple parsing of generic arguments from signature string
+				int startIdx = sigString.IndexOf('<');
+				int endIdx = sigString.LastIndexOf('>');
+				if (startIdx >= 0 && endIdx > startIdx)
+				{
+					string argsStr = sigString.Substring(startIdx + 1, endIdx - startIdx - 1);
+					List<string> args = new List<string>();
+					
+					// Split by comma, handling nested generics
+					int depth = 0;
+					int lastIdx = 0;
+					for (int i = 0; i < argsStr.Length; i++)
+					{
+						if (argsStr[i] == '<') depth++;
+						else if (argsStr[i] == '>') depth--;
+						else if (argsStr[i] == ',' && depth == 0)
+						{
+							args.Add(argsStr.Substring(lastIdx, i - lastIdx).Trim());
+							lastIdx = i + 1;
+						}
+					}
+					if (lastIdx < argsStr.Length)
+					{
+						args.Add(argsStr.Substring(lastIdx).Trim());
+					}
+
+					return args.Count > 0 ? args.ToArray() : null;
+				}
+			}
+		}
+
+		return null;
 	}
 
 	private static bool ShouldExportType(TypeDefinition type)
@@ -302,11 +482,6 @@ internal sealed class TypeInheritanceExporter
 		return true;
 	}
 
-	private static string CreateTypeKey(string assemblyName, string namespaceName, string typeName)
-	{
-		return $"{assemblyName}:{namespaceName}:{typeName}";
-	}
-
 	private static string GetAssemblyName(AssemblyDefinition assembly)
 	{
 		return assembly.Name ?? "Unknown";
@@ -318,8 +493,6 @@ internal sealed class TypeInheritanceExporter
 	private sealed class TypeInfo
 	{
 		public string Assembly { get; set; } = string.Empty;
-		public string Namespace { get; set; } = string.Empty;
-		public string TypeName { get; set; } = string.Empty;
 		public string FullName { get; set; } = string.Empty;
 	}
 }

@@ -7,6 +7,9 @@ namespace AssetRipper.Tools.AssetDumper.Models;
 /// </summary>
 public sealed class TypeFactRecord
 {
+	[JsonProperty("domain")]
+	public string Domain { get; set; } = "types";
+
 	[JsonProperty("classKey")]
 	public int ClassKey { get; set; }
 

@@ -55,20 +55,29 @@ public class SceneRecord
 	[JsonProperty("collections", NullValueHandling = NullValueHandling.Ignore)]
 	public List<SceneCollectionDescriptor>? Collections { get; set; }
 
-	[JsonProperty("hierarchy")]
-	public AssetRef Hierarchy { get; set; } = new();
+	[JsonProperty("primaryCollectionId", NullValueHandling = NullValueHandling.Ignore)]
+	public string? PrimaryCollectionId { get; set; }
 
-	[JsonProperty("hierarchyAssetId")]
-	public string HierarchyAssetId { get; set; } = string.Empty;
+	[JsonProperty("bundle", NullValueHandling = NullValueHandling.Ignore)]
+	public BundleRef? Bundle { get; set; }
 
-	[JsonProperty("pathID")]
-	public long PathId { get; set; }
+	[JsonProperty("collectionDetails", NullValueHandling = NullValueHandling.Ignore)]
+	public List<SceneCollectionDetail>? CollectionDetails { get; set; }
 
-	[JsonProperty("classID")]
-	public int ClassId { get; set; }
+	[JsonProperty("hierarchy", NullValueHandling = NullValueHandling.Ignore)]
+	public AssetRef? Hierarchy { get; set; }
 
-	[JsonProperty("className")]
-	public string ClassName { get; set; } = string.Empty;
+	[JsonProperty("hierarchyAssetId", NullValueHandling = NullValueHandling.Ignore)]
+	public string? HierarchyAssetId { get; set; }
+
+	[JsonProperty("pathID", NullValueHandling = NullValueHandling.Ignore)]
+	public long? PathId { get; set; }
+
+	[JsonProperty("classID", NullValueHandling = NullValueHandling.Ignore)]
+	public int? ClassId { get; set; }
+
+	[JsonProperty("className", NullValueHandling = NullValueHandling.Ignore)]
+	public string? ClassName { get; set; }
 
 	[JsonProperty("assetCount")]
 	public int AssetCount { get; set; }
@@ -145,6 +154,9 @@ public class SceneCollectionDescriptor
 	[JsonProperty("bundleName", NullValueHandling = NullValueHandling.Ignore)]
 	public string? BundleName { get; set; }
 
+	[JsonProperty("bundlePk", NullValueHandling = NullValueHandling.Ignore)]
+	public string? BundlePk { get; set; }
+
 	[JsonProperty("collectionType", NullValueHandling = NullValueHandling.Ignore)]
 	public string? CollectionType { get; set; }
 
@@ -171,4 +183,25 @@ public class SceneCollectionDescriptor
 
 	[JsonProperty("isPrimary", NullValueHandling = NullValueHandling.Ignore)]
 	public bool? IsPrimary { get; set; }
+
+	[JsonProperty("assetCount", NullValueHandling = NullValueHandling.Ignore)]
+	public int? AssetCount { get; set; }
+}
+
+/// <summary>
+/// Detailed metadata for each collection composing a scene.
+/// </summary>
+public class SceneCollectionDetail
+{
+	[JsonProperty("collectionId")]
+	public string CollectionId { get; set; } = string.Empty;
+
+	[JsonProperty("bundle")]
+	public BundleRef Bundle { get; set; } = new();
+
+	[JsonProperty("isPrimary", NullValueHandling = NullValueHandling.Ignore)]
+	public bool? IsPrimary { get; set; }
+
+	[JsonProperty("assetCount", NullValueHandling = NullValueHandling.Ignore)]
+	public int? AssetCount { get; set; }
 }

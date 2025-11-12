@@ -164,7 +164,7 @@ internal sealed class TypeDefinitionRecordExporter
 				{
 					string assemblyName = script.GetAssemblyNameFixed();
 					string namespaceName = script.Namespace.String ?? string.Empty;
-					string className = script.ClassName;
+					string className = script.ClassName_R.String ?? script.ClassName;
 
 					// Create lookup key: ASSEMBLY:NAMESPACE:TYPENAME
 					string key = CreateTypeKey(assemblyName, namespaceName, className);
@@ -179,7 +179,7 @@ internal sealed class TypeDefinitionRecordExporter
 				}
 				catch (Exception ex)
 				{
-					Logger.Verbose(LogCategory.Export, $"Failed to index script {script.ClassName}: {ex.Message}");
+					Logger.Verbose(LogCategory.Export, $"Failed to index script {script.GetFullName()}: {ex.Message}");
 				}
 			}
 		}

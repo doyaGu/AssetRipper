@@ -201,6 +201,7 @@ public class Options
 
 	// Code analysis flags
 	public bool ExportScriptCodeAssociation => CodeAnalysisTables != "none";
+	public bool ExportTypeDefinitions => CodeAnalysisTables.Contains("types", StringComparison.OrdinalIgnoreCase) || CodeAnalysisTables.Contains("all", StringComparison.OrdinalIgnoreCase);
 	public bool ExportTypeMembers => CodeAnalysisTables.Contains("members", StringComparison.OrdinalIgnoreCase) || CodeAnalysisTables.Contains("all", StringComparison.OrdinalIgnoreCase);
 	public bool LinkSourceFiles => CodeAnalysisTables.Contains("sources", StringComparison.OrdinalIgnoreCase) || CodeAnalysisTables.Contains("all", StringComparison.OrdinalIgnoreCase);
 

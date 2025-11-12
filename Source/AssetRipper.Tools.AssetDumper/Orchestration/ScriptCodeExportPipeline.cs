@@ -119,7 +119,7 @@ internal sealed class ScriptCodeExportPipeline
 	{
 		if (!_context.Options.Silent)
 		{
-			Logger.Info("Exporting type members...");
+			Logger.Info("Exporting type members (V2 schema with enhanced metadata)...");
 		}
 
 		TypeMemberExporter exporter = new TypeMemberExporter(

@@ -105,4 +105,25 @@ internal static class ExportHelper
 			return hash.ToString("X8");
 		}
 	}
+
+	public static string ComputeBundlePk(AssetRipper.Assets.Bundles.Bundle bundle)
+	{
+		if (bundle is null)
+		{
+			throw new ArgumentNullException(nameof(bundle));
+		}
+
+		// Build lineage path for stable PK computation
+		List<AssetRipper.Assets.Bundles.Bundle> lineage = new List<AssetRipper.Assets.Bundles.Bundle>();
+		AssetRipper.Assets.Bundles.Bundle? current = bundle;
+		while (current != null)
+		{
+			lineage.Insert(0, current);
+			current = current.Parent;
+		}
+
+		// Use full path including type names for stability
+		string composite = string.Join("|", lineage.Select(static b => $"{b.GetType().FullName}:{b.Name}"));
+		return ComputeStableHash(composite);
+	}
 }

@@ -150,15 +150,35 @@ public sealed class CollectionFactsExporter
 		// New: Asset count
 		int assetCount = collection.Count;
 
+		// Determine collection type
+		string? collectionType = collection switch
+		{
+			SerializedAssetCollection => "Serialized",
+			ProcessedAssetCollection => "Processed",
+			_ => "Virtual"
+		};
+
+		// Get original Unity version (may differ from current version if modified)
+		string? originalUnityVersion = null;
+		string currentVersionStr = collection.Version.ToString();
+		string originalVersionStr = collection.OriginalVersion.ToString();
+		// Only include if different from current version
+		if (originalVersionStr != currentVersionStr)
+		{
+			originalUnityVersion = originalVersionStr;
+		}
+
 		return new CollectionFactRecord
 		{
 			CollectionId = collectionId,
 			Name = collection.Name,
+			CollectionType = collectionType,
 			FriendlyName = friendlyName,
 			FilePath = normalizedPath,
 			BundleName = collection.Bundle?.Name,
 			Platform = collection.Platform.ToString(),
-			UnityVersion = collection.Version.ToString(),
+			UnityVersion = currentVersionStr,
+			OriginalUnityVersion = originalUnityVersion,
 			FormatVersion = formatVersion,
 			Endian = collection.EndianType.ToString(),
 			FlagsRaw = flagsRaw,
