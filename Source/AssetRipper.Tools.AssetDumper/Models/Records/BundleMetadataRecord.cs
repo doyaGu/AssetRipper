@@ -31,8 +31,8 @@ public sealed class BundleMetadataRecord
 	[JsonProperty("hierarchyPath")]
 	public string HierarchyPath { get; set; } = string.Empty;
 
-	[JsonProperty("childBundlePks", NullValueHandling = NullValueHandling.Ignore)]
-	public List<string>? ChildBundlePks { get; set; }
+	[JsonProperty("childBundlePks")]
+	public List<string> ChildBundlePks { get; set; } = new();
 
 	[JsonProperty("childBundleNames", NullValueHandling = NullValueHandling.Ignore)]
 	public List<string>? ChildBundleNames { get; set; }

@@ -1,19 +1,29 @@
 using AssetRipper.Import.Logging;
 using AssetRipper.Tools.AssetDumper.Core;
 using AssetRipper.Tools.AssetDumper.Exporters.Records;
+using AssetRipper.Tools.AssetDumper.Generators;
+using AssetRipper.Tools.AssetDumper.Helpers;
 
 namespace AssetRipper.Tools.AssetDumper.Orchestration;
 
 /// <summary>
 /// Pipeline for exporting script-code association metadata (assemblies, types, mappings).
+/// Optionally generates AST files when linking source files.
 /// </summary>
 internal sealed class ScriptCodeExportPipeline
 {
 	private readonly ExportContext _context;
+	private readonly AstGenerator? _astGenerator;
 
 	public ScriptCodeExportPipeline(ExportContext context)
 	{
 		_context = context ?? throw new ArgumentNullException(nameof(context));
+		
+		// Initialize AST generator if AST generation is enabled
+		if (_context.Options.GenerateAst)
+		{
+			_astGenerator = new AstGenerator(_context.Options);
+		}
 	}
 
 	/// <summary>
@@ -35,6 +45,12 @@ internal sealed class ScriptCodeExportPipeline
 			// Optional: Link to source files if available
 			if (_context.Options.LinkSourceFiles)
 			{
+				// Generate AST before linking sources if enabled
+				if (_context.Options.GenerateAst && _astGenerator != null)
+				{
+					GenerateAst();
+				}
+				
 				ExportScriptSources();
 			}
 
@@ -113,6 +129,25 @@ internal sealed class ScriptCodeExportPipeline
 
 		DomainExportResult result = exporter.ExportSources(_context.GameData);
 		_context.AddResult(result);
+	}
+
+	private void GenerateAst()
+	{
+		if (!_context.Options.Silent)
+		{
+			Logger.Info("Generating AST from decompiled scripts...");
+		}
+
+		string scriptsDir = Path.Combine(_context.Options.OutputPath, "Scripts");
+		if (!Directory.Exists(scriptsDir))
+		{
+			Logger.Warning("Scripts directory not found. Skipping AST generation.");
+			return;
+		}
+
+		// Use FilterManager for consistent filtering (if available in context)
+		FilterManager filterManager = new FilterManager(_context.Options);
+		_astGenerator?.GenerateAstFromScripts(scriptsDir, _context.Options.OutputPath, filterManager);
 	}
 
 	private void ExportTypeMembers()

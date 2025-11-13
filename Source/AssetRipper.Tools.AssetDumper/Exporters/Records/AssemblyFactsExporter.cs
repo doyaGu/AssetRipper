@@ -171,6 +171,7 @@ internal sealed class AssemblyFactsExporter
 			FullName = assembly.FullName,
 			Version = assembly.Version?.ToString(),
 			ScriptingBackend = gameData.AssemblyManager.ScriptingBackend.ToString(),
+			AssemblyType = DetermineAssemblyType(assembly, assemblyName),
 			TypeCount = CountTypes(assembly),
 			ScriptCount = scriptCountsByAssembly.TryGetValue(assemblyName, out int count) ? count : 0,
 			IsDynamic = false, // AsmResolver doesn't expose IsDynamic directly
@@ -184,7 +185,101 @@ internal sealed class AssemblyFactsExporter
 		// Try to link to exported DLL if available
 		TrySetDllInfo(assembly, record);
 
+		// Extract assembly references
+		TrySetReferences(assembly, record);
+
+		// Extract mscorlib version for .NET version tracking
+		TrySetMscorlibVersion(assembly, record);
+
+		// Note: exportType and isModified are optional fields that would require
+		// access to AssetRipper's export configuration and modification tracking.
+		// These fields remain null for now and can be populated by post-processing
+		// or when export context is available.
+
 		return record;
+	}
+
+	private static string DetermineAssemblyType(AssemblyDefinition assembly, string assemblyName)
+	{
+		// Predefined Unity assemblies
+		if (assemblyName.StartsWith("Assembly-CSharp", StringComparison.OrdinalIgnoreCase) ||
+		    assemblyName.Equals("Assembly-UnityScript", StringComparison.OrdinalIgnoreCase) ||
+		    assemblyName.Equals("Assembly-Boo", StringComparison.OrdinalIgnoreCase))
+		{
+			return "Predefined";
+		}
+
+		// Unity engine assemblies
+		if (assemblyName.StartsWith("UnityEngine", StringComparison.OrdinalIgnoreCase))
+		{
+			return "UnityEngine";
+		}
+
+		// Unity extensions and packages
+		if (assemblyName.StartsWith("Unity.", StringComparison.OrdinalIgnoreCase) ||
+		    assemblyName.StartsWith("UnityEditor.", StringComparison.OrdinalIgnoreCase))
+		{
+			return "UnityExtension";
+		}
+
+		// System assemblies
+		if (assemblyName.StartsWith("System", StringComparison.OrdinalIgnoreCase) ||
+		    assemblyName.StartsWith("mscorlib", StringComparison.OrdinalIgnoreCase) ||
+		    assemblyName.StartsWith("netstandard", StringComparison.OrdinalIgnoreCase))
+		{
+			return "System";
+		}
+
+		// Default to User
+		return "User";
+	}
+
+	private static void TrySetReferences(AssemblyDefinition assembly, AssemblyFactRecord record)
+	{
+		try
+		{
+			List<string> references = new();
+			foreach (ModuleDefinition module in assembly.Modules)
+			{
+				foreach (AssemblyReference reference in module.AssemblyReferences)
+				{
+					if (!string.IsNullOrEmpty(reference.Name) && !references.Contains(reference.Name))
+					{
+						references.Add(reference.Name);
+					}
+				}
+			}
+
+			if (references.Count > 0)
+			{
+				record.References = references;
+			}
+		}
+		catch (Exception ex)
+		{
+			Logger.Warning(LogCategory.Export, $"Failed to extract references for assembly {assembly.Name}: {ex.Message}");
+		}
+	}
+
+	private static void TrySetMscorlibVersion(AssemblyDefinition assembly, AssemblyFactRecord record)
+	{
+		try
+		{
+			// Look for mscorlib reference in all modules
+			AssemblyReference? mscorlibRef = assembly.Modules
+				.SelectMany(m => m.AssemblyReferences)
+				.FirstOrDefault(r => r.Name == "mscorlib");
+
+			if (mscorlibRef?.Version != null)
+			{
+				// Store major version only (e.g., 2 for .NET 2.0/3.5, 4 for .NET 4.x)
+				record.MscorlibVersion = mscorlibRef.Version.Major;
+			}
+		}
+		catch (Exception ex)
+		{
+			Logger.Verbose(LogCategory.Export, $"Could not determine mscorlib version for {assembly.Name}: {ex.Message}");
+		}
 	}
 
 	private static string GetAssemblyName(AssemblyDefinition assembly)

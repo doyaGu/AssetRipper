@@ -14,13 +14,11 @@ internal class ScriptProcessor
 {
 	private readonly Options _options;
 	private readonly FilterManager _filterManager;
-	private readonly AstGenerator _astGenerator;
 
 	public ScriptProcessor(Options options, FilterManager filterManager)
 	{
 		_options = options ?? throw new ArgumentNullException(nameof(options));
 		_filterManager = filterManager ?? throw new ArgumentNullException(nameof(filterManager));
-		_astGenerator = new AstGenerator(_options);
 	}
 
 	public void ProcessScripts(GameData gameData)
@@ -38,7 +36,6 @@ internal class ScriptProcessor
 
 		bool needsAssemblies = _options.ExportAssemblies;
 		bool needsScripts = _options.ExportScripts || _options.GenerateAst;
-		bool needsAst = _options.GenerateAst;
 
 		string scriptsDir = Path.Combine(_options.OutputPath, "Scripts");
 		bool hasScripts = _options.IncrementalProcessing && Directory.Exists(scriptsDir) &&
@@ -79,36 +76,9 @@ internal class ScriptProcessor
 					Logger.Info(LogCategory.Export, $"Script decompilation completed in {scriptStopwatch.Elapsed:mm\\:ss\\.fff}");
 				}
 			}
-			else if (needsAst && !hasScripts)
-			{
-				// AST needs scripts but user didn't request them - auto-enable
-				if (!_options.Silent)
-				{
-					Logger.Info(LogCategory.Export, "Decompiling scripts (required for AST)...");
-				}
-				if (!Directory.Exists(Path.Combine(_options.OutputPath, "Assemblies")))
-				{
-					ExportAssemblyDlls(gameData);
-				}
-				DecompileScripts();
-			}
-
-			// Generate AST if needed
-			if (needsAst)
-			{
-				if (!_options.Silent)
-				{
-					Logger.Info(LogCategory.Export, "Generating AST...");
-				}
-				var astStopwatch = Stopwatch.StartNew();
-				_astGenerator.GenerateAstFromScripts(scriptsDir, _options.OutputPath, _filterManager);
-				astStopwatch.Stop();
-
-				if (_options.Verbose)
-				{
-					Logger.Info(LogCategory.Export, $"AST generation completed in {astStopwatch.Elapsed:mm\\:ss\\.fff}");
-				}
-			}
+			
+			// Note: AST generation is now handled by ScriptCodeExportPipeline
+			// when LinkSourceFiles and GenerateAst are both enabled
 		}
 		finally
 		{
@@ -154,7 +124,7 @@ internal class ScriptProcessor
 			var scriptFiles = _filterManager.GetFilteredFiles(new DirectoryInfo(scriptsDir)).ToList();
 			if (!_options.Silent)
 			{
-				Logger.Info(LogCategory.Export, $"Would process {scriptFiles.Count} script files for AST");
+				Logger.Info(LogCategory.Export, $"Found {scriptFiles.Count} decompiled script files");
 			}
 
 			if (_options.Verbose && scriptFiles.Any())
@@ -169,10 +139,11 @@ internal class ScriptProcessor
 				}
 			}
 		}
-
-		if (_options.GenerateAst)
+		
+		// Note: AST generation preview is now part of ScriptCodeExportPipeline
+		if (_options.GenerateAst && !_options.Silent)
 		{
-			_astGenerator.PreviewAstGeneration(_options.OutputPath, _filterManager);
+			Logger.Info(LogCategory.Export, "AST generation will be handled by ScriptCodeExportPipeline (when LinkSourceFiles is enabled)");
 		}
 	}
 

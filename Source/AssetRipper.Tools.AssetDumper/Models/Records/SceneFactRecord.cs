@@ -5,7 +5,7 @@ namespace AssetRipper.Tools.AssetDumper.Models;
 /// <summary>
 /// Minimal scene line record (one scene per line).
 /// </summary>
-public class SceneRecord
+public class SceneFactRecord
 {
 	[JsonProperty("domain")]
 	public string Domain { get; set; } = "scenes";
@@ -24,12 +24,6 @@ public class SceneRecord
 
 	[JsonProperty("exportedAt")]
 	public string ExportedAt { get; set; } = string.Empty;
-
-	[JsonProperty("collectionId")]
-	public string CollectionId { get; set; } = string.Empty;
-
-	[JsonProperty("collection")]
-	public string Collection { get; set; } = string.Empty;
 
 	[JsonProperty("version")]
 	public string Version { get; set; } = string.Empty;

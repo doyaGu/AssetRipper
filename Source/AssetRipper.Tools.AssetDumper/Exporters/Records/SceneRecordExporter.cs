@@ -79,7 +79,7 @@ internal class SceneRecordExporter
 		{
 			// Parallel processing of scene records (CPU-bound work)
 			// Record creation is parallelized; writes are serialized for thread safety
-			List<SceneRecord> records = ParallelProcessor.ProcessInParallelWithNulls(
+			List<SceneFactRecord> records = ParallelProcessor.ProcessInParallelWithNulls(
 				sceneList,
 				scene =>
 				{
@@ -96,7 +96,7 @@ internal class SceneRecordExporter
 				maxParallelism: 0); // 0 = auto-detect based on CPU cores
 
 			// Sequential write phase (thread-safe writer handles locking)
-			foreach (SceneRecord record in records)
+			foreach (SceneFactRecord record in records)
 			{
 				string stableKey = record.HierarchyAssetId ?? string.Empty;
 				string? indexKey = _enableIndex ? stableKey : null;
@@ -120,7 +120,7 @@ internal class SceneRecordExporter
 		return result;
 	}
 
-	private SceneRecord? CreateSceneRecord(SceneDefinition scene)
+	private SceneFactRecord? CreateSceneRecord(SceneDefinition scene)
 	{
 		SceneHierarchyObject? hierarchy = null;
 		AssetCollection? primaryCollection = null;
@@ -144,7 +144,7 @@ internal class SceneRecordExporter
 		string primaryCollectionId = ExportHelper.ComputeCollectionId(primaryCollection);
 		AssetRef hierarchyRef = new AssetRef(primaryCollectionId, hierarchy.PathID);
 
-		SceneRecord record = new SceneRecord
+		SceneFactRecord record = new SceneFactRecord
 		{
 			Domain = "scenes",
 			Type = "Scene",
@@ -153,8 +153,6 @@ internal class SceneRecordExporter
 			ScenePath = hierarchy.Scene.Path,
 			ExportedAt = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ"),
 
-			CollectionId = primaryCollectionId,
-			Collection = primaryCollection.Name,
 			Version = primaryCollection.Version.ToString(),
 			Platform = primaryCollection.Platform.ToString(),
 			Flags = primaryCollection.Flags.ToString(),

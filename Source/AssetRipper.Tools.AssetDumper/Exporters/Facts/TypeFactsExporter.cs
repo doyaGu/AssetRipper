@@ -77,11 +77,17 @@ public sealed class TypeFactsExporter
 
 	private static TypeFactRecord ToRecord(TypeDictionaryEntry entry)
 	{
+		// Note: Additional optional fields (originalClassName, baseClassName, isAbstract,
+		// isEditorOnly, isReleaseOnly, monoScript, serializedTypeIndex) are available in the schema
+		// but require access to UniversalClass metadata and MonoScript assets.
+		// These can be populated in a separate enrichment pass when such data is available.
+
 		return new TypeFactRecord
 		{
 			ClassKey = entry.ClassKey,
 			ClassId = entry.ClassId,
 			ClassName = entry.ClassName,
+			TypeId = entry.TypeId == entry.ClassId ? null : (int?)entry.TypeId,
 			ScriptTypeIndex = entry.ScriptTypeIndex,
 			IsStripped = entry.IsStripped
 		};

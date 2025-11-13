@@ -28,6 +28,9 @@ public sealed class AssemblyFactRecord
 	[JsonProperty("scriptingBackend")]
 	public string ScriptingBackend { get; set; } = "Unknown";
 
+	[JsonProperty("assemblyType")]
+	public string AssemblyType { get; set; } = "User";
+
 	[JsonProperty("runtime", NullValueHandling = NullValueHandling.Ignore)]
 	public string? Runtime { get; set; }
 
@@ -54,4 +57,16 @@ public sealed class AssemblyFactRecord
 
 	[JsonProperty("platform", NullValueHandling = NullValueHandling.Ignore)]
 	public string? Platform { get; set; }
+
+	[JsonProperty("mscorlibVersion", NullValueHandling = NullValueHandling.Ignore)]
+	public int? MscorlibVersion { get; set; }
+
+	[JsonProperty("references", NullValueHandling = NullValueHandling.Ignore)]
+	public List<string>? References { get; set; }
+
+	[JsonProperty("exportType", NullValueHandling = NullValueHandling.Ignore)]
+	public string? ExportType { get; set; }
+
+	[JsonProperty("isModified", NullValueHandling = NullValueHandling.Ignore)]
+	public bool? IsModified { get; set; }
 }

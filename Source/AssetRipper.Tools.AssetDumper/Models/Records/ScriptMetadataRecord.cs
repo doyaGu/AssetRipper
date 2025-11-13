@@ -5,7 +5,7 @@ namespace AssetRipper.Tools.AssetDumper.Models;
 /// <summary>
 /// MonoScript fact record combining collection linkage, identifiers, and scene provenance.
 /// </summary>
-public sealed class ScriptRecord
+public sealed class ScriptMetadataRecord
 {
 	[JsonProperty("domain")]
 	public string Domain { get; set; } = "script_metadata";
@@ -52,8 +52,8 @@ public sealed class ScriptRecord
 	[JsonProperty("propertiesHash", NullValueHandling = NullValueHandling.Ignore)]
 	public string? PropertiesHash { get; set; }
 
-	[JsonProperty("isPresent", NullValueHandling = NullValueHandling.Ignore)]
-	public bool? IsPresent { get; set; }
+	[JsonProperty("isPresent")]
+	public bool IsPresent { get; set; }
 
 	[JsonProperty("isGeneric", NullValueHandling = NullValueHandling.Ignore)]
 	public bool? IsGeneric { get; set; }
@@ -70,12 +70,12 @@ public sealed class ScriptRecord
 /// </summary>
 public sealed class ScriptSceneInfo
 {
-	[JsonProperty("name", NullValueHandling = NullValueHandling.Ignore)]
-	public string? Name { get; set; }
+	[JsonProperty("name")]
+	public string Name { get; set; } = string.Empty;
 
-	[JsonProperty("path", NullValueHandling = NullValueHandling.Ignore)]
-	public string? Path { get; set; }
+	[JsonProperty("path")]
+	public string Path { get; set; } = string.Empty;
 
-	[JsonProperty("guid", NullValueHandling = NullValueHandling.Ignore)]
-	public string? Guid { get; set; }
+	[JsonProperty("guid")]
+	public string Guid { get; set; } = string.Empty;
 }

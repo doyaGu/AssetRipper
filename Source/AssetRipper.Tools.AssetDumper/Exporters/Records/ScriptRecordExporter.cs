@@ -102,7 +102,7 @@ internal class ScriptRecordExporter
 					{
 						try
 						{
-							ScriptRecord record = CreateScriptRecord(script, collection, collectionId, gameData, out string stableKey);
+							ScriptMetadataRecord record = CreateScriptRecord(script, collection, collectionId, gameData, out string stableKey);
 							return new ScriptRecordWithKey(record, stableKey);
 						}
 						catch (Exception ex)
@@ -138,13 +138,13 @@ internal class ScriptRecordExporter
 		return result;
 	}
 
-	private ScriptRecord CreateScriptRecord(IMonoScript script, AssetCollection collection, string collectionId, GameData gameData, out string stableKey)
+	private ScriptMetadataRecord CreateScriptRecord(IMonoScript script, AssetCollection collection, string collectionId, GameData gameData, out string stableKey)
 	{
 		stableKey = StableKeyHelper.Create(collectionId, script.PathID);
 
 		string resolvedClassName = script.ClassName_R.String ?? script.ClassName;
 
-		ScriptRecord record = new ScriptRecord
+		ScriptMetadataRecord record = new ScriptMetadataRecord
 		{
 			Domain = "script_metadata",
 			Pk = stableKey,
@@ -156,7 +156,8 @@ internal class ScriptRecordExporter
 			Namespace = string.IsNullOrWhiteSpace(script.Namespace.String) ? null : script.Namespace.String,
 			FullName = script.GetFullName(),
 			AssemblyName = script.GetAssemblyNameFixed(),
-			ExecutionOrder = script.ExecutionOrder
+			ExecutionOrder = script.ExecutionOrder,
+			IsPresent = false // Default to false, will be updated by TryAssignTypeInfo if assembly manager is available
 		};
 
 		// Add raw assembly name if different from fixed name
@@ -191,7 +192,7 @@ internal class ScriptRecordExporter
 		}
 	}
 
-	private static void TryAssignPropertiesHash(IMonoScript script, ScriptRecord record)
+	private static void TryAssignPropertiesHash(IMonoScript script, ScriptMetadataRecord record)
 	{
 		if (!script.Has_PropertiesHash_Hash128_5())
 		{
@@ -210,7 +211,7 @@ internal class ScriptRecordExporter
 		}
 	}
 
-	private static void TryAssignTypeInfo(IMonoScript script, GameData gameData, ScriptRecord record)
+	private static void TryAssignTypeInfo(IMonoScript script, GameData gameData, ScriptMetadataRecord record)
 	{
 		if (gameData.AssemblyManager?.IsSet != true)
 		{
@@ -253,7 +254,7 @@ internal class ScriptRecordExporter
 		}
 	}
 
-	private static void AssignSceneMetadata(AssetCollection collection, ScriptRecord record)
+	private static void AssignSceneMetadata(AssetCollection collection, ScriptMetadataRecord record)
 	{
 		if (!collection.IsScene || collection.Scene is null)
 		{
@@ -263,8 +264,8 @@ internal class ScriptRecordExporter
 
 		record.Scene = new ScriptSceneInfo
 		{
-			Name = collection.Scene.Name,
-			Path = collection.Scene.Path,
+			Name = collection.Scene.Name ?? string.Empty,
+			Path = collection.Scene.Path ?? string.Empty,
 			Guid = collection.Scene.GUID.ToString()
 		};
 	}
@@ -275,10 +276,10 @@ internal class ScriptRecordExporter
 /// </summary>
 internal sealed class ScriptRecordWithKey
 {
-	public ScriptRecord Record { get; }
+	public ScriptMetadataRecord Record { get; }
 	public string StableKey { get; }
 
-	public ScriptRecordWithKey(ScriptRecord record, string stableKey)
+	public ScriptRecordWithKey(ScriptMetadataRecord record, string stableKey)
 	{
 		Record = record;
 		StableKey = stableKey;
