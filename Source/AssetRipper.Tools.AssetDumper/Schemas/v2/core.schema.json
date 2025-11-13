@@ -76,7 +76,9 @@
       "type": "object",
       "description": "Reference to a Bundle node using stable PK. Bundles represent container structures in AssetRipper's hierarchy (GameBundle, ProcessedBundle, etc.).",
       "additionalProperties": false,
-      "required": ["bundlePk"],
+      "required": [
+        "bundlePk"
+      ],
       "properties": {
         "bundlePk": {
           "type": "string",
@@ -94,7 +96,9 @@
       "type": "object",
       "description": "Reference to a Scene using Unity GUID. GUID is the primary key as it's unique across the entire project.",
       "additionalProperties": false,
-      "required": ["sceneGuid"],
+      "required": [
+        "sceneGuid"
+      ],
       "properties": {
         "sceneGuid": {
           "$ref": "#/$defs/UnityGuid"
@@ -114,7 +118,10 @@
       "type": "object",
       "description": "Complete hierarchical path from root to target entity. Represents the full Bundle nesting structure in AssetRipper.",
       "additionalProperties": false,
-      "required": ["bundlePath", "depth"],
+      "required": [
+        "bundlePath",
+        "depth"
+      ],
       "properties": {
         "bundlePath": {
           "type": "array",
@@ -126,7 +133,9 @@
         },
         "bundleNames": {
           "type": "array",
-          "items": { "type": "string" },
+          "items": {
+            "type": "string"
+          },
           "description": "Human-readable bundle names corresponding to bundlePath. Array length must match bundlePath."
         },
         "depth": {
@@ -137,14 +146,16 @@
       }
     }
   },
-  "$anchor": "AssetPK",
-  "type": "object",
-  "description": "Primary key structure for Unity assets. Combines collection identifier with PathID to create a globally unique asset reference.",
-  "additionalProperties": false,
-  "required": [
-    "collectionId",
-    "pathId"
-  ],
+  "AssetPK": {
+    "$anchor": "AssetPK",
+    "type": "object",
+    "description": "Primary key structure for Unity assets. Combines collection identifier with PathID to create a globally unique asset reference.",
+    "additionalProperties": false,
+    "required": [
+      "collectionId",
+      "pathId"
+    ]
+  },
   "properties": {
     "collectionId": {
       "$ref": "#/$defs/CollectionID"

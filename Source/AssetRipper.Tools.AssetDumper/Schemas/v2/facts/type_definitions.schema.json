@@ -95,7 +95,14 @@
         "visibility": {
           "type": "string",
           "description": "Type visibility (from TypeDefinition.Attributes)",
-          "enum": ["public", "internal", "private", "protected", "protected internal", "private protected"]
+          "enum": [
+            "public",
+            "internal",
+            "private",
+            "protected",
+            "protected internal",
+            "private protected"
+          ]
         },
         "baseType": {
           "type": "string",
@@ -152,7 +159,10 @@
     "ScriptReference": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["collectionId", "pathId"],
+      "required": [
+        "collectionId",
+        "pathId"
+      ],
       "properties": {
         "collectionId": {
           "$ref": "../core.schema.json#/$defs/CollectionID",

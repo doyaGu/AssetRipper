@@ -18,7 +18,10 @@
         "inheritanceDistance"
       ],
       "properties": {
-        "domain": { "type": "string", "const": "type_inheritance" },
+        "domain": {
+          "type": "string",
+          "const": "type_inheritance"
+        },
         "derivedType": {
           "type": "string",
           "description": "Fully qualified derived type name in format 'Namespace.TypeName'. For nested types, uses '+' separator (e.g., 'Outer+Inner'). Source: TypeDefinition.FullName",
@@ -41,7 +44,10 @@
         },
         "relationshipType": {
           "type": "string",
-          "enum": ["class_inheritance", "interface_implementation"],
+          "enum": [
+            "class_inheritance",
+            "interface_implementation"
+          ],
           "description": "Type of inheritance relationship. 'class_inheritance' for base class relationships (including abstract classes). 'interface_implementation' for implemented interfaces. Source: TypeDefinition.BaseType vs TypeDefinition.Interfaces"
         },
         "inheritanceDistance": {

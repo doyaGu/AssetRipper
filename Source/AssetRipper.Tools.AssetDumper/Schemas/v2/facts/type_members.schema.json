@@ -21,8 +21,8 @@
         "serialized"
       ],
       "properties": {
-        "domain": { 
-          "type": "string", 
+        "domain": {
+          "type": "string",
           "const": "type_members",
           "description": "Domain identifier for type members table"
         },
@@ -49,7 +49,14 @@
         "memberKind": {
           "type": "string",
           "description": "Member kind enumeration. Distinguishes fields, properties, methods, events, constructors, and nested types",
-          "enum": ["field", "property", "method", "event", "constructor", "nestedType"]
+          "enum": [
+            "field",
+            "property",
+            "method",
+            "event",
+            "constructor",
+            "nestedType"
+          ]
         },
         "memberType": {
           "type": "string",
@@ -59,7 +66,14 @@
         "visibility": {
           "type": "string",
           "description": "Member visibility (6 .NET access levels). Source: Attributes flags",
-          "enum": ["public", "internal", "private", "protected", "protected internal", "private protected"]
+          "enum": [
+            "public",
+            "internal",
+            "private",
+            "protected",
+            "protected internal",
+            "private protected"
+          ]
         },
         "isStatic": {
           "type": "boolean",
@@ -125,7 +139,12 @@
           "description": "Field is readonly (fields only). Source: FieldDefinition.IsInitOnly"
         },
         "constantValue": {
-          "type": ["string", "number", "boolean", "null"],
+          "type": [
+            "string",
+            "number",
+            "boolean",
+            "null"
+          ],
           "description": "Constant value for const fields. Source: FieldDefinition.Constant (for IsLiteral fields)"
         },
         "parameterCount": {
@@ -138,13 +157,16 @@
           "description": "Method parameter details (methods/constructors only). Source: MethodDefinition.Parameters",
           "items": {
             "type": "object",
-            "required": ["name", "type"],
+            "required": [
+              "name",
+              "type"
+            ],
             "properties": {
-              "name": { 
+              "name": {
                 "type": "string",
                 "description": "Parameter name. Source: ParameterDefinition.Name"
               },
-              "type": { 
+              "type": {
                 "type": "string",
                 "description": "Parameter type (fully qualified). Source: ParameterDefinition.ParameterType.FullName"
               },
@@ -153,7 +175,12 @@
                 "description": "Parameter is optional. Source: ParameterDefinition.IsOptional"
               },
               "defaultValue": {
-                "type": ["string", "number", "boolean", "null"],
+                "type": [
+                  "string",
+                  "number",
+                  "boolean",
+                  "null"
+                ],
                 "description": "Default value for optional parameters. Source: ParameterDefinition.Constant"
               }
             }

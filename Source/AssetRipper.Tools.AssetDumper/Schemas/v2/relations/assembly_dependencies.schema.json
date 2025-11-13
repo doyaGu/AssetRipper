@@ -15,9 +15,9 @@
         "isResolved"
       ],
       "properties": {
-        "domain": { 
-          "type": "string", 
-          "const": "assembly_dependencies" 
+        "domain": {
+          "type": "string",
+          "const": "assembly_dependencies"
         },
         "sourceAssembly": {
           "type": "string",
@@ -30,12 +30,12 @@
         },
         "targetAssembly": {
           "anyOf": [
-            { 
-              "type": "string", 
-              "pattern": "^[0-9A-F]{32}$" 
+            {
+              "type": "string",
+              "pattern": "^[0-9A-F]{32}$"
             },
-            { 
-              "type": "null" 
+            {
+              "type": "null"
             }
           ],
           "description": "Target assembly GUID; null if dependency was not resolved."

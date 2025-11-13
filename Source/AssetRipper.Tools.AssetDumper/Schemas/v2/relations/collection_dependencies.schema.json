@@ -5,7 +5,12 @@
   "description": "Records collection-level dependencies (AssetCollection.Dependencies) with enhanced resolution status and metadata.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["domain", "sourceCollection", "dependencyIndex", "targetCollection"],
+  "required": [
+    "domain",
+    "sourceCollection",
+    "dependencyIndex",
+    "targetCollection"
+  ],
   "properties": {
     "domain": {
       "type": "string",
@@ -22,8 +27,12 @@
     },
     "targetCollection": {
       "anyOf": [
-        { "$ref": "../core.schema.json#/$defs/CollectionID" },
-        { "type": "null" }
+        {
+          "$ref": "../core.schema.json#/$defs/CollectionID"
+        },
+        {
+          "type": "null"
+        }
       ],
       "description": "The target collection; null if unresolved or missing."
     },
@@ -45,16 +54,22 @@
       "description": "Original Unity FileIdentifier from SerializedFile.Dependencies array. Present only for serialized dependencies.",
       "additionalProperties": false,
       "properties": {
-        "guid": { 
+        "guid": {
           "$ref": "../core.schema.json#/$defs/UnityGuid",
           "description": "Unity GUID of the dependency file."
         },
-        "type": { 
+        "type": {
           "type": "integer",
-          "enum": [0, 1, 2, 3, 4],
+          "enum": [
+            0,
+            1,
+            2,
+            3,
+            4
+          ],
           "description": "FileIdentifier type: 0 = Asset, 1 = Serialized, 2 = Meta, 3 = BuiltinExtra, 4 = Unknown."
         },
-        "pathName": { 
+        "pathName": {
           "type": "string",
           "description": "Original file path from Unity (may be relative or absolute)."
         }

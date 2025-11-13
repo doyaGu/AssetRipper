@@ -73,7 +73,9 @@
     },
     "childBundleNames": {
       "type": "array",
-      "items": { "type": "string" },
+      "items": {
+        "type": "string"
+      },
       "description": "Names of child bundles for human readability."
     },
     "bundleIndex": {
@@ -103,7 +105,9 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["name"],
+        "required": [
+          "name"
+        ],
         "properties": {
           "name": {
             "type": "string",
@@ -122,7 +126,9 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["name"],
+        "required": [
+          "name"
+        ],
         "properties": {
           "name": {
             "type": "string",
@@ -215,6 +221,9 @@
     }
   },
   "then": {
-    "required": ["parentPk", "bundleIndex"]
+    "required": [
+      "parentPk",
+      "bundleIndex"
+    ]
   }
 }

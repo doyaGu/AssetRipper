@@ -22,7 +22,10 @@
         "decompilationStatus"
       ],
       "properties": {
-        "domain": { "type": "string", "const": "script_sources" },
+        "domain": {
+          "type": "string",
+          "const": "script_sources"
+        },
         "pk": {
           "$ref": "../core.schema.json#/$defs/UnityGuid",
           "description": "Script GUID from ScriptHashing.CalculateScriptGuid()"
@@ -64,7 +67,12 @@
         "language": {
           "type": "string",
           "description": "Programming language (UnityScript for legacy JavaScript support)",
-          "enum": ["CSharp", "UnityShader", "HLSL", "UnityScript"]
+          "enum": [
+            "CSharp",
+            "UnityShader",
+            "HLSL",
+            "UnityScript"
+          ]
         },
         "decompiler": {
           "type": "string",
@@ -77,7 +85,12 @@
         },
         "decompilationStatus": {
           "type": "string",
-          "enum": ["success", "failed", "empty", "skipped"],
+          "enum": [
+            "success",
+            "failed",
+            "empty",
+            "skipped"
+          ],
           "description": "Status of the decompilation process. 'empty' indicates an EmptyScript placeholder was generated."
         },
         "isEmpty": {

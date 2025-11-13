@@ -30,27 +30,58 @@
         "hasSceneRoots"
       ],
       "properties": {
-        "domain": { "type": "string", "const": "scenes" },
-        "type": { "type": "string", "const": "Scene" },
-        "name": { "type": "string" },
-        "sceneGuid": { "$ref": "../core.schema.json#/$defs/UnityGuid" },
-        "scenePath": { "type": "string" },
-        "exportedAt": { "$ref": "../core.schema.json#/$defs/Timestamp" },
-        "version": { "type": "string" },
-        "platform": { "type": "string" },
-        "flags": { "type": "string" },
-        "endianType": { "type": "string" },
-        "bundleName": { "type": "string" },
-        "sceneCollectionCount": { "type": "integer", "minimum": 1 },
+        "domain": {
+          "type": "string",
+          "const": "scenes"
+        },
+        "type": {
+          "type": "string",
+          "const": "Scene"
+        },
+        "name": {
+          "type": "string"
+        },
+        "sceneGuid": {
+          "$ref": "../core.schema.json#/$defs/UnityGuid"
+        },
+        "scenePath": {
+          "type": "string"
+        },
+        "exportedAt": {
+          "$ref": "../core.schema.json#/$defs/Timestamp"
+        },
+        "version": {
+          "type": "string"
+        },
+        "platform": {
+          "type": "string"
+        },
+        "flags": {
+          "type": "string"
+        },
+        "endianType": {
+          "type": "string"
+        },
+        "bundleName": {
+          "type": "string"
+        },
+        "sceneCollectionCount": {
+          "type": "integer",
+          "minimum": 1
+        },
         "collectionIds": {
           "type": "array",
-          "items": { "$ref": "../core.schema.json#/$defs/CollectionID" },
+          "items": {
+            "$ref": "../core.schema.json#/$defs/CollectionID"
+          },
           "minItems": 1,
           "uniqueItems": true
         },
         "collections": {
           "type": "array",
-          "items": { "$ref": "#/$defs/SceneCollectionDescriptor" },
+          "items": {
+            "$ref": "#/$defs/SceneCollectionDescriptor"
+          },
           "default": [],
           "description": "Deprecated: Use collectionDetails instead. Legacy list of collection names."
         },
@@ -66,93 +97,179 @@
           "type": "array",
           "items": {
             "type": "object",
-            "required": ["collectionId", "bundle"],
+            "required": [
+              "collectionId",
+              "bundle"
+            ],
             "properties": {
-              "collectionId": { "$ref": "../core.schema.json#/$defs/CollectionID" },
-              "bundle": { "$ref": "../core.schema.json#BundleRef" },
-              "isPrimary": { 
+              "collectionId": {
+                "$ref": "../core.schema.json#/$defs/CollectionID"
+              },
+              "bundle": {
+                "$ref": "../core.schema.json#BundleRef"
+              },
+              "isPrimary": {
                 "type": "boolean",
                 "description": "True if this is the first collection in the scene's collection list."
               },
-              "assetCount": { "type": "integer", "minimum": 0 }
+              "assetCount": {
+                "type": "integer",
+                "minimum": 0
+              }
             }
           },
           "description": "Detailed metadata for each collection composing this scene, including their respective bundles."
         },
-        "hierarchy": { 
+        "hierarchy": {
           "$ref": "../core.schema.json#AssetRef",
           "description": "Reference to the SceneHierarchyObject asset. Only present after scene processing."
         },
-        "hierarchyAssetId": { 
+        "hierarchyAssetId": {
           "$ref": "../core.schema.json#/$defs/StableKey",
           "description": "Stable key of the SceneHierarchyObject asset. Only present after scene processing."
         },
-        "pathID": { 
+        "pathID": {
           "type": "integer",
           "description": "PathID of the SceneHierarchyObject asset. Only present after scene processing."
         },
-        "classID": { 
+        "classID": {
           "type": "integer",
           "description": "ClassID of the SceneHierarchyObject asset. Only present after scene processing."
         },
-        "className": { 
+        "className": {
           "type": "string",
           "description": "Class name of the SceneHierarchyObject asset. Only present after scene processing."
         },
-        "assetCount": { "type": "integer", "minimum": 0 },
-        "gameObjectCount": { "type": "integer", "minimum": 0 },
-        "componentCount": { "type": "integer", "minimum": 0 },
-        "managerCount": { "type": "integer", "minimum": 0 },
-        "prefabInstanceCount": { "type": "integer", "minimum": 0 },
-        "dependencyCount": { "type": "integer", "minimum": 0 },
-        "hasSceneRoots": { "type": "boolean" },
-        "rootGameObjectCount": { "type": "integer", "minimum": 0 },
-        "strippedAssetCount": { "type": "integer", "minimum": 0 },
-        "hiddenAssetCount": { "type": "integer", "minimum": 0 },
-        "sceneRootsAsset": { "$ref": "../core.schema.json#NullableAssetRef" },
-        "sceneRoots": { "$ref": "#/$defs/AssetRefList" },
-        "rootGameObjects": { "$ref": "#/$defs/AssetRefList" },
-        "gameObjects": { "$ref": "#/$defs/AssetRefList" },
-        "components": { "$ref": "#/$defs/AssetRefList" },
-        "managers": { "$ref": "#/$defs/AssetRefList" },
-        "prefabInstances": { "$ref": "#/$defs/AssetRefList" },
-        "strippedAssets": { "$ref": "#/$defs/AssetRefList" },
-        "hiddenAssets": { "$ref": "#/$defs/AssetRefList" },
-        "notes": { "type": "string" }
+        "assetCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "gameObjectCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "componentCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "managerCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "prefabInstanceCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "dependencyCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "hasSceneRoots": {
+          "type": "boolean"
+        },
+        "rootGameObjectCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "strippedAssetCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "hiddenAssetCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sceneRootsAsset": {
+          "$ref": "../core.schema.json#NullableAssetRef"
+        },
+        "sceneRoots": {
+          "$ref": "#/$defs/AssetRefList"
+        },
+        "rootGameObjects": {
+          "$ref": "#/$defs/AssetRefList"
+        },
+        "gameObjects": {
+          "$ref": "#/$defs/AssetRefList"
+        },
+        "components": {
+          "$ref": "#/$defs/AssetRefList"
+        },
+        "managers": {
+          "$ref": "#/$defs/AssetRefList"
+        },
+        "prefabInstances": {
+          "$ref": "#/$defs/AssetRefList"
+        },
+        "strippedAssets": {
+          "$ref": "#/$defs/AssetRefList"
+        },
+        "hiddenAssets": {
+          "$ref": "#/$defs/AssetRefList"
+        },
+        "notes": {
+          "type": "string"
+        }
       }
     },
     "AssetRefList": {
       "type": "array",
-      "items": { "$ref": "../core.schema.json#AssetRef" },
+      "items": {
+        "$ref": "../core.schema.json#AssetRef"
+      },
       "default": []
     },
     "SceneCollectionDescriptor": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["collectionId", "name"],
+      "required": [
+        "collectionId",
+        "name"
+      ],
       "properties": {
-        "collectionId": { "$ref": "../core.schema.json#/$defs/CollectionID" },
-        "name": { "type": "string" },
-        "bundleName": { "type": "string" },
+        "collectionId": {
+          "$ref": "../core.schema.json#/$defs/CollectionID"
+        },
+        "name": {
+          "type": "string"
+        },
+        "bundleName": {
+          "type": "string"
+        },
         "bundlePk": {
           "type": "string",
           "pattern": "^[A-F0-9]{8}$",
           "description": "PK of the bundle containing this collection."
         },
-        "collectionType": { "type": "string" },
-        "filePath": { "type": "string" },
-        "version": { "type": "string" },
-        "platform": { "type": "string" },
-        "flags": { "type": "string" },
-        "isProcessed": { "type": "boolean" },
-        "isSceneCollection": { "type": "boolean" },
-        "sceneName": { "type": "string" },
-        "isPrimary": { 
+        "collectionType": {
+          "type": "string"
+        },
+        "filePath": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        },
+        "platform": {
+          "type": "string"
+        },
+        "flags": {
+          "type": "string"
+        },
+        "isProcessed": {
+          "type": "boolean"
+        },
+        "isSceneCollection": {
+          "type": "boolean"
+        },
+        "sceneName": {
+          "type": "string"
+        },
+        "isPrimary": {
           "type": "boolean",
           "description": "True if this is the first collection in the scene's collection list."
         },
-        "assetCount": { 
-          "type": "integer", 
+        "assetCount": {
+          "type": "integer",
           "minimum": 0,
           "description": "Number of assets in this collection."
         }

@@ -103,7 +103,14 @@
     },
     "data": {
       "description": "Serialized Unity object payload emitted inline as JSON. Null for unreadable assets (UnreadableObject, UnknownObject).",
-      "type": ["object", "array", "string", "number", "boolean", "null"]
+      "type": [
+        "object",
+        "array",
+        "string",
+        "number",
+        "boolean",
+        "null"
+      ]
     },
     "hash": {
       "type": "string",

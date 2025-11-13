@@ -21,7 +21,10 @@
         "assemblyType"
       ],
       "properties": {
-        "domain": { "type": "string", "const": "assemblies" },
+        "domain": {
+          "type": "string",
+          "const": "assemblies"
+        },
         "pk": {
           "type": "string",
           "description": "Assembly GUID from ScriptHashing.CalculateAssemblyGuid(), uppercase hex, 32 characters",
@@ -49,7 +52,11 @@
         "scriptingBackend": {
           "type": "string",
           "description": "Scripting backend type from IAssemblyManager.ScriptingBackend",
-          "enum": ["Mono", "IL2CPP", "Unknown"]
+          "enum": [
+            "Mono",
+            "IL2CPP",
+            "Unknown"
+          ]
         },
         "runtime": {
           "type": "string",
@@ -57,7 +64,13 @@
         },
         "assemblyType": {
           "type": "string",
-          "enum": ["Predefined", "UnityEngine", "UnityExtension", "User", "System"],
+          "enum": [
+            "Predefined",
+            "UnityEngine",
+            "UnityExtension",
+            "User",
+            "System"
+          ],
           "description": "Type of assembly: Predefined (Assembly-CSharp, etc.), UnityEngine (engine assemblies), UnityExtension (Unity packages), User (custom), System (.NET assemblies)"
         },
         "dllPath": {
@@ -99,16 +112,25 @@
         "mscorlibVersion": {
           "type": "integer",
           "description": "Mscorlib major version (2 or 4) if this is mscorlib, from IAssemblyManager.HasMscorlib2",
-          "enum": [2, 4]
+          "enum": [
+            2,
+            4
+          ]
         },
         "references": {
           "type": "array",
-          "items": { "type": "string" },
+          "items": {
+            "type": "string"
+          },
           "description": "List of referenced assembly names (simple names, not full names)"
         },
         "exportType": {
           "type": "string",
-          "enum": ["Decompile", "Save", "Skip"],
+          "enum": [
+            "Decompile",
+            "Save",
+            "Skip"
+          ],
           "description": "How this assembly was exported: Decompile (ILSpy to C#), Save (DLL to Plugins), Skip (not exported)"
         },
         "isModified": {

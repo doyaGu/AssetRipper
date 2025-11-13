@@ -5,7 +5,12 @@
   "description": "Parent-child relationships between bundles with enhanced metadata for hierarchy analysis.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["domain", "parentPk", "childPk", "childIndex"],
+  "required": [
+    "domain",
+    "parentPk",
+    "childPk",
+    "childIndex"
+  ],
   "properties": {
     "domain": {
       "type": "string",
