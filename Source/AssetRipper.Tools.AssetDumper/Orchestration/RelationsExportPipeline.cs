@@ -1,4 +1,4 @@
-using AssetRipper.Import.Logging;
+﻿using AssetRipper.Import.Logging;
 using AssetRipper.Tools.AssetDumper.Core;
 using AssetRipper.Tools.AssetDumper.Exporters.Relations;
 
@@ -35,7 +35,7 @@ public sealed class RelationsExportPipeline
 
 		try
 		{
-			AssetDependencyRelationsExporter exporter = new AssetDependencyRelationsExporter(
+			AssetDependencyExporter exporter = new AssetDependencyExporter(
 				_context.Options,
 				_context.CompressionKind,
 				_context.EnableIndex);

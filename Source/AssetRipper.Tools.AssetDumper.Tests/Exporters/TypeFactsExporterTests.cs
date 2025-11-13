@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using AssetRipper.Processing;
@@ -8,7 +8,7 @@ using AssetRipper.Tools.AssetDumper.Exporters.Facts;
 namespace AssetRipper.Tools.AssetDumper.Tests.Exporters;
 
 /// <summary>
-/// Tests for TypeFactsExporter class.
+/// Tests for TypeExporter class.
 /// Priority A2 in NEXT_STEPS_ACTION_PLAN.md
 /// </summary>
 public class TypeFactsExporterTests : IDisposable
@@ -50,7 +50,7 @@ public class TypeFactsExporterTests : IDisposable
 		};
 
 		// Act
-		var exporter = new TypeFactsExporter(options);
+		var exporter = new TypeExporter(options);
 
 		// Assert
 		exporter.Should().NotBeNull();
@@ -60,7 +60,7 @@ public class TypeFactsExporterTests : IDisposable
 	public void Constructor_WithNullOptions_ShouldThrowArgumentNullException()
 	{
 		// Act & Assert
-		Action act = () => new TypeFactsExporter(null!);
+		Action act = () => new TypeExporter(null!);
 		act.Should().Throw<ArgumentNullException>()
 			.WithParameterName("options");
 	}
@@ -79,7 +79,7 @@ public class TypeFactsExporterTests : IDisposable
 			OutputPath = _testOutputPath,
 			Quiet = true
 		};
-		var exporter = new TypeFactsExporter(options);
+		var exporter = new TypeExporter(options);
 
 		// Act & Assert
 		Action act = () => exporter.ExportTypes(null!);
@@ -97,7 +97,7 @@ public class TypeFactsExporterTests : IDisposable
 			OutputPath = _testOutputPath,
 			Quiet = true
 		};
-		var exporter = new TypeFactsExporter(options);
+		var exporter = new TypeExporter(options);
 		var entries = new List<TypeDictionaryEntry>();
 
 		// Act

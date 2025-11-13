@@ -3,6 +3,9 @@ using AssetRipper.Assets.Collections;
 using AssetRipper.Processing;
 using AssetRipper.Tools.AssetDumper.Core;
 using AssetRipper.Tools.AssetDumper.Models;
+using AssetRipper.Tools.AssetDumper.Models.Facts;
+using AssetRipper.Tools.AssetDumper.Models.Relations;
+using AssetRipper.Tools.AssetDumper.Models.Common;
 
 namespace AssetRipper.Tools.AssetDumper.Metrics;
 

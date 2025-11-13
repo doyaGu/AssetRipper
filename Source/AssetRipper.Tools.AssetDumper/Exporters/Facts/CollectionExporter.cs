@@ -22,13 +22,13 @@ namespace AssetRipper.Tools.AssetDumper.Exporters.Facts;
 /// <summary>
 /// Emits facts/collections.ndjson according to the AssetDump v2 schema.
 /// </summary>
-public sealed class CollectionFactsExporter
+public sealed class CollectionExporter
 {
 	private readonly Options _options;
 	private readonly JsonSerializerSettings _jsonSettings;
 	private readonly CompressionKind _compressionKind;
 
-	public CollectionFactsExporter(Options options, CompressionKind compressionKind)
+	public CollectionExporter(Options options, CompressionKind compressionKind)
 	{
 		_options = options ?? throw new ArgumentNullException(nameof(options));
 		_compressionKind = compressionKind;

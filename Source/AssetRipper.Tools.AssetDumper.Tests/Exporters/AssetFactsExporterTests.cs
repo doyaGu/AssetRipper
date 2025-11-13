@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using AssetRipper.Processing;
 using AssetRipper.Tools.AssetDumper.Core;
@@ -7,7 +7,7 @@ using AssetRipper.Tools.AssetDumper.Exporters.Facts;
 namespace AssetRipper.Tools.AssetDumper.Tests.Exporters;
 
 /// <summary>
-/// Tests for AssetFactsExporter class.
+/// Tests for AssetExporter class.
 /// Priority A2 in NEXT_STEPS_ACTION_PLAN.md
 /// </summary>
 public class AssetFactsExporterTests : IDisposable
@@ -49,7 +49,7 @@ public class AssetFactsExporterTests : IDisposable
 		};
 
 		// Act
-		var exporter = new AssetFactsExporter(options, CompressionKind.None, enableIndex: false);
+		var exporter = new AssetExporter(options, CompressionKind.None, enableIndex: false);
 
 		// Assert
 		exporter.Should().NotBeNull();
@@ -60,7 +60,7 @@ public class AssetFactsExporterTests : IDisposable
 	public void Constructor_WithNullOptions_ShouldThrowArgumentNullException()
 	{
 		// Act & Assert
-		Action act = () => new AssetFactsExporter(null!, CompressionKind.None, enableIndex: false);
+		Action act = () => new AssetExporter(null!, CompressionKind.None, enableIndex: false);
 		act.Should().Throw<ArgumentNullException>()
 			.WithParameterName("options");
 	}
@@ -80,7 +80,7 @@ public class AssetFactsExporterTests : IDisposable
 		};
 
 		// Act
-		var exporter = new AssetFactsExporter(options, compressionKind, enableIndex: false);
+		var exporter = new AssetExporter(options, compressionKind, enableIndex: false);
 
 		// Assert
 		exporter.Should().NotBeNull();
@@ -100,7 +100,7 @@ public class AssetFactsExporterTests : IDisposable
 		};
 
 		// Act
-		var exporter = new AssetFactsExporter(options, CompressionKind.None, enableIndex);
+		var exporter = new AssetExporter(options, CompressionKind.None, enableIndex);
 
 		// Assert
 		exporter.Should().NotBeNull();
@@ -120,7 +120,7 @@ public class AssetFactsExporterTests : IDisposable
 			OutputPath = _testOutputPath,
 			Quiet = true
 		};
-		var exporter = new AssetFactsExporter(options, CompressionKind.None, enableIndex: false);
+		var exporter = new AssetExporter(options, CompressionKind.None, enableIndex: false);
 
 		// Act
 		var typeDictionary = exporter.TypeDictionary;
@@ -143,7 +143,7 @@ public class AssetFactsExporterTests : IDisposable
 			OutputPath = _testOutputPath,
 			Quiet = true
 		};
-		var exporter = new AssetFactsExporter(options, CompressionKind.None, enableIndex: false);
+		var exporter = new AssetExporter(options, CompressionKind.None, enableIndex: false);
 
 		// Act & Assert
 		Action act = () => exporter.ExportAssets(null!);

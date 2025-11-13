@@ -1,0 +1,98 @@
+﻿using System.Globalization;
+using AssetRipper.Tools.AssetDumper.Core;
+using AssetRipper.Tools.AssetDumper.Models;
+using AssetRipper.Tools.AssetDumper.Models.Facts;
+using AssetRipper.Tools.AssetDumper.Models.Relations;
+using AssetRipper.Tools.AssetDumper.Models.Common;
+using Newtonsoft.Json;
+using AssetRipper.Tools.AssetDumper.Writers;
+
+namespace AssetRipper.Tools.AssetDumper.Exporters.Facts;
+
+/// <summary>
+/// Emits facts/types.ndjson dictionary entries derived from the asset class key map.
+/// </summary>
+public sealed class TypeExporter
+{
+	private readonly Options _options;
+	private readonly JsonSerializerSettings _jsonSettings;
+
+	public TypeExporter(Options options)
+	{
+		_options = options ?? throw new ArgumentNullException(nameof(options));
+		_jsonSettings = new JsonSerializerSettings
+		{
+			Formatting = Formatting.None,
+			NullValueHandling = NullValueHandling.Ignore,
+			DefaultValueHandling = DefaultValueHandling.Ignore
+		};
+	}
+
+	public DomainExportResult ExportTypes(IEnumerable<TypeDictionaryEntry> entries)
+	{
+		if (entries is null)
+		{
+			throw new ArgumentNullException(nameof(entries));
+		}
+
+		List<TypeRecord> records = entries
+			.Select(ToRecord)
+			.OrderBy(static record => record.ClassKey)
+			.ToList();
+
+		DomainExportResult result = new DomainExportResult(
+			"assets",
+			"facts/types",
+			"Schemas/v2/facts/types.schema.json");
+
+		if (records.Count == 0)
+		{
+			return result;
+		}
+
+		ShardedNdjsonWriter writer = new ShardedNdjsonWriter(
+			_options.OutputPath,
+			result.ShardDirectory,
+			_jsonSettings,
+			maxRecordsPerShard: long.MaxValue,
+			maxBytesPerShard: 16 * 1024 * 1024,
+			compressionKind: CompressionKind.None,
+			seekableFrameSize: 2 * 1024 * 1024,
+			collectIndexEntries: false,
+			descriptorDomain: result.TableId);
+
+		try
+		{
+			foreach (TypeRecord record in records)
+			{
+				string stableKey = record.ClassKey.ToString(CultureInfo.InvariantCulture);
+				writer.WriteRecord(record, stableKey);
+			}
+		}
+		finally
+		{
+			writer.Dispose();
+		}
+
+		result.Shards.AddRange(writer.ShardDescriptors);
+		return result;
+	}
+
+	private static TypeRecord ToRecord(TypeDictionaryEntry entry)
+	{
+		// Note: Additional optional fields (originalClassName, baseClassName, isAbstract,
+		// isEditorOnly, isReleaseOnly, monoScript, serializedTypeIndex) are available in the schema
+		// but require access to UniversalClass metadata and MonoScript assets.
+		// These can be populated in a separate enrichment pass when such data is available.
+
+		return new TypeRecord
+		{
+			ClassKey = entry.ClassKey,
+			ClassId = entry.ClassId,
+			ClassName = entry.ClassName,
+			TypeId = entry.TypeId == entry.ClassId ? null : (int?)entry.TypeId,
+			ScriptTypeIndex = entry.ScriptTypeIndex,
+			IsStripped = entry.IsStripped
+		};
+	}
+}

@@ -1,4 +1,4 @@
-using AssetRipper.Import.Logging;
+﻿using AssetRipper.Import.Logging;
 using AssetRipper.Tools.AssetDumper.Core;
 using AssetRipper.Tools.AssetDumper.Exporters.Records;
 using AssetRipper.Tools.AssetDumper.Generators;

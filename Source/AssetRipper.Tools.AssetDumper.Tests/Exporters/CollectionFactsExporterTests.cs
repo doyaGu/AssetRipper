@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using AssetRipper.Processing;
 using AssetRipper.Tools.AssetDumper.Core;
@@ -7,7 +7,7 @@ using AssetRipper.Tools.AssetDumper.Exporters.Facts;
 namespace AssetRipper.Tools.AssetDumper.Tests.Exporters;
 
 /// <summary>
-/// Tests for CollectionFactsExporter class.
+/// Tests for CollectionExporter class.
 /// Priority A2 in NEXT_STEPS_ACTION_PLAN.md
 /// </summary>
 public class CollectionFactsExporterTests : IDisposable
@@ -49,7 +49,7 @@ public class CollectionFactsExporterTests : IDisposable
 		};
 
 		// Act
-		var exporter = new CollectionFactsExporter(options, CompressionKind.None);
+		var exporter = new CollectionExporter(options, CompressionKind.None);
 
 		// Assert
 		exporter.Should().NotBeNull();
@@ -59,7 +59,7 @@ public class CollectionFactsExporterTests : IDisposable
 	public void Constructor_WithNullOptions_ShouldThrowArgumentNullException()
 	{
 		// Act & Assert
-		Action act = () => new CollectionFactsExporter(null!, CompressionKind.None);
+		Action act = () => new CollectionExporter(null!, CompressionKind.None);
 		act.Should().Throw<ArgumentNullException>()
 			.WithParameterName("options");
 	}
@@ -79,7 +79,7 @@ public class CollectionFactsExporterTests : IDisposable
 		};
 
 		// Act
-		var exporter = new CollectionFactsExporter(options, compressionKind);
+		var exporter = new CollectionExporter(options, compressionKind);
 
 		// Assert
 		exporter.Should().NotBeNull();
@@ -99,7 +99,7 @@ public class CollectionFactsExporterTests : IDisposable
 			OutputPath = _testOutputPath,
 			Quiet = true
 		};
-		var exporter = new CollectionFactsExporter(options, CompressionKind.None);
+		var exporter = new CollectionExporter(options, CompressionKind.None);
 
 		// Act & Assert
 		Action act = () => exporter.ExportCollections(null!);

@@ -21,7 +21,7 @@ namespace AssetRipper.Tools.AssetDumper.Exporters.Facts;
 /// <summary>
 /// Emits facts/assets.ndjson records aligned with the v2 schema.
 /// </summary>
-public sealed class AssetFactsExporter
+public sealed class AssetExporter
 {
 	private readonly Options _options;
 	private readonly JsonSerializerSettings _jsonSettings;
@@ -29,7 +29,7 @@ public sealed class AssetFactsExporter
 	private readonly bool _enableIndex;
 	private readonly TypeDictionaryBuilder _typeDictionary = new();
 
-	public AssetFactsExporter(Options options, CompressionKind compressionKind, bool enableIndex)
+	public AssetExporter(Options options, CompressionKind compressionKind, bool enableIndex)
 	{
 		_options = options ?? throw new ArgumentNullException(nameof(options));
 		_jsonSettings = new JsonSerializerSettings

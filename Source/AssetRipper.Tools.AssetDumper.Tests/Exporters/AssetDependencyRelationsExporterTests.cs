@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using AssetRipper.Processing;
 using AssetRipper.Tools.AssetDumper.Core;
@@ -7,7 +7,7 @@ using AssetRipper.Tools.AssetDumper.Exporters.Relations;
 namespace AssetRipper.Tools.AssetDumper.Tests.Exporters;
 
 /// <summary>
-/// Tests for AssetDependencyRelationsExporter class.
+/// Tests for AssetDependencyExporter class.
 /// Priority A2 in NEXT_STEPS_ACTION_PLAN.md
 /// </summary>
 public class AssetDependencyRelationsExporterTests : IDisposable
@@ -49,7 +49,7 @@ public class AssetDependencyRelationsExporterTests : IDisposable
 		};
 
 		// Act
-		var exporter = new AssetDependencyRelationsExporter(options, CompressionKind.None, enableIndex: false);
+		var exporter = new AssetDependencyExporter(options, CompressionKind.None, enableIndex: false);
 
 		// Assert
 		exporter.Should().NotBeNull();
@@ -59,7 +59,7 @@ public class AssetDependencyRelationsExporterTests : IDisposable
 	public void Constructor_WithNullOptions_ShouldThrowArgumentNullException()
 	{
 		// Act & Assert
-		Action act = () => new AssetDependencyRelationsExporter(null!, CompressionKind.None, enableIndex: false);
+		Action act = () => new AssetDependencyExporter(null!, CompressionKind.None, enableIndex: false);
 		act.Should().Throw<ArgumentNullException>()
 			.WithParameterName("options");
 	}
@@ -79,7 +79,7 @@ public class AssetDependencyRelationsExporterTests : IDisposable
 		};
 
 		// Act
-		var exporter = new AssetDependencyRelationsExporter(options, compressionKind, enableIndex: false);
+		var exporter = new AssetDependencyExporter(options, compressionKind, enableIndex: false);
 
 		// Assert
 		exporter.Should().NotBeNull();
@@ -99,7 +99,7 @@ public class AssetDependencyRelationsExporterTests : IDisposable
 		};
 
 		// Act
-		var exporter = new AssetDependencyRelationsExporter(options, CompressionKind.None, enableIndex);
+		var exporter = new AssetDependencyExporter(options, CompressionKind.None, enableIndex);
 
 		// Assert
 		exporter.Should().NotBeNull();
@@ -119,7 +119,7 @@ public class AssetDependencyRelationsExporterTests : IDisposable
 			OutputPath = _testOutputPath,
 			Quiet = true
 		};
-		var exporter = new AssetDependencyRelationsExporter(options, CompressionKind.None, enableIndex: false);
+		var exporter = new AssetDependencyExporter(options, CompressionKind.None, enableIndex: false);
 
 		// Act & Assert
 		Action act = () => exporter.Export(null!);

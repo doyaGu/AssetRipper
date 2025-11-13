@@ -1,4 +1,7 @@
 using AssetRipper.Tools.AssetDumper.Models;
+using AssetRipper.Tools.AssetDumper.Models.Facts;
+using AssetRipper.Tools.AssetDumper.Models.Relations;
+using AssetRipper.Tools.AssetDumper.Models.Common;
 using AssetRipper.Tools.AssetDumper.Writers;
 using AssetRipper.Tools.AssetDumper.Helpers;
 

@@ -2,7 +2,7 @@ using System;
 using System.IO;
 using AssetRipper.Processing;
 using AssetRipper.Tools.AssetDumper.Core;
-using AssetRipper.Tools.AssetDumper.Models;
+using AssetRipper.Tools.AssetDumper.Models.Common;
 using AssetRipper.Tools.AssetDumper.Orchestration;
 using Newtonsoft.Json;
 

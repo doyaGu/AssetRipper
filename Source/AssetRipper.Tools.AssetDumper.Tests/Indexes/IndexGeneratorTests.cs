@@ -1,4 +1,5 @@
 using AssetRipper.Tools.AssetDumper.Core;
+using AssetRipper.Tools.AssetDumper.Generators;
 using AssetRipper.Tools.AssetDumper.Models;
 using Xunit;
 

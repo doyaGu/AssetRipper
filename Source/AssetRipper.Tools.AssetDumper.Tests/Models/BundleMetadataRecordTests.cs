@@ -1,4 +1,4 @@
-using AssetRipper.Tools.AssetDumper.Models;
+﻿using AssetRipper.Tools.AssetDumper.Models;
 
 namespace AssetRipper.Tools.AssetDumper.Tests.Models;
 

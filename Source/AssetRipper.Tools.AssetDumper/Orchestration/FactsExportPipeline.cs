@@ -1,4 +1,4 @@
-using AssetRipper.Import.Logging;
+﻿using AssetRipper.Import.Logging;
 using AssetRipper.Tools.AssetDumper.Core;
 using AssetRipper.Tools.AssetDumper.Exporters.Facts;
 
@@ -40,7 +40,7 @@ public sealed class FactsExportPipeline
 
 		try
 		{
-			CollectionFactsExporter exporter = new CollectionFactsExporter(
+			CollectionExporter exporter = new CollectionExporter(
 				_context.Options,
 				_context.CompressionKind);
 
@@ -63,7 +63,7 @@ public sealed class FactsExportPipeline
 
 		try
 		{
-			AssetFactsExporter assetExporter = new AssetFactsExporter(
+			AssetExporter assetExporter = new AssetExporter(
 				_context.Options,
 				_context.CompressionKind,
 				_context.EnableIndex);
@@ -77,7 +77,7 @@ public sealed class FactsExportPipeline
 				Logger.Info("Exporting type facts...");
 			}
 
-			TypeFactsExporter typeExporter = new TypeFactsExporter(_context.Options);
+			TypeExporter typeExporter = new TypeExporter(_context.Options);
 			DomainExportResult typeResult = typeExporter.ExportTypes(assetExporter.TypeDictionary.Entries);
 			_context.AddResult(typeResult);
 		}

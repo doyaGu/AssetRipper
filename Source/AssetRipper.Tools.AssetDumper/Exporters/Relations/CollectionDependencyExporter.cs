@@ -1,9 +1,9 @@
-using AssetRipper.Assets.Bundles;
+﻿using AssetRipper.Assets.Bundles;
 using AssetRipper.Assets.Collections;
 using AssetRipper.Processing;
 using AssetRipper.Tools.AssetDumper.Core;
 using AssetRipper.Tools.AssetDumper.Helpers;
-using AssetRipper.Tools.AssetDumper.Models.Records;
+using AssetRipper.Tools.AssetDumper.Models.Relations;
 using AssetRipper.Tools.AssetDumper.Writers;
 using Newtonsoft.Json;
 
