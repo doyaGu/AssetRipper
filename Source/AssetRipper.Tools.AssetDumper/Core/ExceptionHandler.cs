@@ -125,4 +125,19 @@ public static class ExceptionHandler
 			return HandleException(ex, verbose);
 		}
 	}
+
+	/// <summary>
+	/// Executes an async function and handles any exceptions that occur.
+	/// </summary>
+	public static async Task<int> ExecuteWithErrorHandlingAsync(Func<Task<int>> func, bool verbose = false)
+	{
+		try
+		{
+			return await func();
+		}
+		catch (Exception ex)
+		{
+			return HandleException(ex, verbose);
+		}
+	}
 }

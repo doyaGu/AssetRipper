@@ -5,7 +5,10 @@ using System.Diagnostics;
 using AssetRipper.Tools.AssetDumper.Core;
 using AssetRipper.Tools.AssetDumper.Helpers;
 using AssetRipper.Tools.AssetDumper.Processors;
-using AssetRipper.Tools.AssetDumper.Exporters.Records;
+using AssetRipper.Tools.AssetDumper.Models.Common;
+using AssetRipper.Tools.AssetDumper.Generators;
+using AssetRipper.Tools.AssetDumper.Exporters.Facts;
+using AssetRipper.Tools.AssetDumper.Exporters.Relations;
 
 namespace AssetRipper.Tools.AssetDumper.Orchestration;
 
@@ -26,9 +29,9 @@ public sealed class ExportOrchestrator
 	}
 
 	/// <summary>
-	/// Executes the complete export workflow.
+	/// Executes the complete export workflow asynchronously.
 	/// </summary>
-	public int Execute(GameData gameData)
+	public async Task<int> ExecuteAsync(GameData gameData)
 	{
 		var totalStopwatch = Stopwatch.StartNew();
 
@@ -53,8 +56,8 @@ public sealed class ExportOrchestrator
 		try
 		{
 			// Execute export pipelines
-			ExecuteFactsExport(context, existingManifest);
-			ExecuteRelationsExport(context, existingManifest);
+			await ExecuteFactsExportAsync(context, existingManifest);
+			await ExecuteRelationsExportAsync(context, existingManifest);
 			ExecuteOptionalExports(context, existingManifest);
 			ExecuteScriptCodeExport(context, existingManifest);
 			GenerateManifest(context);
@@ -66,7 +69,7 @@ public sealed class ExportOrchestrator
 			_validationService.LogExportDiagnostics(context.DomainResults);
 			_validationService.ValidateShardOutputs(context.DomainResults);
 
-			if (!_validationService.ValidateSchemas(context.DomainResults))
+			if (!await _validationService.ValidateSchemasAsync(context.DomainResults))
 			{
 				return 4; // Schema validation failure
 			}
@@ -97,7 +100,7 @@ public sealed class ExportOrchestrator
 		}
 	}
 
-	private void ExecuteFactsExport(ExportContext context, Manifest? existingManifest)
+	private async Task ExecuteFactsExportAsync(ExportContext context, Manifest? existingManifest)
 	{
 		if (!_options.ExportFacts)
 		{
@@ -122,12 +125,16 @@ public sealed class ExportOrchestrator
 		}
 		else
 		{
+			int resultCountBefore = context.DomainResults.Count;
 			FactsExportPipeline pipeline = new FactsExportPipeline(context);
 			pipeline.Execute();
+
+			// Validate newly exported domains
+			await ValidateExportedDomainsAsync(context, resultCountBefore);
 		}
 	}
 
-	private void ExecuteRelationsExport(ExportContext context, Manifest? existingManifest)
+	private async Task ExecuteRelationsExportAsync(ExportContext context, Manifest? existingManifest)
 	{
 		if (!_options.ExportRelations)
 		{
@@ -136,7 +143,7 @@ public sealed class ExportOrchestrator
 
 		// Check if we can reuse existing relations
 		bool canReuseRelations = existingManifest != null
-			&& _incrementalManager.ManifestContainsTables(existingManifest, 
+			&& _incrementalManager.ManifestContainsTables(existingManifest,
 				"relations/bundle_hierarchy",
 				"relations/collection_dependencies",
 				"relations/asset_dependencies");
@@ -148,15 +155,19 @@ public sealed class ExportOrchestrator
 				Logger.Info("Reusing existing relations export (incremental).");
 			}
 
-			ReuseManifestData(existingManifest!, context, 
+			ReuseManifestData(existingManifest!, context,
 				"relations/bundle_hierarchy",
 				"relations/collection_dependencies",
 				"relations/asset_dependencies");
 		}
 		else
 		{
+			int resultCountBefore = context.DomainResults.Count;
 			RelationsExportPipeline pipeline = new RelationsExportPipeline(context);
 			pipeline.Execute();
+
+			// Validate newly exported domains
+			await ValidateExportedDomainsAsync(context, resultCountBefore);
 		}
 	}
 
@@ -514,6 +525,45 @@ public sealed class ExportOrchestrator
 		if (_options.ExportMetrics)
 		{
 			OutputPathHelper.EnsureSubdirectory(_options.OutputPath, OutputPathHelper.MetricsDirectoryName);
+		}
+	}
+
+	/// <summary>
+	/// Validates newly exported domains using domain-level validation.
+	/// </summary>
+	/// <param name="context">Export context containing domain results</param>
+	/// <param name="startIndex">Index to start validation from (validates only new domains)</param>
+	private async Task ValidateExportedDomainsAsync(ExportContext context, int startIndex)
+	{
+		if (!_options.ValidateSchemas)
+		{
+			return;
+		}
+
+		// Validate only newly added domains
+		for (int i = startIndex; i < context.DomainResults.Count; i++)
+		{
+			var domainResult = context.DomainResults[i];
+
+			try
+			{
+				// Use ValidationService for domain validation (now properly async)
+				var summary = await _validationService.ValidateDomainAsync(domainResult);
+
+				if (summary is not null && summary.ErrorCount > 0 && !_options.ContinueOnError)
+				{
+					throw new Exception($"Domain validation failed for {domainResult.TableId} with {summary.ErrorCount} errors");
+				}
+			}
+			catch (Exception ex)
+			{
+				Logger.Error(LogCategory.Export, $"Domain validation error for {domainResult.TableId}: {ex.Message}");
+
+				if (!_options.ContinueOnError)
+				{
+					throw;
+				}
+			}
 		}
 	}
 

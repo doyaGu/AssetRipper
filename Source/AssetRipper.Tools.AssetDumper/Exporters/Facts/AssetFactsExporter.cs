@@ -90,29 +90,79 @@ public sealed class AssetFactsExporter
 		seekableFrameSize: 2 * 1024 * 1024,
 		collectIndexEntries: _enableIndex,
 		descriptorDomain: result.TableId);
-	List<(string key, AssetRecord record)> bufferedRecords = new();
 
-	try
+		// Track total exported assets across all collections
+		long totalExportedAssets = 0;
+
+		try
 		{
-			foreach (AssetCollection collection in collections)
+			// Sort collections by name for consistent output ordering
+			var sortedCollections = collections
+				.OrderBy(c => c.Name ?? string.Empty, StringComparer.Ordinal)
+				.ToList();
+
+			foreach (AssetCollection collection in sortedCollections)
 			{
 				string collectionId = ExportHelper.ComputeCollectionId(collection);
 				CollectionJsonWalker walker = new(collection);
 
+				// MEMORY OPTIMIZATION: Buffer only one collection at a time instead of all assets
+				// This reduces peak memory from O(total assets) to O(max assets per collection)
+				List<(string key, AssetRecord record)> collectionBatch = new();
+
+				// Process assets in this collection (already ordered by PathID)
 				foreach (IUnityObjectBase asset in collection.Assets.Values.OrderBy(static asset => asset.PathID))
 				{
+					string assetName = asset.GetBestName() ?? $"PathID:{asset.PathID}";
+
 					try
 					{
-						SerializedObjectMetadata metadata = SerializedObjectMetadata.FromAsset(asset);
-					string stableKey = StableKeyHelper.Create(collectionId, asset.PathID);
-					JToken payload = walker.Serialize(asset);
-					AssetRecord record = CreateAssetFactRecord(collectionId, asset, metadata, payload);
-					bufferedRecords.Add((stableKey, record));
-				}
+						// Implement timeout protection to prevent malicious/corrupted assets from blocking
+						if (_options.TimeoutSeconds > 0)
+						{
+							using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(_options.TimeoutSeconds));
+
+							var processingTask = Task.Run(() =>
+							{
+								SerializedObjectMetadata metadata = SerializedObjectMetadata.FromAsset(asset);
+								string stableKey = StableKeyHelper.Create(collectionId, asset.PathID);
+								JToken payload = walker.Serialize(asset);
+								AssetRecord record = CreateAssetFactRecord(collectionId, asset, metadata, payload);
+								return (stableKey, record);
+							}, cts.Token);
+
+							try
+							{
+								var (stableKey, record) = processingTask.Wait(_options.TimeoutSeconds * 1000)
+									? processingTask.Result
+									: throw new TimeoutException($"Asset processing timed out after {_options.TimeoutSeconds}s");
+
+								collectionBatch.Add((stableKey, record));
+							}
+							catch (AggregateException aex) when (aex.InnerException is OperationCanceledException)
+							{
+								Logger.Warning(LogCategory.Export, $"Asset '{assetName}' cancelled due to timeout ({_options.TimeoutSeconds}s) in collection '{collectionId}'");
+								continue;
+							}
+						}
+						else
+						{
+							// No timeout - process normally
+							SerializedObjectMetadata metadata = SerializedObjectMetadata.FromAsset(asset);
+							string stableKey = StableKeyHelper.Create(collectionId, asset.PathID);
+							JToken payload = walker.Serialize(asset);
+							AssetRecord record = CreateAssetFactRecord(collectionId, asset, metadata, payload);
+							collectionBatch.Add((stableKey, record));
+						}
+					}
+					catch (TimeoutException)
+					{
+						Logger.Warning(LogCategory.Export, $"Asset '{assetName}' timed out after {_options.TimeoutSeconds}s in collection '{collectionId}'");
+						continue;
+					}
 					catch (Exception ex)
 					{
 						// Log and skip problematic assets instead of failing entire export
-						string assetName = asset.GetBestName() ?? $"PathID:{asset.PathID}";
 						if (_options.Verbose)
 						{
 							Logger.Warning(LogCategory.Export, $"Failed to serialize asset '{assetName}' in collection '{collectionId}': {ex.Message}");
@@ -121,14 +171,28 @@ public sealed class AssetFactsExporter
 						continue;
 					}
 				}
-			}
 
-			bufferedRecords.Sort(static (left, right) => string.CompareOrdinal(left.key, right.key));
+				// Sort assets within this collection by stable key
+				// This ensures consistent ordering within each collection
+				collectionBatch.Sort(static (left, right) => string.CompareOrdinal(left.key, right.key));
 
-			foreach ((string key, AssetRecord record) entry in bufferedRecords)
-			{
-				string? indexKey = _enableIndex ? entry.key : null;
-				writer.WriteRecord(entry.record, entry.key, indexKey);
+				// Write all assets from this collection to output
+				foreach ((string key, AssetRecord record) entry in collectionBatch)
+				{
+					string? indexKey = _enableIndex ? entry.key : null;
+					writer.WriteRecord(entry.record, entry.key, indexKey);
+				}
+
+				int batchCount = collectionBatch.Count;
+				totalExportedAssets += batchCount;
+
+				if (_options.Verbose)
+				{
+					Logger.Verbose(LogCategory.Export, $"Exported {batchCount} assets from collection '{collection.Name ?? collectionId}'");
+				}
+
+				// Release memory for this collection's batch
+				collectionBatch.Clear();
 			}
 		}
 		finally
@@ -144,11 +208,11 @@ public sealed class AssetFactsExporter
 
 		if (_options.Verbose)
 		{
-			Logger.Info(LogCategory.Export, $"Exported {bufferedRecords.Count} asset facts across {writer.ShardCount} shards");
+			Logger.Info(LogCategory.Export, $"Exported {totalExportedAssets} asset facts across {writer.ShardCount} shards");
 		}
 		else
 		{
-			Logger.Info(LogCategory.Export, $"Exported {bufferedRecords.Count} asset facts");
+			Logger.Info(LogCategory.Export, $"Exported {totalExportedAssets} asset facts");
 		}
 
 		return result;
@@ -196,12 +260,9 @@ public sealed class AssetFactsExporter
 			BundleName = bundleName,
 			SceneName = sceneName,
 			Unity = BuildUnityMetadata(metadata),
-			Data = new AssetDataContainer
-			{
-				ByteStart = metadata.ByteStart >= 0 ? metadata.ByteStart : null,
-				ByteSize = metadata.ByteSize >= 0 ? metadata.ByteSize : null,
-				Content = payload
-			}
+			ByteStart = metadata.ByteStart >= 0 ? metadata.ByteStart : null,
+			ByteSize = metadata.ByteSize >= 0 ? metadata.ByteSize : null,
+			Data = payload
 		};
 
 		return fact;

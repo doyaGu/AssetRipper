@@ -196,12 +196,9 @@ public sealed class AssetExporter
 			BundleName = bundleName,
 			SceneName = sceneName,
 			Unity = BuildUnityMetadata(metadata),
-			Data = new AssetDataContainer
-			{
-				ByteStart = metadata.ByteStart >= 0 ? metadata.ByteStart : null,
-				ByteSize = metadata.ByteSize >= 0 ? metadata.ByteSize : null,
-				Content = payload
-			}
+			ByteStart = metadata.ByteStart >= 0 ? metadata.ByteStart : null,
+			ByteSize = metadata.ByteSize >= 0 ? metadata.ByteSize : null,
+			Data = payload
 		};
 
 		return fact;

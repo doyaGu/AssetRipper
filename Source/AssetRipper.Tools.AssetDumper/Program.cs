@@ -11,23 +11,23 @@ internal static class Program
 {
 	private static readonly ConsoleLogger ConsoleLogger = new(false);
 
-	public static int Main(string[] args)
+	public static async Task<int> Main(string[] args)
 	{
 		Logger.Add(ConsoleLogger);
 
-		return Parser.Default.ParseArguments<Options>(args)
+		return await Parser.Default.ParseArguments<Options>(args)
 			.MapResult(
-				options =>
+				async options =>
 				{
 					ConfigureLogging(options);
 					Logger.LogSystemInformation("AssetDumper");
-					return RunWithOptions(options);
+					return await RunWithOptionsAsync(options);
 				},
-				errors => HandleParseErrors(errors)
+				errors => Task.FromResult(HandleParseErrors(errors))
 			);
 	}
 
-	private static int RunWithOptions(Options options)
+	private static async Task<int> RunWithOptionsAsync(Options options)
 	{
 		try
 		{
@@ -51,7 +51,7 @@ internal static class Program
 				return validationResult;
 
 			AssetProcessor processor = new AssetProcessor(options);
-			return processor.ProcessAssets();
+			return await processor.ProcessAssetsAsync();
 		}
 		catch (Exception ex)
 		{

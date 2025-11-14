@@ -1,8 +1,9 @@
 ﻿using AssetRipper.Import.Logging;
 using AssetRipper.Tools.AssetDumper.Metrics;
 using AssetRipper.Tools.AssetDumper.Core;
-using AssetRipper.Tools.AssetDumper.Exporters.Metadata;
-using AssetRipper.Tools.AssetDumper.Exporters.Records;
+using AssetRipper.Tools.AssetDumper.Models.Common;
+using AssetRipper.Tools.AssetDumper.Models.Facts;
+using AssetRipper.Tools.AssetDumper.Exporters.Facts;
 
 namespace AssetRipper.Tools.AssetDumper.Orchestration;
 
@@ -75,7 +76,7 @@ public sealed class OptionalExportPipeline
 
 		try
 		{
-			SceneRecordExporter exporter = new SceneRecordExporter(
+			SceneExporter exporter = new SceneExporter(
 				_context.Options,
 				_context.CompressionKind,
 				_context.EnableIndex);
@@ -99,7 +100,7 @@ public sealed class OptionalExportPipeline
 
 		try
 		{
-			BundleMetadataExporter exporter = new BundleMetadataExporter(
+			BundleExporter exporter = new BundleExporter(
 				_context.Options,
 				_context.CompressionKind,
 				_context.EnableIndex);
@@ -123,7 +124,7 @@ public sealed class OptionalExportPipeline
 
 		try
 		{
-			ScriptRecordExporter exporter = new ScriptRecordExporter(
+			ScriptMetadataExporter exporter = new ScriptMetadataExporter(
 				_context.Options,
 				_context.CompressionKind,
 				_context.EnableIndex);

@@ -26,11 +26,11 @@ internal class AssetProcessor
 
 	/// <summary>
 	/// Main entry point for asset processing workflow.
-	/// Loads game data, then either shows preview or executes export.
+	/// Loads game data, then either shows preview or executes export asynchronously.
 	/// </summary>
-	public int ProcessAssets()
+	public async Task<int> ProcessAssetsAsync()
 	{
-		return ExceptionHandler.ExecuteWithErrorHandling(() =>
+		return await ExceptionHandler.ExecuteWithErrorHandlingAsync(async () =>
 		{
 			var totalStopwatch = Stopwatch.StartNew();
 
@@ -54,8 +54,8 @@ internal class AssetProcessor
 					return (int)ErrorCode.Success;
 				}
 
-				// Execute export
-				return ExecuteExport(gameData);
+				// Execute export asynchronously
+				return await ExecuteExportAsync(gameData);
 			}
 			finally
 			{
@@ -101,12 +101,12 @@ internal class AssetProcessor
 	}
 
 	/// <summary>
-	/// Executes the export workflow using the orchestrator.
+	/// Executes the export workflow using the orchestrator asynchronously.
 	/// </summary>
-	private int ExecuteExport(GameData gameData)
+	private async Task<int> ExecuteExportAsync(GameData gameData)
 	{
 		ExportOrchestrator orchestrator = new ExportOrchestrator(_options);
-		return orchestrator.Execute(gameData);
+		return await orchestrator.ExecuteAsync(gameData);
 	}
 }
 

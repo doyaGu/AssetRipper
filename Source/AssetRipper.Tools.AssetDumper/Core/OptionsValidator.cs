@@ -8,8 +8,8 @@ namespace AssetRipper.Tools.AssetDumper.Core;
 public sealed class OptionsValidator
 {
     private readonly Options _options;
-    private readonly List<ValidationError> _errors = new();
-    private readonly List<ValidationWarning> _warnings = new();
+    private readonly List<OptionsValidationError> _errors = new();
+    private readonly List<OptionsValidationWarning> _warnings = new();
 
     public OptionsValidator(Options options)
     {
@@ -33,7 +33,7 @@ public sealed class OptionsValidator
         ValidateIncrementalOptions();
 
         // Log all errors and warnings
-        foreach (ValidationError error in _errors)
+        foreach (OptionsValidationError error in _errors)
         {
             Logger.Error($"Validation Error: {error.Message}");
             if (!string.IsNullOrEmpty(error.Suggestion))
@@ -42,7 +42,7 @@ public sealed class OptionsValidator
             }
         }
 
-        foreach (ValidationWarning warning in _warnings)
+        foreach (OptionsValidationWarning warning in _warnings)
         {
             Logger.Warning($"Validation Warning: {warning.Message}");
             if (!string.IsNullOrEmpty(warning.Suggestion))
@@ -57,18 +57,18 @@ public sealed class OptionsValidator
     /// <summary>
     /// Gets validation errors.
     /// </summary>
-    public IReadOnlyList<ValidationError> Errors => _errors;
+    public IReadOnlyList<OptionsValidationError> Errors => _errors;
 
     /// <summary>
     /// Gets validation warnings.
     /// </summary>
-    public IReadOnlyList<ValidationWarning> Warnings => _warnings;
+    public IReadOnlyList<OptionsValidationWarning> Warnings => _warnings;
 
     private void ValidateInputPath()
     {
         if (string.IsNullOrWhiteSpace(_options.InputPath))
         {
-            _errors.Add(new ValidationError
+            _errors.Add(new OptionsValidationError
             {
                 Field = "InputPath",
                 Message = "Input path is required",
@@ -79,7 +79,7 @@ public sealed class OptionsValidator
 
         if (!Directory.Exists(_options.InputPath) && !File.Exists(_options.InputPath))
         {
-            _errors.Add(new ValidationError
+            _errors.Add(new OptionsValidationError
             {
                 Field = "InputPath",
                 Message = $"Input path does not exist: {_options.InputPath}",
@@ -94,7 +94,7 @@ public sealed class OptionsValidator
     {
         if (string.IsNullOrWhiteSpace(_options.OutputPath))
         {
-            _errors.Add(new ValidationError
+            _errors.Add(new OptionsValidationError
             {
                 Field = "OutputPath",
                 Message = "Output path is required",
@@ -103,16 +103,73 @@ public sealed class OptionsValidator
             return;
         }
 
+        // Normalize and validate path to prevent traversal attacks
+        string normalizedPath;
+        try
+        {
+            normalizedPath = Path.GetFullPath(_options.OutputPath);
+            // Update the option with normalized path
+            _options.OutputPath = normalizedPath;
+        }
+        catch (Exception ex)
+        {
+            _errors.Add(new OptionsValidationError
+            {
+                Field = "OutputPath",
+                Message = $"Invalid output path: {ex.Message}",
+                Suggestion = "Ensure the path is valid and does not contain invalid characters"
+            });
+            return;
+        }
+
+        // Check for sensitive system directories
+        string[] forbiddenPaths = {
+            Environment.GetFolderPath(Environment.SpecialFolder.Windows),
+            Environment.GetFolderPath(Environment.SpecialFolder.System),
+            Environment.GetFolderPath(Environment.SpecialFolder.SystemX86),
+            Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
+            Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86),
+            Environment.GetFolderPath(Environment.SpecialFolder.CommonProgramFiles),
+            Path.GetPathRoot(normalizedPath) ?? string.Empty  // Root directory (C:\, D:\, etc.)
+        };
+
+        foreach (string forbiddenPath in forbiddenPaths.Where(p => !string.IsNullOrEmpty(p)))
+        {
+            if (normalizedPath.Equals(forbiddenPath, StringComparison.OrdinalIgnoreCase) ||
+                normalizedPath.StartsWith(forbiddenPath + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+            {
+                _errors.Add(new OptionsValidationError
+                {
+                    Field = "OutputPath",
+                    Message = $"Output path points to or is inside a system directory: {forbiddenPath}",
+                    Suggestion = "Choose a safe user directory for output (e.g., Documents, Desktop, or a custom folder)"
+                });
+                return;
+            }
+        }
+
+        // Warn if output path is outside current directory (potential security concern)
+        string currentDir = Path.GetFullPath(Environment.CurrentDirectory);
+        if (!normalizedPath.StartsWith(currentDir, StringComparison.OrdinalIgnoreCase))
+        {
+            _warnings.Add(new OptionsValidationWarning
+            {
+                Field = "OutputPath",
+                Message = "Output path is outside the current working directory",
+                Suggestion = "Consider using a subdirectory of the current directory for better security"
+            });
+        }
+
         // Check if output path is writable
         try
         {
-            string testDir = Path.Combine(_options.OutputPath, ".test");
+            string testDir = Path.Combine(normalizedPath, ".test");
             Directory.CreateDirectory(testDir);
             Directory.Delete(testDir);
         }
         catch (Exception ex)
         {
-            _errors.Add(new ValidationError
+            _errors.Add(new OptionsValidationError
             {
                 Field = "OutputPath",
                 Message = $"Output path is not writable: {ex.Message}",
@@ -121,12 +178,12 @@ public sealed class OptionsValidator
         }
 
         // Warn if output directory already exists and is not empty
-        if (Directory.Exists(_options.OutputPath))
+        if (Directory.Exists(normalizedPath))
         {
-            string[] existingFiles = Directory.GetFiles(_options.OutputPath, "*", SearchOption.AllDirectories);
+            string[] existingFiles = Directory.GetFiles(normalizedPath, "*", SearchOption.AllDirectories);
             if (existingFiles.Length > 0)
             {
-                _warnings.Add(new ValidationWarning
+                _warnings.Add(new OptionsValidationWarning
                 {
                     Field = "OutputPath",
                     Message = $"Output directory already contains {existingFiles.Length} file(s)",
@@ -148,7 +205,7 @@ public sealed class OptionsValidator
 
         if (!validFormats.Contains(compression))
         {
-            _errors.Add(new ValidationError
+            _errors.Add(new OptionsValidationError
             {
                 Field = "Compression",
                 Message = $"Unknown compression format: {_options.Compression}",
@@ -163,7 +220,7 @@ public sealed class OptionsValidator
         // Warn about compression trade-offs
         if (compression == "zstd-seekable" || compression == "zstd_seekable" || compression == "zstdseekable")
         {
-            _warnings.Add(new ValidationWarning
+            _warnings.Add(new OptionsValidationWarning
             {
                 Field = "Compression",
                 Message = "Zstd-seekable compression creates larger files than regular zstd",
@@ -181,7 +238,7 @@ public sealed class OptionsValidator
 
         if (_options.ShardSize < 100)
         {
-            _warnings.Add(new ValidationWarning
+            _warnings.Add(new OptionsValidationWarning
             {
                 Field = "ShardSize",
                 Message = $"Shard size is very small ({_options.ShardSize} records per shard)",
@@ -190,7 +247,7 @@ public sealed class OptionsValidator
         }
         else if (_options.ShardSize > 1_000_000)
         {
-            _warnings.Add(new ValidationWarning
+            _warnings.Add(new OptionsValidationWarning
             {
                 Field = "ShardSize",
                 Message = $"Shard size is very large ({_options.ShardSize} records per shard)",
@@ -203,7 +260,7 @@ public sealed class OptionsValidator
     {
         if (_options.ParallelDegree < 0)
         {
-            _errors.Add(new ValidationError
+            _errors.Add(new OptionsValidationError
             {
                 Field = "ParallelDegree",
                 Message = "Parallel degree cannot be negative",
@@ -221,7 +278,7 @@ public sealed class OptionsValidator
 
         if (_options.ParallelDegree > cpuCount * 2)
         {
-            _warnings.Add(new ValidationWarning
+            _warnings.Add(new OptionsValidationWarning
             {
                 Field = "ParallelDegree",
                 Message = $"Parallel degree ({_options.ParallelDegree}) is much higher than CPU count ({cpuCount})",
@@ -231,7 +288,7 @@ public sealed class OptionsValidator
 
         if (_options.ParallelDegree == 1)
         {
-            _warnings.Add(new ValidationWarning
+            _warnings.Add(new OptionsValidationWarning
             {
                 Field = "ParallelDegree",
                 Message = "Parallel degree is set to 1 (single-threaded mode)",
@@ -243,14 +300,14 @@ public sealed class OptionsValidator
     private void ValidateExportOptions()
     {
         // Check if at least one export option is enabled
-        bool hasAnyExport = _options.ExportFacts || 
-                           _options.ExportRelations || 
-                           _options.ExportScenes || 
+        bool hasAnyExport = _options.ExportFacts ||
+                           _options.ExportRelations ||
+                           _options.ExportScenes ||
                            _options.ExportScripts;
 
         if (!hasAnyExport)
         {
-            _warnings.Add(new ValidationWarning
+            _warnings.Add(new OptionsValidationWarning
             {
                 Field = "ExportOptions",
                 Message = "All export options are disabled",
@@ -265,7 +322,7 @@ public sealed class OptionsValidator
         // Validate index options
         if (_options.EnableIndex && !_options.ExportIndexes)
         {
-            _warnings.Add(new ValidationWarning
+            _warnings.Add(new OptionsValidationWarning
             {
                 Field = "EnableIndex",
                 Message = "Index generation is enabled but index export is disabled",
@@ -287,7 +344,7 @@ public sealed class OptionsValidator
             string manifestPath = Path.Combine(_options.OutputPath, "manifest.json");
             if (!File.Exists(manifestPath))
             {
-                _warnings.Add(new ValidationWarning
+                _warnings.Add(new OptionsValidationWarning
                 {
                     Field = "Incremental",
                     Message = "Incremental mode is enabled but no existing manifest found",
@@ -298,10 +355,9 @@ public sealed class OptionsValidator
     }
 }
 
-/// <summary>
-/// Represents a validation error that prevents operation.
+/// Represents a validation error for command-line options that prevents operation.
 /// </summary>
-public sealed class ValidationError
+public sealed class OptionsValidationError
 {
     public string Field { get; set; } = string.Empty;
     public string Message { get; set; } = string.Empty;
@@ -309,11 +365,12 @@ public sealed class ValidationError
 }
 
 /// <summary>
-/// Represents a validation warning that should be reviewed but doesn't prevent operation.
+/// Represents a validation warning for command-line options that should be reviewed but doesn't prevent operation.
 /// </summary>
-public sealed class ValidationWarning
+public sealed class OptionsValidationWarning
 {
     public string Field { get; set; } = string.Empty;
     public string Message { get; set; } = string.Empty;
     public string? Suggestion { get; set; }
 }
+

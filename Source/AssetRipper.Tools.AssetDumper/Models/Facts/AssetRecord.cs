@@ -57,37 +57,29 @@ public sealed class AssetRecord
 	[JsonProperty("unity", NullValueHandling = NullValueHandling.Ignore)]
 	public AssetUnityMetadata? Unity { get; set; }
 
-	[JsonProperty("data")]
-	public AssetDataContainer Data { get; set; } = new();
-
-	[JsonProperty("hash", NullValueHandling = NullValueHandling.Ignore)]
-	public string? Hash { get; set; }
-}
-
-/// <summary>
-/// Container for asset data including byte offset information and serialized content.
-/// </summary>
-public sealed class AssetDataContainer
-{
 	/// <summary>
 	/// Byte offset in the serialized file (relative to data section start).
-	/// -1 if unavailable.
+	/// Optional metadata field.
 	/// </summary>
 	[JsonProperty("byteStart", NullValueHandling = NullValueHandling.Ignore)]
 	public long? ByteStart { get; set; }
 
 	/// <summary>
 	/// Size of the serialized asset data in bytes.
-	/// -1 if unavailable.
+	/// Optional metadata field.
 	/// </summary>
 	[JsonProperty("byteSize", NullValueHandling = NullValueHandling.Ignore)]
 	public int? ByteSize { get; set; }
 
 	/// <summary>
-	/// Serialized asset content as JSON.
+	/// Serialized Unity object payload emitted inline as JSON.
+	/// Null for unreadable assets (UnreadableObject, UnknownObject).
 	/// </summary>
-	[JsonProperty("content")]
-	public JToken Content { get; set; } = JValue.CreateNull();
+	[JsonProperty("data")]
+	public JToken Data { get; set; } = JValue.CreateNull();
+
+	[JsonProperty("hash", NullValueHandling = NullValueHandling.Ignore)]
+	public string? Hash { get; set; }
 }
 
 public sealed class AssetPrimaryKey

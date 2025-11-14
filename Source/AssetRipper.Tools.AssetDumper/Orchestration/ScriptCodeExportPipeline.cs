@@ -1,8 +1,11 @@
 ﻿using AssetRipper.Import.Logging;
 using AssetRipper.Tools.AssetDumper.Core;
-using AssetRipper.Tools.AssetDumper.Exporters.Records;
+using AssetRipper.Tools.AssetDumper.Models.Facts;
+using AssetRipper.Tools.AssetDumper.Models.Relations;
 using AssetRipper.Tools.AssetDumper.Generators;
 using AssetRipper.Tools.AssetDumper.Helpers;
+using AssetRipper.Tools.AssetDumper.Exporters.Facts;
+using AssetRipper.Tools.AssetDumper.Exporters.Relations;
 
 namespace AssetRipper.Tools.AssetDumper.Orchestration;
 
@@ -74,7 +77,7 @@ internal sealed class ScriptCodeExportPipeline
 			Logger.Info("Exporting assembly facts...");
 		}
 
-		AssemblyFactsExporter exporter = new AssemblyFactsExporter(
+		AssemblyExporter exporter = new AssemblyExporter(
 			_context.Options,
 			_context.CompressionKind,
 			_context.EnableIndex);
@@ -90,7 +93,7 @@ internal sealed class ScriptCodeExportPipeline
 			Logger.Info("Exporting type definitions...");
 		}
 
-		TypeDefinitionRecordExporter exporter = new TypeDefinitionRecordExporter(
+		TypeDefinitionExporter exporter = new TypeDefinitionExporter(
 			_context.Options,
 			_context.CompressionKind,
 			_context.EnableIndex);

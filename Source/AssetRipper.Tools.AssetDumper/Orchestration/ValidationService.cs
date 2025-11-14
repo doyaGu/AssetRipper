@@ -2,6 +2,8 @@ using AssetRipper.Import.Logging;
 using AssetRipper.Tools.AssetDumper.Core;
 using AssetRipper.Tools.AssetDumper.Helpers;
 using AssetRipper.Tools.AssetDumper.Writers;
+using AssetRipper.Tools.AssetDumper.Validation;
+using AssetRipper.Tools.AssetDumper.Validation.Models;
 
 namespace AssetRipper.Tools.AssetDumper.Orchestration;
 
@@ -11,10 +13,17 @@ namespace AssetRipper.Tools.AssetDumper.Orchestration;
 public sealed class ValidationService
 {
 	private readonly Options _options;
+	private readonly ValidationOrchestrator? _validationOrchestrator;
 
 	public ValidationService(Options options)
 	{
 		_options = options;
+
+		// Initialize ValidationOrchestrator if schema validation is enabled
+		if (_options.ValidateSchemas)
+		{
+			_validationOrchestrator = new ValidationOrchestrator(_options);
+		}
 	}
 
 	/// <summary>
@@ -100,15 +109,84 @@ public sealed class ValidationService
 	}
 
 	/// <summary>
-	/// Performs JSON Schema validation if enabled.
+	/// Validates a single domain export result against its schema.
+	/// This is called immediately after each domain export completes.
 	/// </summary>
-	public bool ValidateSchemas(List<DomainExportResult> domainResults)
+	/// <param name="domainResult">The domain export result to validate</param>
+	/// <returns>Domain validation summary</returns>
+	public async Task<DomainValidationSummary?> ValidateDomainAsync(DomainExportResult domainResult)
 	{
-		if (!_options.ValidateSchema || domainResults.Count == 0)
+		if (_validationOrchestrator is null || !_options.ValidateSchemas)
+		{
+			return null;
+		}
+
+		try
+		{
+			return await _validationOrchestrator.ValidateDomainAsync(domainResult);
+		}
+		catch (ValidationException ex)
+		{
+			Logger.Error(LogCategory.Export, $"Domain validation failed: {ex.Message}");
+			throw; // Re-throw to stop export if fail-fast is enabled
+		}
+		catch (Exception ex)
+		{
+			Logger.Error(LogCategory.Export, $"Unexpected validation error: {ex.Message}");
+			if (!_options.ContinueOnError)
+			{
+				throw;
+			}
+			return null;
+		}
+	}
+
+	/// <summary>
+	/// Performs comprehensive JSON Schema validation with cross-table checks.
+	/// This should be called after all domains have been exported.
+	/// </summary>
+	/// <param name="domainResults">All domain export results</param>
+	/// <returns>True if validation passed, false otherwise</returns>
+	public async Task<bool> ValidateSchemasAsync(List<DomainExportResult> domainResults)
+	{
+		if (!_options.ValidateSchemas || domainResults.Count == 0)
 		{
 			return true;
 		}
 
+		// Use new ValidationOrchestrator if available
+		if (_validationOrchestrator is not null)
+		{
+			try
+			{
+				var report = await _validationOrchestrator.ValidateComprehensiveAsync(domainResults);
+
+				// Save validation report
+				await _validationOrchestrator.SaveReportAsync(report);
+
+				// Log summary
+				var summary = ValidationOrchestrator.GenerateSummary(report);
+				if (!_options.Silent)
+				{
+					Logger.Info(LogCategory.Export, summary);
+				}
+
+				return report.OverallResult == ValidationResult.Passed ||
+					   report.OverallResult == ValidationResult.PassedWithWarnings;
+			}
+			catch (ValidationException ex)
+			{
+				Logger.Error(LogCategory.Export, $"Comprehensive validation failed: {ex.Message}");
+				return false;
+			}
+			catch (Exception ex)
+			{
+				Logger.Error(LogCategory.Export, $"Unexpected validation error: {ex.Message}");
+				return !_options.ContinueOnError;
+			}
+		}
+
+		// Fall back to legacy validation if orchestrator is not available
 		SchemaValidationService validator = new SchemaValidationService(_options);
 		return validator.Validate(domainResults);
 	}
