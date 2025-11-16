@@ -51,7 +51,44 @@ public sealed class AssetDependencyExporter
         _enableIndex = enableIndex;
     }
 
+    /// <summary>
+    /// Exports asset dependency relations from the game data.
+    /// </summary>
     public DomainExportResult Export(GameData gameData)
+    {
+        if (gameData is null)
+        {
+            throw new ArgumentNullException(nameof(gameData));
+        }
+
+        Logger.Info(LogCategory.Export, "Exporting asset dependency relations...");
+        Directory.CreateDirectory(_options.OutputPath);
+
+        ExportContext context = InitializeExportContext(gameData);
+
+        try
+        {
+            ProcessAllCollections(context);
+        }
+        finally
+        {
+            context.Writer.Dispose();
+        }
+
+        FinalizeExportResult(context);
+
+        Logger.Info(LogCategory.Export,
+            $"Exported {context.EmittedCount} dependency relations (skipped {context.SkippedCount}) across {context.Writer.ShardCount} shards");
+
+        return context.Result;
+    }
+
+    /// <summary>
+    /// Old Export method - DEPRECATED. Kept temporarily for reference during refactoring validation.
+    /// This method will be removed after confirming the refactored version works correctly.
+    /// </summary>
+    [Obsolete("Replaced by refactored Export method using helper methods", true)]
+    private DomainExportResult ExportOld(GameData gameData)
     {
         if (gameData is null)
         {
@@ -399,6 +436,397 @@ public sealed class AssetDependencyExporter
         return result;
     }
 
+    /// <summary>
+    /// Initializes the export context with all necessary data structures and configurations.
+    /// </summary>
+    private ExportContext InitializeExportContext(GameData gameData)
+    {
+        Logger.Info(LogCategory.Export, "Collecting asset collections for dependency export...");
+        List<AssetCollection> collections = gameData.GameBundle.FetchAssetCollections().ToList();
+        Logger.Info(LogCategory.Export, $"Collected {collections.Count} collections. Building lookup...");
+
+        CollectionLookup collectionLookup = CollectionLookup.Build(collections);
+        Logger.Info(LogCategory.Export, "Collection lookup ready. Beginning dependency resolution...");
+        Logger.Info(LogCategory.Export, $"Resolving dependencies across {collections.Count} collections");
+
+        long maxRecordsPerShard = _options.ShardSize > 0 ? _options.ShardSize : 100_000;
+        long maxBytesPerShard = 100 * 1024 * 1024;
+
+        DomainExportResult result = new DomainExportResult(
+            domain: "asset_dependencies",
+            tableId: "relations/asset_dependencies",
+            schemaPath: "Schemas/v2/relations/asset_dependencies.schema.json");
+
+        ShardedNdjsonWriter writer = new ShardedNdjsonWriter(
+            _options.OutputPath,
+            result.ShardDirectory,
+            _jsonSettings,
+            maxRecordsPerShard,
+            maxBytesPerShard,
+            _compressionKind,
+            seekableFrameSize: 2 * 1024 * 1024,
+            collectIndexEntries: _enableIndex,
+            descriptorDomain: result.TableId);
+
+        return new ExportContext(collections, collectionLookup, result, writer);
+    }
+
+    /// <summary>
+    /// Processes all asset collections and their dependencies.
+    /// </summary>
+    private void ProcessAllCollections(ExportContext context)
+    {
+        foreach (AssetCollection collection in context.Collections)
+        {
+            ProcessCollection(context, collection);
+        }
+    }
+
+    /// <summary>
+    /// Processes a single asset collection.
+    /// </summary>
+    private void ProcessCollection(ExportContext context, AssetCollection collection)
+    {
+        string ownerCollectionId = context.CollectionLookup.GetCollectionId(collection);
+        string collectionDisplayName = string.IsNullOrWhiteSpace(collection.Name) ? "<unnamed>" : collection.Name;
+        int assetTotal = collection.Assets.Count;
+        int dependencySlotCount = collection.Dependencies.Count;
+
+        if (_options.Verbose)
+        {
+            Logger.Info(LogCategory.Export,
+                $"[{ownerCollectionId}] Processing collection '{collectionDisplayName}' with {assetTotal} assets and {dependencySlotCount} dependency slots");
+        }
+
+        long collectionEmittedBefore = context.EmittedCount;
+        long collectionSkippedBefore = context.SkippedCount;
+
+        IEnumerable<IUnityObjectBase> orderedAssets = collection.Assets.Values.OrderBy(static asset => asset.PathID);
+        int assetIndex = 0;
+
+        foreach (IUnityObjectBase asset in orderedAssets)
+        {
+            assetIndex++;
+            ProcessAsset(context, collection, ownerCollectionId, asset, assetIndex, assetTotal);
+        }
+
+        if (_options.Verbose)
+        {
+            long collectionEmittedDelta = context.EmittedCount - collectionEmittedBefore;
+            long collectionSkippedDelta = context.SkippedCount - collectionSkippedBefore;
+            Logger.Info(LogCategory.Export,
+                $"[{ownerCollectionId}] Completed '{collectionDisplayName}' - emitted {collectionEmittedDelta}, skipped {collectionSkippedDelta} relations");
+        }
+    }
+
+    /// <summary>
+    /// Processes dependencies for a single asset.
+    /// </summary>
+    private void ProcessAsset(
+        ExportContext context,
+        AssetCollection collection,
+        string ownerCollectionId,
+        IUnityObjectBase asset,
+        int assetIndex,
+        int assetTotal)
+    {
+        context.PerAssetEdges.Clear();
+        long assetEmittedBefore = context.EmittedCount;
+        long assetSkippedBefore = context.SkippedCount;
+
+        AssetProcessingState state = new AssetProcessingState(ownerCollectionId, assetIndex, assetTotal, asset.PathID);
+
+        if (_options.TraceDependencies)
+        {
+            Logger.Info(LogCategory.Export,
+                $"[{ownerCollectionId}] Starting asset {assetIndex}/{assetTotal} (pathID {asset.PathID})");
+        }
+
+        IEnumerable<(string field, PPtr pptr)>? dependencies = FetchAssetDependencies(
+            context, collection, asset, ownerCollectionId, assetIndex, assetTotal);
+
+        if (dependencies is null)
+        {
+            return;
+        }
+
+        ProcessAssetDependencies(context, collection, ownerCollectionId, asset, dependencies, state);
+
+        LogAssetCompletionIfNeeded(state, assetEmittedBefore, assetSkippedBefore, context.EmittedCount, context.SkippedCount);
+    }
+
+    /// <summary>
+    /// Fetches dependencies for an asset with error handling and logging.
+    /// </summary>
+    private IEnumerable<(string field, PPtr pptr)>? FetchAssetDependencies(
+        ExportContext context,
+        AssetCollection collection,
+        IUnityObjectBase asset,
+        string ownerCollectionId,
+        int assetIndex,
+        int assetTotal)
+    {
+        try
+        {
+            Stopwatch fetchTimer = Stopwatch.StartNew();
+            IEnumerable<(string field, PPtr pptr)>? dependencies = asset.FetchDependencies();
+            fetchTimer.Stop();
+
+            if (_options.TraceDependencies && fetchTimer.ElapsedMilliseconds > 250)
+            {
+                Logger.Info(LogCategory.Export,
+                    $"[{ownerCollectionId}] Asset {assetIndex}/{assetTotal} (pathID {asset.PathID}) FetchDependencies completed in {fetchTimer.ElapsedMilliseconds} ms");
+            }
+
+            return dependencies;
+        }
+        catch (Exception ex)
+        {
+            Logger.Warning(LogCategory.Export,
+                $"Failed to fetch dependencies for asset {asset.PathID} in {collection.Name}: {ex.Message}");
+            context.SkippedCount++;
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Processes all dependencies for a single asset.
+    /// </summary>
+    private void ProcessAssetDependencies(
+        ExportContext context,
+        AssetCollection collection,
+        string ownerCollectionId,
+        IUnityObjectBase asset,
+        IEnumerable<(string field, PPtr pptr)> dependencies,
+        AssetProcessingState state)
+    {
+        foreach ((string field, PPtr pointer) in dependencies)
+        {
+            state.EnumeratedDependencies++;
+            state.UpdatePointerSnapshot(pointer, field);
+
+            PointerSignature pointerKey = PointerSignature.From(field, pointer);
+
+            if (IsNullPointer(pointer))
+            {
+                if (HandleNullPointer(context, state, pointerKey))
+                {
+                    break; // Abort enumeration
+                }
+                continue;
+            }
+
+            state.ConsecutiveNullPointers = 0;
+            state.EnumeratedSinceLastProgress++;
+
+            if (ProcessSingleDependency(context, collection, ownerCollectionId, asset, field, pointer, pointerKey, state))
+            {
+                break; // Abort enumeration
+            }
+        }
+    }
+
+    /// <summary>
+    /// Processes a single dependency pointer.
+    /// </summary>
+    private bool ProcessSingleDependency(
+        ExportContext context,
+        AssetCollection collection,
+        string ownerCollectionId,
+        IUnityObjectBase asset,
+        string field,
+        PPtr pointer,
+        PointerSignature pointerKey,
+        AssetProcessingState state)
+    {
+        DependencyResolutionContext? resolutionContext = ResolveDependency(
+            context.CollectionLookup, collection, ownerCollectionId, asset, field ?? string.Empty, pointer);
+
+        if (resolutionContext is null || ShouldSkip(resolutionContext))
+        {
+            context.SkippedCount++;
+            int repeatCount = IncrementPointerRepeat(state.PointerRepeatCounts, pointerKey);
+
+            if (state.ReportNoProgressIfNeeded(_options.TraceDependencies))
+            {
+                return true;
+            }
+
+            if (state.ShouldAbortDueToRepeat(pointerKey, repeatCount))
+            {
+                return true;
+            }
+
+            return false;
+        }
+
+        DependencyKey perAssetKey = DependencyKey.FromRelation(resolutionContext.Relation);
+        if (!context.PerAssetEdges.Add(perAssetKey))
+        {
+            context.SkippedCount++;
+            int repeatCount = IncrementPointerRepeat(state.PointerRepeatCounts, pointerKey);
+
+            if (state.ReportNoProgressIfNeeded(_options.TraceDependencies))
+            {
+                return true;
+            }
+
+            if (state.ShouldAbortDueToRepeat(pointerKey, repeatCount))
+            {
+                return true;
+            }
+
+            return false;
+        }
+
+        EmitDependencyRecord(context, resolutionContext, state, pointerKey);
+
+        LogDependencyProgressIfNeeded(state, pointer, field);
+
+        return state.ReportNoProgressIfNeeded(_options.TraceDependencies);
+    }
+
+    /// <summary>
+    /// Emits a dependency record to the writer.
+    /// </summary>
+    private void EmitDependencyRecord(
+        ExportContext context,
+        DependencyResolutionContext resolutionContext,
+        AssetProcessingState state,
+        PointerSignature pointerKey)
+    {
+        state.PointerRepeatCounts.Remove(pointerKey);
+        state.PointerRepeatLogged?.Remove(pointerKey);
+
+        string stableKey = BuildStableKey(resolutionContext.Relation);
+        string? indexKey = _enableIndex ? stableKey : null;
+
+        context.Writer.WriteRecord(resolutionContext.Relation, stableKey, indexKey);
+        context.EmittedCount++;
+
+        state.EnumeratedSinceLastProgress = 0;
+        state.NoProgressTimer.Restart();
+    }
+
+    /// <summary>
+    /// Checks if a pointer is effectively null.
+    /// </summary>
+    private static bool IsNullPointer(PPtr pointer)
+    {
+        return pointer.PathID == 0 && pointer.FileID == 0;
+    }
+
+    /// <summary>
+    /// Handles null pointer logic. Returns true if enumeration should abort.
+    /// </summary>
+    private bool HandleNullPointer(ExportContext context, AssetProcessingState state, PointerSignature pointerKey)
+    {
+        context.SkippedCount++;
+        state.ConsecutiveNullPointers++;
+
+        int repeatCount = IncrementPointerRepeat(state.PointerRepeatCounts, pointerKey);
+        if (state.ShouldAbortDueToRepeat(pointerKey, repeatCount))
+        {
+            return true;
+        }
+
+        if (state.ConsecutiveNullPointers >= NullPointerAbortThreshold)
+        {
+            string pointerDetails = state.HasPointerSnapshot
+                ? $"fileID={state.LastPointer.FileID}, pathID={state.LastPointer.PathID}"
+                : "<unavailable>";
+
+            Logger.Warning(LogCategory.Export,
+                $"[{state.OwnerCollectionId}] Asset {state.AssetIndex}/{state.AssetTotal} (pathID {state.AssetPathId}) aborting dependency enumeration after {state.ConsecutiveNullPointers:N0} consecutive null references (last pointer {pointerDetails}, field='{state.LastField ?? "<null>"}')");
+            return true;
+        }
+
+        state.EnumeratedSinceLastProgress = 0;
+        state.NoProgressTimer.Restart();
+        return false;
+    }
+
+    /// <summary>
+    /// Logs dependency processing progress if needed.
+    /// </summary>
+    /// <param name="state">The asset processing state.</param>
+    /// <param name="pointer">The current PPtr being processed.</param>
+    /// <param name="field">The field name for the dependency (may be null).</param>
+    private void LogDependencyProgressIfNeeded(AssetProcessingState state, PPtr pointer, string? field)
+    {
+        if (!_options.TraceDependencies)
+        {
+            return;
+        }
+
+        if (state.EnumeratedDependencies % ExportConstants.DependencyProgressLogInterval == 0)
+        {
+            Logger.Info(LogCategory.Export,
+                $"[{state.OwnerCollectionId}] Asset {state.AssetIndex}/{state.AssetTotal} (pathID {state.AssetPathId}) enumerated {state.EnumeratedDependencies} dependencies so far");
+        }
+
+        if (state.DependencyProgressTimer.ElapsedMilliseconds >= 5_000)
+        {
+            state.DependencyProgressTimer.Restart();
+            Logger.Info(LogCategory.Export,
+                $"[{state.OwnerCollectionId}] Asset {state.AssetIndex}/{state.AssetTotal} (pathID {state.AssetPathId}) still processing - enumerated {state.EnumeratedDependencies} dependencies so far (last pointer fileID={pointer.FileID}, pathID={pointer.PathID}, field='{field ?? "<null>"}')");
+        }
+    }
+
+    /// <summary>
+    /// Logs asset completion metrics if needed.
+    /// </summary>
+    private void LogAssetCompletionIfNeeded(
+        AssetProcessingState state,
+        long assetEmittedBefore,
+        long assetSkippedBefore,
+        long currentEmittedCount,
+        long currentSkippedCount)
+    {
+        if (!_options.TraceDependencies)
+        {
+            return;
+        }
+
+        if (state.AssetIndex % 500 == 0 || state.EnumeratedDependencies > 2000)
+        {
+            long assetEmittedDelta = currentEmittedCount - assetEmittedBefore;
+            long assetSkippedDelta = currentSkippedCount - assetSkippedBefore;
+            Logger.Info(LogCategory.Export,
+                $"[{state.OwnerCollectionId}] Asset {state.AssetIndex}/{state.AssetTotal} (pathID {state.AssetPathId}) processed {state.EnumeratedDependencies} dependencies => emitted {assetEmittedDelta}, skipped {assetSkippedDelta}");
+        }
+
+        state.AssetStopwatch.Stop();
+        state.DependencyProgressTimer.Stop();
+        state.NoProgressTimer.Stop();
+
+        if (state.AssetStopwatch.ElapsedMilliseconds > 1_000)
+        {
+            Logger.Info(LogCategory.Export,
+                $"[{state.OwnerCollectionId}] Asset {state.AssetIndex}/{state.AssetTotal} (pathID {state.AssetPathId}) completed in {state.AssetStopwatch.ElapsedMilliseconds} ms");
+        }
+
+        if (state.EnumeratedDependencies > 0 && state.EnumeratedDependencies < ExportConstants.DependencyProgressLogInterval)
+        {
+            long assetEmittedDelta = currentEmittedCount - assetEmittedBefore;
+            long assetSkippedDelta = currentSkippedCount - assetSkippedBefore;
+            Logger.Info(LogCategory.Export,
+                $"[{state.OwnerCollectionId}] Asset {state.AssetIndex}/{state.AssetTotal} (pathID {state.AssetPathId}) processed {state.EnumeratedDependencies} dependencies => emitted {assetEmittedDelta}, skipped {assetSkippedDelta}");
+        }
+    }
+
+    /// <summary>
+    /// Finalizes the export result with shard and index information.
+    /// </summary>
+    private void FinalizeExportResult(ExportContext context)
+    {
+        context.Result.Shards.AddRange(context.Writer.ShardDescriptors);
+        if (_enableIndex)
+        {
+            context.Result.IndexEntries.AddRange(context.Writer.IndexEntries);
+        }
+    }
+
     private DependencyResolutionContext? ResolveDependency(
         CollectionLookup collectionLookup,
         AssetCollection ownerCollection,
@@ -588,6 +1016,17 @@ public sealed class AssetDependencyExporter
         return new DependencyResolutionContext(relation, targetCollectionName, targetIsBuiltin);
     }
 
+    /// <summary>
+    /// Determines the resolution status of a dependency based on various resolution criteria.
+    /// </summary>
+    /// <param name="ownerCollectionId">The collection ID of the owning asset.</param>
+    /// <param name="targetCollectionId">The collection ID of the target asset.</param>
+    /// <param name="ownerPathId">The path ID of the owning asset.</param>
+    /// <param name="targetPathId">The path ID of the target asset.</param>
+    /// <param name="collectionResolved">Whether the target collection was successfully resolved.</param>
+    /// <param name="assetResolved">Whether the target asset exists in the resolved collection.</param>
+    /// <param name="pointer">The PPtr being resolved.</param>
+    /// <returns>Status string: "Null", "SelfReference", "InvalidFileID", "Missing", "Resolved", or "External".</returns>
     private static string DetermineStatus(
         string ownerCollectionId,
         string targetCollectionId,
@@ -636,6 +1075,9 @@ public sealed class AssetDependencyExporter
     /// <summary>
     /// Determines the kind of dependency based on FileID and field path structure.
     /// </summary>
+    /// <param name="fileId">The FileID of the dependency (0=internal, positive=external, negative=built-in).</param>
+    /// <param name="fieldPath">The field path that may contain array indices or dictionary indicators.</param>
+    /// <returns>A dependency kind string: "array_element", "dictionary_key", "dictionary_value", "internal", "external", or "pptr".</returns>
     private static string DetermineKind(int fileId, string fieldPath)
     {
         // Check if field path contains array indexing (e.g., "m_Materials[2]")
@@ -675,6 +1117,8 @@ public sealed class AssetDependencyExporter
     /// Extracts array index from field path (e.g., "m_Materials[2]" -> 2).
     /// Returns null if no array index present.
     /// </summary>
+    /// <param name="fieldPath">The field path that may contain array index syntax like "field[index]".</param>
+    /// <returns>The extracted array index if present and valid, otherwise null.</returns>
     private static int? ExtractArrayIndex(string fieldPath)
     {
         if (string.IsNullOrEmpty(fieldPath))
@@ -697,6 +1141,11 @@ public sealed class AssetDependencyExporter
         return null;
     }
 
+    /// <summary>
+    /// Determines whether a dependency should be skipped based on export options.
+    /// </summary>
+    /// <param name="context">The dependency resolution context containing the relation and metadata.</param>
+    /// <returns>True if the dependency should be skipped, false otherwise.</returns>
     private bool ShouldSkip(DependencyResolutionContext context)
     {
         AssetDependencyRecord relation = context.Relation;
@@ -732,6 +1181,11 @@ public sealed class AssetDependencyExporter
         return false;
     }
 
+    /// <summary>
+    /// Determines the collection ID for an asset collection, detecting built-in resources.
+    /// </summary>
+    /// <param name="collection">The asset collection to determine an ID for.</param>
+    /// <returns>A collection ID string, either a built-in identifier (e.g., "BUILTIN-EXTRA") or a computed hash.</returns>
     private static string DetermineCollectionId(AssetCollection collection)
     {
         string? name = collection.Name;
@@ -757,6 +1211,11 @@ public sealed class AssetDependencyExporter
         return ExportHelper.ComputeCollectionId(collection);
     }
 
+    /// <summary>
+    /// Checks if a collection name corresponds to a built-in Unity resource.
+    /// </summary>
+    /// <param name="collectionName">The collection name to check.</param>
+    /// <returns>True if the name matches a built-in resource pattern, false otherwise.</returns>
     private static bool IsBuiltinCollectionName(string collectionName)
     {
         if (string.IsNullOrEmpty(collectionName))
@@ -770,6 +1229,11 @@ public sealed class AssetDependencyExporter
             || SpecialFileNames.IsEditorResource(normalized);
     }
 
+    /// <summary>
+    /// Checks if a collection ID represents a built-in Unity resource.
+    /// </summary>
+    /// <param name="collectionId">The collection ID to check.</param>
+    /// <returns>True if the ID is a known built-in identifier, false otherwise.</returns>
     private static bool IsBuiltinCollectionId(string collectionId)
     {
         return string.Equals(collectionId, "BUILTIN-EXTRA", StringComparison.Ordinal)
@@ -777,6 +1241,13 @@ public sealed class AssetDependencyExporter
             || string.Equals(collectionId, "BUILTIN-EDITOR", StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// Attempts to retrieve the FileIdentifier for a dependency at a given file index.
+    /// </summary>
+    /// <param name="collection">The owning collection containing the dependencies list.</param>
+    /// <param name="fileIndex">The file index (FileID) to look up.</param>
+    /// <param name="identifier">Output parameter containing the FileIdentifier if found.</param>
+    /// <returns>True if the identifier was successfully retrieved, false otherwise.</returns>
     private static bool TryGetDependencyIdentifier(AssetCollection collection, int fileIndex, out FileIdentifier identifier)
     {
         identifier = default;
@@ -808,6 +1279,14 @@ public sealed class AssetDependencyExporter
         return true;
     }
 
+    /// <summary>
+    /// Formats a diagnostic note message for an unresolved dependency.
+    /// </summary>
+    /// <param name="fileId">The FileID of the unresolved dependency.</param>
+    /// <param name="pathId">The PathID of the unresolved dependency.</param>
+    /// <param name="dependencyName">Optional name of the dependency file.</param>
+    /// <param name="reason">The reason why the dependency couldn't be resolved.</param>
+    /// <returns>A formatted diagnostic message string.</returns>
     private static string FormatMissingDependencyNote(int fileId, long pathId, string? dependencyName, string reason)
     {
         string baseMessage = string.Format(
@@ -829,6 +1308,11 @@ public sealed class AssetDependencyExporter
             dependencyName);
     }
 
+    /// <summary>
+    /// Maps negative FileID values to their corresponding built-in resource names.
+    /// </summary>
+    /// <param name="fileId">The FileID to describe. Negative values represent built-in resources.</param>
+    /// <returns>The built-in resource name, or null if the FileID is not a recognized built-in.</returns>
     private static string? DescribeBuiltinFromFileId(int fileId)
     {
         return fileId switch
@@ -840,6 +1324,11 @@ public sealed class AssetDependencyExporter
         };
     }
 
+    /// <summary>
+    /// Builds a stable, deterministic key for a dependency relation used for deduplication and indexing.
+    /// </summary>
+    /// <param name="relation">The dependency relation to generate a key for.</param>
+    /// <returns>A stable string key in format "fromCollection:fromPath->toCollection:toPath:field".</returns>
     private static string BuildStableKey(AssetDependencyRecord relation)
     {
         return string.Format(
@@ -852,6 +1341,13 @@ public sealed class AssetDependencyExporter
             relation.Edge.Field ?? string.Empty);
     }
 
+    /// <summary>
+    /// Increments and returns the repeat count for a pointer signature.
+    /// Used to detect infinite loops caused by repeated pointer enumeration.
+    /// </summary>
+    /// <param name="repeatCounts">Dictionary tracking repeat counts per pointer signature.</param>
+    /// <param name="key">The pointer signature to increment.</param>
+    /// <returns>The updated repeat count for this pointer signature.</returns>
     private static int IncrementPointerRepeat(Dictionary<PointerSignature, int> repeatCounts, PointerSignature key)
     {
         if (repeatCounts.TryGetValue(key, out int existing))
@@ -1239,6 +1735,144 @@ public sealed class AssetDependencyExporter
         public AssetDependencyRecord Relation { get; }
         public string? TargetCollectionName { get; }
         public bool TargetIsBuiltin { get; }
+    }
 
+    /// <summary>
+    /// Encapsulates the export context and shared state across collection processing.
+    /// </summary>
+    private sealed class ExportContext
+    {
+        public ExportContext(
+            List<AssetCollection> collections,
+            CollectionLookup collectionLookup,
+            DomainExportResult result,
+            ShardedNdjsonWriter writer)
+        {
+            Collections = collections;
+            CollectionLookup = collectionLookup;
+            Result = result;
+            Writer = writer;
+            PerAssetEdges = new HashSet<DependencyKey>(DependencyKeyComparer.Instance);
+        }
+
+        public List<AssetCollection> Collections { get; }
+        public CollectionLookup CollectionLookup { get; }
+        public DomainExportResult Result { get; }
+        public ShardedNdjsonWriter Writer { get; }
+        public HashSet<DependencyKey> PerAssetEdges { get; }
+        public long EmittedCount { get; set; }
+        public long SkippedCount { get; set; }
+    }
+
+    /// <summary>
+    /// Tracks processing state for a single asset's dependencies.
+    /// </summary>
+    private sealed class AssetProcessingState
+    {
+        public AssetProcessingState(string ownerCollectionId, int assetIndex, int assetTotal, long assetPathId)
+        {
+            OwnerCollectionId = ownerCollectionId;
+            AssetIndex = assetIndex;
+            AssetTotal = assetTotal;
+            AssetPathId = assetPathId;
+
+            AssetStopwatch = Stopwatch.StartNew();
+            DependencyProgressTimer = Stopwatch.StartNew();
+            NoProgressTimer = Stopwatch.StartNew();
+            PointerRepeatCounts = new Dictionary<PointerSignature, int>();
+        }
+
+        public string OwnerCollectionId { get; }
+        public int AssetIndex { get; }
+        public int AssetTotal { get; }
+        public long AssetPathId { get; }
+
+        public long EnumeratedDependencies { get; set; }
+        public long EnumeratedSinceLastProgress { get; set; }
+        public long ConsecutiveNullPointers { get; set; }
+        public int StallWarningCount { get; set; }
+
+        public PPtr LastPointer { get; private set; }
+        public string? LastField { get; private set; }
+        public bool HasPointerSnapshot { get; private set; }
+
+        public Stopwatch AssetStopwatch { get; }
+        public Stopwatch DependencyProgressTimer { get; }
+        public Stopwatch NoProgressTimer { get; }
+
+        public Dictionary<PointerSignature, int> PointerRepeatCounts { get; }
+        public HashSet<PointerSignature>? PointerRepeatLogged { get; set; }
+
+        public void UpdatePointerSnapshot(PPtr pointer, string? field)
+        {
+            LastPointer = pointer;
+            LastField = field;
+            HasPointerSnapshot = true;
+        }
+
+        public bool ShouldAbortDueToRepeat(PointerSignature signature, int repeatCount)
+        {
+            if (repeatCount < RepeatedPointerBreakThreshold)
+            {
+                return false;
+            }
+
+            PointerRepeatLogged ??= new HashSet<PointerSignature>();
+            if (PointerRepeatLogged.Add(signature))
+            {
+                string displayField = string.IsNullOrEmpty(signature.Field) ? "<null>" : signature.Field;
+                Logger.Warning(LogCategory.Export,
+                    $"[{OwnerCollectionId}] Asset {AssetIndex}/{AssetTotal} (pathID {AssetPathId}) detected repeating pointer fileID={signature.FileId}, pathID={signature.PathId}, field='{displayField}' after {repeatCount} occurrences - terminating dependency enumeration");
+            }
+
+            return true;
+        }
+
+        public bool ReportNoProgressIfNeeded(bool traceDependencies)
+        {
+            if (NoProgressTimer.Elapsed < DependencyNoProgressTimeout)
+            {
+                return false;
+            }
+
+            if (EnumeratedSinceLastProgress < DependencyStallIterationThreshold)
+            {
+                return false;
+            }
+
+            if (StallWarningCount < 5)
+            {
+                string pointerDetails = HasPointerSnapshot
+                    ? $"fileID={LastPointer.FileID}, pathID={LastPointer.PathID}"
+                    : "<unavailable>";
+                Logger.Warning(LogCategory.Export,
+                    $"[{OwnerCollectionId}] Asset {AssetIndex}/{AssetTotal} (pathID {AssetPathId}) observed no new dependency edges across {EnumeratedDependencies} entries for {NoProgressTimer.ElapsedMilliseconds} ms (last pointer {pointerDetails}, field='{LastField ?? "<null>"}') - continuing enumeration");
+            }
+            else if (StallWarningCount == 5)
+            {
+                Logger.Warning(LogCategory.Export,
+                    $"[{OwnerCollectionId}] Asset {AssetIndex}/{AssetTotal} (pathID {AssetPathId}) continuing despite repeated dependency stalls (further warnings suppressed)");
+            }
+
+            StallWarningCount++;
+            EnumeratedSinceLastProgress = 0;
+            NoProgressTimer.Restart();
+
+            if (StallWarningCount >= 6 && LastPointer.FileID == 0 && LastPointer.PathID == 0)
+            {
+                string pointerDetails = HasPointerSnapshot
+                    ? $"fileID={LastPointer.FileID}, pathID={LastPointer.PathID}"
+                    : "<unavailable>";
+                Logger.Warning(LogCategory.Export,
+                    $"[{OwnerCollectionId}] Asset {AssetIndex}/{AssetTotal} (pathID {AssetPathId}) observed repeated stalled null references (last pointer {pointerDetails}, field='{LastField ?? "<null>"}') - continuing enumeration to avoid data loss");
+                // Reset the stall counter so we do not emit the same warning indefinitely.
+                StallWarningCount = 5;
+                LastPointer = default;
+                HasPointerSnapshot = false;
+                return false;
+            }
+
+            return false;
+        }
     }
 }
