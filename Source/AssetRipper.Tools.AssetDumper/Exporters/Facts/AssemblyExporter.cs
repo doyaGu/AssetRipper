@@ -351,7 +351,7 @@ internal sealed class AssemblyExporter
 		try
 		{
 			string dllFileName = $"{GetAssemblyName(assembly)}.dll";
-			string dllPath = Path.Combine("Assemblies", dllFileName);
+			string dllPath = Path.Combine("assemblies", dllFileName);
 			string fullDllPath = Path.Combine(_options.OutputPath, dllPath);
 
 			if (File.Exists(fullDllPath))

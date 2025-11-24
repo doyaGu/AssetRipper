@@ -37,7 +37,7 @@ internal class ScriptProcessor
 		bool needsAssemblies = _options.ExportAssemblies;
 		bool needsScripts = _options.ExportScripts || _options.GenerateAst;
 
-		string scriptsDir = Path.Combine(_options.OutputPath, "Scripts");
+		string scriptsDir = Path.Combine(_options.OutputPath, "scripts");
 		bool hasScripts = _options.IncrementalProcessing && Directory.Exists(scriptsDir) &&
 			_filterManager.GetFilteredFiles(new DirectoryInfo(scriptsDir)).Any();
 
@@ -118,7 +118,7 @@ internal class ScriptProcessor
 		}
 
 		// Preview script files if they exist
-		string scriptsDir = Path.Combine(_options.OutputPath, "Scripts");
+		string scriptsDir = Path.Combine(_options.OutputPath, "scripts");
 		if (Directory.Exists(scriptsDir))
 		{
 			var scriptFiles = _filterManager.GetFilteredFiles(new DirectoryInfo(scriptsDir)).ToList();
@@ -149,7 +149,7 @@ internal class ScriptProcessor
 
 	private void ExportAssemblyDlls(GameData gameData)
 	{
-		string assemblyDir = Path.Combine(_options.OutputPath, "Assemblies");
+		string assemblyDir = Path.Combine(_options.OutputPath, "assemblies");
 
 		if (_options.IncrementalProcessing && Directory.Exists(assemblyDir) &&
 			Directory.GetFiles(assemblyDir, "*.dll").Any())
@@ -210,8 +210,8 @@ internal class ScriptProcessor
 
 	private void DecompileScripts()
 	{
-		string scriptsDir = Path.Combine(_options.OutputPath, "Scripts");
-		string assemblyDir = Path.Combine(_options.OutputPath, "Assemblies");
+		string scriptsDir = Path.Combine(_options.OutputPath, "scripts");
+		string assemblyDir = Path.Combine(_options.OutputPath, "assemblies");
 
 		if (!Directory.Exists(assemblyDir))
 		{

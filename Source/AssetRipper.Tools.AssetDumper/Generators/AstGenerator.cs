@@ -295,7 +295,7 @@ internal class AstGenerator
 
 	public void PreviewAstGeneration(string outputPath, FilterManager filterManager)
 	{
-		string scriptsDir = Path.Combine(outputPath, "Scripts");
+		string scriptsDir = Path.Combine(outputPath, "scripts");
 		if (!Directory.Exists(scriptsDir))
 		{
 			if (!_options.Silent)

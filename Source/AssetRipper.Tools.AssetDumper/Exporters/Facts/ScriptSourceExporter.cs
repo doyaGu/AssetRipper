@@ -49,7 +49,7 @@ internal sealed class ScriptSourceExporter
 	{
 		Logger.Info(LogCategory.Export, "Exporting script sources...");
 
-		string scriptsDir = Path.Combine(_options.OutputPath, "Scripts");
+		string scriptsDir = Path.Combine(_options.OutputPath, "scripts");
 		if (!Directory.Exists(scriptsDir))
 		{
 			Logger.Info(LogCategory.Export, "Scripts directory not found. Skipping script source export.");
@@ -301,9 +301,9 @@ internal sealed class ScriptSourceExporter
 		string directory = Path.GetDirectoryName(sourcePath) ?? "";
 		string fileName = Path.GetFileNameWithoutExtension(sourcePath) + ".json";
 		
-		if (directory.StartsWith("Scripts", StringComparison.OrdinalIgnoreCase))
+		if (directory.StartsWith("scripts", StringComparison.OrdinalIgnoreCase))
 		{
-			directory = "AST" + directory.Substring(7);
+			directory = "ast" + directory.Substring(7);
 		}
 
 		return Path.Combine(directory, fileName);

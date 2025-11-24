@@ -141,7 +141,7 @@ internal sealed class ScriptCodeExportPipeline
 			Logger.Info("Generating AST from decompiled scripts...");
 		}
 
-		string scriptsDir = Path.Combine(_context.Options.OutputPath, "Scripts");
+		string scriptsDir = Path.Combine(_context.Options.OutputPath, "scripts");
 		if (!Directory.Exists(scriptsDir))
 		{
 			Logger.Warning("Scripts directory not found. Skipping AST generation.");
