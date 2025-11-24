@@ -25,7 +25,7 @@
 
 ### Current Implementation Status
 
-**Overall Completion: 90%** (Excellent Level)
+**Overall Completion: 93%** (Excellent Level)
 
 | Component                | Status         | Completion |
 | ------------------------ | -------------- | ---------- |
@@ -38,6 +38,7 @@
 | **Metrics Collection**   | ✅ Complete    | 100%       |
 | **Parallel Processing**  | ✅ Complete    | 100%       |
 | **Schema Validation**    | ✅ Complete    | 100%       |
+| Comprehensive Validation | ✅ Complete    | 100%       |
 | **CLI Interface**        | ✅ Complete    | 100%       |
 | Unit Tests               | 🟡 In Progress | 70%        |
 | Documentation            | 🟡 In Progress | 85%        |
@@ -45,6 +46,9 @@
 
 **Recent Achievements** (November 2025):
 
+- ✅ **Comprehensive Schema Validation**: Multi-tier validation with domain-level and comprehensive validation
+- ✅ **Validation Integration**: Seamless integration into export pipeline with configurable error handling
+- ✅ **Detailed Error Reports**: JSON validation reports with line numbers, JSON paths, and suggestions
 - ✅ First complete integration test passed (100% evaluation score)
 - ✅ All compression modes support indexing
 - ✅ Parallel processing framework implemented
@@ -277,7 +281,11 @@ AssetDumper provides five built-in presets for common use cases:
 --compression <format>         Compression: none, gzip, zstd (default: none)
 --shard-size <n>               Max records per shard (default: 100000, 0 = no sharding)
 --enable-index                 Generate searchable key indexes
---validate-schema              Validate output against JSON schemas
+--validate-schema              Enable schema validation (default: false)
+--validate-comprehensive       Enable comprehensive validation with cross-table checks (default: true)
+--continue-on-error            Continue export on validation errors (default: false, fail-fast)
+--max-validation-errors <n>    Maximum validation errors before stopping (0 = unlimited)
+--validation-report-path <path> Custom path for validation report JSON
 --include-metadata             Include extended metadata
 
 # Performance & Optimization
@@ -624,6 +632,141 @@ AssetDumper -i "C:\Games\MyGame" -o "./output" --compression zstd
 # Maximum performance (uncompressed, all cores)
 AssetDumper -i "C:\Games\MyGame" -o "./output" --compression none --parallel 0
 ```
+
+---
+
+## ✅ Schema Validation
+
+AssetDumper includes comprehensive JSON Schema validation to ensure exported data fully conforms to schema definitions. The validation system uses a multi-tier architecture for optimal data quality.
+
+### Quick Start
+
+```bash
+# Enable validation (basic)
+AssetDumper -i "C:\Games\MyGame" -o "./output" --validate-schema
+
+# Full quality assurance (recommended)
+AssetDumper -i "C:\Games\MyGame" -o "./output" --preset full
+
+# Continue on errors (collect all issues)
+AssetDumper -i "C:\Games\MyGame" -o "./output" \
+  --validate-schema \
+  --continue-on-error \
+  --max-validation-errors 0
+```
+
+### Validation Architecture
+
+The validation system performs two tiers of validation:
+
+1. **Domain-Level Validation** (Tier 1)
+   - Runs immediately after each domain export (Facts, Relations, etc.)
+   - Performs structural, data type, and constraint validation
+   - Low overhead (~2-3%), safe to enable always
+   - Provides immediate feedback during export
+
+2. **Comprehensive Validation** (Tier 2)
+   - Runs after all exports complete
+   - Includes cross-table reference checking
+   - Validates circular dependencies
+   - Enforces Unity-specific semantic rules
+   - Generates detailed validation report
+
+### Validation Options
+
+```bash
+--validate-schema                    # Enable validation (default: false)
+--validate-comprehensive             # Enable comprehensive validation (default: true)
+--continue-on-error                  # Continue on errors (default: false)
+--max-validation-errors <n>          # Error limit (0 = unlimited)
+--validation-report-path <path>      # Custom report path
+```
+
+### Validation Report
+
+After validation completes, a detailed report is saved to `validation_report.json`:
+
+```json
+{
+  "overallResult": "Passed",
+  "validationTime": "00:00:05.123",
+  "totalRecordsValidated": 150000,
+  "errors": [],
+  "warnings": [...],
+  "domainSummaries": [
+    {
+      "domain": "facts",
+      "tableId": "facts/assets",
+      "result": "Passed",
+      "recordsValidated": 50000,
+      "errorCount": 0
+    }
+  ],
+  "metadata": {
+    "performance": {
+      "recordsPerSecond": 30000,
+      "peakMemoryUsageMB": 512.5
+    }
+  }
+}
+```
+
+### Validation Features
+
+✅ **15 Error Types**: Structural, DataType, Constraint, CrossTable, Semantic, Pattern, etc.
+✅ **Detailed Error Reports**: Line numbers, JSON paths, expected vs actual values
+✅ **Unity-Specific Rules**: GameObject, Transform, MonoBehaviour validation
+✅ **Reference Integrity**: Cross-table reference validation
+✅ **Performance Metrics**: Validation speed, memory usage
+✅ **Compressed File Support**: Validates zstd compressed data
+
+### Common Use Cases
+
+#### Development (Fast Iteration)
+
+```bash
+# Disable validation for speed
+AssetDumper -i "C:\Game" -o "./output" --preset fast
+```
+
+#### CI/CD (Quality Gate)
+
+```bash
+# Fail fast on first error
+AssetDumper -i "C:\Game" -o "./output" \
+  --validate-schema \
+  --max-validation-errors 10
+```
+
+#### Production Audit (Complete Analysis)
+
+```bash
+# Collect all errors, generate comprehensive report
+AssetDumper -i "C:\Game" -o "./output" \
+  --preset full \
+  --continue-on-error
+```
+
+### Error Examples
+
+```
+[facts/assets] assets/part-00000.ndjson.zst:1523: Pattern validation failed
+  Field: $.m_GameObject.guid
+  Expected: ^[0-9a-f]{32}$
+  Actual: invalid-guid
+  Suggestion: GUID should be 32 hexadecimal characters
+
+[relations/asset_dependencies] dependencies/part-00001.ndjson.zst:8421: Cross-table reference error
+  Field: $.edge.targetAsset.pk
+  Message: Referenced asset does not exist
+  Suggestion: Check that all referenced assets are exported
+```
+
+### Documentation
+
+For detailed validation documentation, see:
+- **[VALIDATION.md](Docs/VALIDATION.md)** - Complete validation guide
+- **[Schemas README](Schemas/v2/README.md)** - Schema documentation
 
 ---
 
