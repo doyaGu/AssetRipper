@@ -13,7 +13,7 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using AssetRipper.Tools.AssetDumper.Writers;
 using AssetRipper.Tools.AssetDumper.Helpers;
-
+using AssetRipper.Tools.AssetDumper.Constants;
 using AssetRipper.Tools.AssetDumper.Core;
 
 namespace AssetRipper.Tools.AssetDumper.Exporters.Facts;
@@ -32,12 +32,7 @@ public sealed class AssetFactsExporter
 	public AssetFactsExporter(Options options, CompressionKind compressionKind, bool enableIndex)
 	{
 		_options = options ?? throw new ArgumentNullException(nameof(options));
-		_jsonSettings = new JsonSerializerSettings
-		{
-			Formatting = Formatting.None,
-			NullValueHandling = NullValueHandling.Ignore,
-			DefaultValueHandling = DefaultValueHandling.Ignore
-		};
+		_jsonSettings = JsonSettingsFactory.CreateDefault();
 		_compressionKind = compressionKind;
 		_enableIndex = enableIndex;
 	}
@@ -71,8 +66,8 @@ public sealed class AssetFactsExporter
 			Logger.Info(LogCategory.Export, $"Processing {serializedCount} serialized collections and {processedCount} processed collections");
 		}
 
-		long maxRecordsPerShard = _options.ShardSize > 0 ? _options.ShardSize : 100_000;
-		long maxBytesPerShard = 100 * 1024 * 1024;
+		long maxRecordsPerShard = _options.ShardSize > 0 ? _options.ShardSize : ExportConstants.DefaultMaxRecordsPerShard;
+		long maxBytesPerShard = ExportConstants.DefaultMaxBytesPerShard;
 
 		DomainExportResult result = new DomainExportResult(
 			"assets",
@@ -87,7 +82,7 @@ public sealed class AssetFactsExporter
 			maxRecordsPerShard,
 			maxBytesPerShard,
 		_compressionKind,
-		seekableFrameSize: 2 * 1024 * 1024,
+		seekableFrameSize: ExportConstants.DefaultSeekableFrameSize,
 		collectIndexEntries: _enableIndex,
 		descriptorDomain: result.TableId);
 
@@ -286,46 +281,14 @@ public sealed class AssetFactsExporter
 
 	private static HierarchyPath? BuildHierarchyPath(Bundle bundle)
 	{
-		if (bundle == null)
-		{
-			return null;
-		}
-
-		List<Bundle> lineage = new List<Bundle>();
-		Bundle? current = bundle;
-		while (current != null)
-		{
-			lineage.Insert(0, current);
-			current = current.Parent;
-		}
-
-		if (lineage.Count == 0)
-		{
-			return null;
-		}
-
-		List<string> bundlePath = new List<string>(lineage.Count);
-		List<string> bundleNames = new List<string>(lineage.Count);
-
-		foreach (Bundle b in lineage)
-		{
-			string bundlePk = ExportHelper.ComputeBundlePk(b);
-			bundlePath.Add(bundlePk);
-			bundleNames.Add(b.Name ?? string.Empty);
-		}
-
-		return new HierarchyPath
-		{
-			BundlePath = bundlePath,
-			BundleNames = bundleNames,
-			Depth = lineage.Count - 1
-		};
+		// Delegate to centralized BundleHelper for consistent implementation
+		return BundleHelper.BuildHierarchyPath(bundle);
 	}
 
 	private static string ComputeBundleStableKey(List<Bundle> lineage)
 	{
-		string composite = string.Join("|", lineage.Select(static b => $"{b.GetType().FullName}:{b.Name}"));
-		return ExportHelper.ComputeStableHash(composite);
+		// Delegate to centralized BundleHelper for consistent implementation
+		return BundleHelper.ComputeStableKey(lineage);
 	}
 
 	private sealed class CollectionJsonWalker : DefaultJsonWalker

@@ -16,6 +16,19 @@ namespace AssetRipper.Tools.AssetDumper.Writers;
 /// Writes NDJSON shards following the v2 layout (&lt;table-id&gt;/part-xxxxx.ndjson[.zst]).
 /// Tracks shard descriptors for manifest generation and optional key-index entries.
 /// </summary>
+/// <remarks>
+/// <para>
+/// <b>Thread Safety:</b> This class provides limited thread-safety via an internal write lock.
+/// The <see cref="WriteRecord"/> method is thread-safe and can be called from multiple threads.
+/// However, properties like <see cref="TotalRecords"/>, <see cref="TotalBytes"/>, and
+/// <see cref="ShardCount"/> read mutable state without synchronization and should only be
+/// accessed after all writes are complete and the writer is disposed.
+/// </para>
+/// <para>
+/// For most export scenarios, single-threaded usage is recommended. If using from multiple
+/// threads, ensure all reads of aggregate properties occur only after <see cref="Dispose"/> is called.
+/// </para>
+/// </remarks>
 internal sealed class ShardedNdjsonWriter : IDisposable
 {
 	private readonly string _outputRoot;
@@ -100,7 +113,7 @@ internal sealed class ShardedNdjsonWriter : IDisposable
 				}
 
 				if (_maxBytesPerShard < long.MaxValue &&
-					_currentWriter.BytesWritten >= _maxBytesPerShard * 0.95) // 95% threshold
+					_currentWriter.BytesWritten >= _maxBytesPerShard * ExportConstants.ShardRotationThreshold)
 				{
 					needsRotation = true;
 				}

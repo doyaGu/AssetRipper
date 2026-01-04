@@ -41,12 +41,7 @@ public sealed class AssetDependencyExporter
     public AssetDependencyExporter(Options options, CompressionKind compressionKind, bool enableIndex)
     {
         _options = options ?? throw new ArgumentNullException(nameof(options));
-        _jsonSettings = new JsonSerializerSettings
-        {
-            Formatting = Formatting.None,
-            NullValueHandling = NullValueHandling.Ignore,
-            DefaultValueHandling = DefaultValueHandling.Ignore,
-        };
+        _jsonSettings = JsonSettingsFactory.CreateDefault();
         _compressionKind = compressionKind;
         _enableIndex = enableIndex;
     }
@@ -64,7 +59,7 @@ public sealed class AssetDependencyExporter
         Logger.Info(LogCategory.Export, "Exporting asset dependency relations...");
         Directory.CreateDirectory(_options.OutputPath);
 
-        ExportContext context = InitializeExportContext(gameData);
+        DependencyExportContext context = InitializeExportContext(gameData);
 
         try
         {
@@ -84,362 +79,9 @@ public sealed class AssetDependencyExporter
     }
 
     /// <summary>
-    /// Old Export method - DEPRECATED. Kept temporarily for reference during refactoring validation.
-    /// This method will be removed after confirming the refactored version works correctly.
-    /// </summary>
-    [Obsolete("Replaced by refactored Export method using helper methods", true)]
-    private DomainExportResult ExportOld(GameData gameData)
-    {
-        if (gameData is null)
-        {
-            throw new ArgumentNullException(nameof(gameData));
-        }
-
-        Logger.Info(LogCategory.Export, "Exporting asset dependency relations...");
-        Directory.CreateDirectory(_options.OutputPath);
-
-        Logger.Info(LogCategory.Export, "Collecting asset collections for dependency export...");
-        List<AssetCollection> collections = gameData.GameBundle.FetchAssetCollections().ToList();
-        Logger.Info(LogCategory.Export, $"Collected {collections.Count} collections. Building lookup...");
-        CollectionLookup collectionLookup = CollectionLookup.Build(collections);
-        Logger.Info(LogCategory.Export, "Collection lookup ready. Beginning dependency resolution...");
-        Logger.Info(LogCategory.Export, $"Resolving dependencies across {collections.Count} collections");
-
-        long maxRecordsPerShard = _options.ShardSize > 0 ? _options.ShardSize : 100_000;
-        long maxBytesPerShard = 100 * 1024 * 1024;
-
-        DomainExportResult result = new DomainExportResult(
-            domain: "asset_dependencies",
-            tableId: "relations/asset_dependencies",
-            schemaPath: "Schemas/v2/relations/asset_dependencies.schema.json");
-
-        ShardedNdjsonWriter writer = new ShardedNdjsonWriter(
-            _options.OutputPath,
-            result.ShardDirectory,
-            _jsonSettings,
-            maxRecordsPerShard,
-            maxBytesPerShard,
-            _compressionKind,
-            seekableFrameSize: 2 * 1024 * 1024,
-            collectIndexEntries: _enableIndex,
-            descriptorDomain: result.TableId);
-
-        HashSet<DependencyKey> perAssetEdges = new HashSet<DependencyKey>(DependencyKeyComparer.Instance);
-
-        long emittedCount = 0;
-        long skippedCount = 0;
-        bool traceDependencies = _options.TraceDependencies;
-
-        try
-        {
-            foreach (AssetCollection collection in collections)
-            {
-                string ownerCollectionId = collectionLookup.GetCollectionId(collection);
-                string collectionDisplayName = string.IsNullOrWhiteSpace(collection.Name) ? "<unnamed>" : collection.Name;
-                int assetTotal = collection.Assets.Count;
-                int dependencySlotCount = collection.Dependencies.Count;
-                IEnumerable<IUnityObjectBase> orderedAssets = collection.Assets.Values.OrderBy(static asset => asset.PathID);
-
-                if (_options.Verbose)
-                {
-                    Logger.Info(LogCategory.Export,
-                        $"[{ownerCollectionId}] Processing collection '{collectionDisplayName}' with {assetTotal} assets and {dependencySlotCount} dependency slots");
-                }
-
-                long collectionEmittedBefore = emittedCount;
-                long collectionSkippedBefore = skippedCount;
-                int assetIndex = 0;
-
-                foreach (IUnityObjectBase asset in orderedAssets)
-                {
-                    assetIndex++;
-                    perAssetEdges.Clear();
-                    long assetEmittedBefore = emittedCount;
-                    long assetSkippedBefore = skippedCount;
-                    long enumeratedDependencies = 0;
-                    Stopwatch assetStopwatch = Stopwatch.StartNew();
-                    Stopwatch dependencyProgressTimer = Stopwatch.StartNew();
-                    Stopwatch noProgressTimer = Stopwatch.StartNew();
-                    long enumeratedSinceLastProgress = 0;
-                    PPtr lastPointer = default;
-                    string? lastField = null;
-                    bool hasPointerSnapshot = false;
-                    int stallWarningCount = 0;
-                    long consecutiveNullPointers = 0;
-                    Dictionary<PointerSignature, int> pointerRepeatCounts = new Dictionary<PointerSignature, int>();
-                    HashSet<PointerSignature>? pointerRepeatLogged = null;
-
-                    bool ShouldAbortDueToRepeat(PointerSignature signature, int repeatCount)
-                    {
-                        if (repeatCount < RepeatedPointerBreakThreshold)
-                        {
-                            return false;
-                        }
-
-                        pointerRepeatLogged ??= new HashSet<PointerSignature>();
-                        if (pointerRepeatLogged.Add(signature))
-                        {
-                            string displayField = string.IsNullOrEmpty(signature.Field) ? "<null>" : signature.Field;
-                            Logger.Warning(LogCategory.Export,
-                                $"[{ownerCollectionId}] Asset {assetIndex}/{assetTotal} (pathID {asset.PathID}) detected repeating pointer fileID={signature.FileId}, pathID={signature.PathId}, field='{displayField}' after {repeatCount} occurrences �?terminating dependency enumeration");
-                        }
-
-                        return true;
-                    }
-
-                    if (traceDependencies)
-                    {
-                        Logger.Info(LogCategory.Export,
-                            $"[{ownerCollectionId}] Starting asset {assetIndex}/{assetTotal} (pathID {asset.PathID})");
-                    }
-
-                    IEnumerable<(string field, PPtr pptr)>? dependencies;
-                    try
-                    {
-                        Stopwatch fetchTimer = Stopwatch.StartNew();
-                        dependencies = asset.FetchDependencies();
-                        fetchTimer.Stop();
-                        if (traceDependencies && fetchTimer.ElapsedMilliseconds > 250)
-                        {
-                            Logger.Info(LogCategory.Export,
-                                $"[{ownerCollectionId}] Asset {assetIndex}/{assetTotal} (pathID {asset.PathID}) FetchDependencies completed in {fetchTimer.ElapsedMilliseconds} ms");
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        Logger.Warning(LogCategory.Export, $"Failed to fetch dependencies for asset {asset.PathID} in {collection.Name}: {ex.Message}");
-                        skippedCount++;
-                        continue;
-                    }
-
-                    if (dependencies is null)
-                    {
-                        continue;
-                    }
-
-                    bool ReportNoProgressIfNeeded(long enumeratedSoFar)
-                    {
-                        if (noProgressTimer.Elapsed < DependencyNoProgressTimeout)
-                        {
-                            return false;
-                        }
-
-                        if (enumeratedSinceLastProgress < DependencyStallIterationThreshold)
-                        {
-                            return false;
-                        }
-
-                        if (stallWarningCount < 5)
-                        {
-                            string pointerDetails = hasPointerSnapshot
-                                ? $"fileID={lastPointer.FileID}, pathID={lastPointer.PathID}"
-                                : "<unavailable>";
-                            Logger.Warning(LogCategory.Export,
-                                $"[{ownerCollectionId}] Asset {assetIndex}/{assetTotal} (pathID {asset.PathID}) observed no new dependency edges across {enumeratedSoFar} entries for {noProgressTimer.ElapsedMilliseconds} ms (last pointer {pointerDetails}, field='{lastField ?? "<null>"}') �?continuing enumeration");
-                        }
-                        else if (stallWarningCount == 5)
-                        {
-                            Logger.Warning(LogCategory.Export,
-                                $"[{ownerCollectionId}] Asset {assetIndex}/{assetTotal} (pathID {asset.PathID}) continuing despite repeated dependency stalls (further warnings suppressed)");
-                        }
-
-                        stallWarningCount++;
-                        enumeratedSinceLastProgress = 0;
-                        noProgressTimer.Restart();
-
-                        if (stallWarningCount >= 6 && lastPointer.FileID == 0 && lastPointer.PathID == 0)
-                        {
-                            string pointerDetails = hasPointerSnapshot
-                                ? $"fileID={lastPointer.FileID}, pathID={lastPointer.PathID}"
-                                : "<unavailable>";
-                            Logger.Warning(LogCategory.Export,
-                                $"[{ownerCollectionId}] Asset {assetIndex}/{assetTotal} (pathID {asset.PathID}) observed repeated stalled null references (last pointer {pointerDetails}, field='{lastField ?? "<null>"}') - continuing enumeration to avoid data loss");
-                            // Reset the stall counter so we do not emit the same warning indefinitely.
-                            stallWarningCount = 5;
-                            lastPointer = default;
-                            hasPointerSnapshot = false;
-                            return false;
-                        }
-
-                        return false;
-                    }
-
-                    foreach ((string field, PPtr pointer) in dependencies)
-                    {
-                        enumeratedDependencies++;
-                        lastPointer = pointer;
-                        lastField = field;
-                        hasPointerSnapshot = true;
-
-                        PointerSignature pointerKey = PointerSignature.From(field, pointer);
-                        bool pointerIsEffectiveNull = pointer.PathID == 0 && pointer.FileID == 0;
-
-                        if (pointerIsEffectiveNull)
-                        {
-                            skippedCount++;
-                            consecutiveNullPointers++;
-
-                            int repeatCount = IncrementPointerRepeat(pointerRepeatCounts, pointerKey);
-                            if (ShouldAbortDueToRepeat(pointerKey, repeatCount))
-                            {
-                                break;
-                            }
-
-                            if (consecutiveNullPointers >= NullPointerAbortThreshold)
-                            {
-                                string pointerDetails = hasPointerSnapshot
-                                    ? $"fileID={lastPointer.FileID}, pathID={lastPointer.PathID}"
-                                    : "<unavailable>";
-                                Logger.Warning(LogCategory.Export,
-                                    $"[{ownerCollectionId}] Asset {assetIndex}/{assetTotal} (pathID {asset.PathID}) aborting dependency enumeration after {consecutiveNullPointers:N0} consecutive null references (last pointer {pointerDetails}, field='{lastField ?? "<null>"}')");
-                                break;
-                            }
-
-                            enumeratedSinceLastProgress = 0;
-                            noProgressTimer.Restart();
-                            continue;
-                        }
-
-                        consecutiveNullPointers = 0;
-                        enumeratedSinceLastProgress++;
-
-                        DependencyResolutionContext? context = ResolveDependency(collectionLookup, collection, ownerCollectionId, asset, field ?? string.Empty, pointer);
-                        if (context is null)
-                        {
-                            skippedCount++;
-                            int repeatCount = IncrementPointerRepeat(pointerRepeatCounts, pointerKey);
-                            if (ReportNoProgressIfNeeded(enumeratedDependencies))
-                            {
-                                break;
-                            }
-
-                            if (ShouldAbortDueToRepeat(pointerKey, repeatCount))
-                            {
-                                break;
-                            }
-
-                            continue;
-                        }
-
-                        if (ShouldSkip(context))
-                        {
-                            skippedCount++;
-                            int repeatCount = IncrementPointerRepeat(pointerRepeatCounts, pointerKey);
-                            if (ReportNoProgressIfNeeded(enumeratedDependencies))
-                            {
-                                break;
-                            }
-
-                            if (ShouldAbortDueToRepeat(pointerKey, repeatCount))
-                            {
-                                break;
-                            }
-
-                            continue;
-                        }
-
-                        DependencyKey perAssetKey = DependencyKey.FromRelation(context.Relation);
-                        if (!perAssetEdges.Add(perAssetKey))
-                        {
-                            skippedCount++;
-                            int repeatCount = IncrementPointerRepeat(pointerRepeatCounts, pointerKey);
-                            if (ReportNoProgressIfNeeded(enumeratedDependencies))
-                            {
-                                break;
-                            }
-
-                            if (ShouldAbortDueToRepeat(pointerKey, repeatCount))
-                            {
-                                break;
-                            }
-
-                            continue;
-                        }
-
-                        pointerRepeatCounts.Remove(pointerKey);
-                        pointerRepeatLogged?.Remove(pointerKey);
-
-                        string stableKey = BuildStableKey(context.Relation);
-                        string? indexKey = _enableIndex ? stableKey : null;
-                        writer.WriteRecord(context.Relation, stableKey, indexKey);
-                        emittedCount++;
-                        enumeratedSinceLastProgress = 0;
-                        noProgressTimer.Restart();
-
-                        if (traceDependencies && enumeratedDependencies % ExportConstants.DependencyProgressLogInterval == 0)
-                        {
-                            Logger.Info(LogCategory.Export,
-                                $"[{ownerCollectionId}] Asset {assetIndex}/{assetTotal} (pathID {asset.PathID}) enumerated {enumeratedDependencies} dependencies so far");
-                        }
-
-                        if (traceDependencies && dependencyProgressTimer.ElapsedMilliseconds >= 5_000)
-                        {
-                            dependencyProgressTimer.Restart();
-                            Logger.Info(LogCategory.Export,
-                                $"[{ownerCollectionId}] Asset {assetIndex}/{assetTotal} (pathID {asset.PathID}) still processing �?enumerated {enumeratedDependencies} dependencies so far (last pointer fileID={pointer.FileID}, pathID={pointer.PathID}, field='{field}')");
-                        }
-
-                        if (ReportNoProgressIfNeeded(enumeratedDependencies))
-                        {
-                            break;
-                        }
-                    }
-
-                    if (traceDependencies && (assetIndex % 500 == 0 || enumeratedDependencies > 2000))
-                    {
-                        long assetEmittedDelta = emittedCount - assetEmittedBefore;
-                        long assetSkippedDelta = skippedCount - assetSkippedBefore;
-                        Logger.Info(LogCategory.Export,
-                            $"[{ownerCollectionId}] Asset {assetIndex}/{assetTotal} (pathID {asset.PathID}) processed {enumeratedDependencies} dependencies => emitted {assetEmittedDelta}, skipped {assetSkippedDelta}");
-                    }
-
-                    assetStopwatch.Stop();
-                    dependencyProgressTimer.Stop();
-                    noProgressTimer.Stop();
-
-                    if (traceDependencies && assetStopwatch.ElapsedMilliseconds > 1_000)
-                    {
-                        Logger.Info(LogCategory.Export,
-                            $"[{ownerCollectionId}] Asset {assetIndex}/{assetTotal} (pathID {asset.PathID}) completed in {assetStopwatch.ElapsedMilliseconds} ms");
-                    }
-
-                    if (traceDependencies && enumeratedDependencies > 0 && enumeratedDependencies < ExportConstants.DependencyProgressLogInterval)
-                    {
-                        long assetEmittedDelta = emittedCount - assetEmittedBefore;
-                        long assetSkippedDelta = skippedCount - assetSkippedBefore;
-                        Logger.Info(LogCategory.Export,
-                            $"[{ownerCollectionId}] Asset {assetIndex}/{assetTotal} (pathID {asset.PathID}) processed {enumeratedDependencies} dependencies => emitted {assetEmittedDelta}, skipped {assetSkippedDelta}");
-                    }
-                }
-
-                if (_options.Verbose)
-                {
-                    long collectionEmittedDelta = emittedCount - collectionEmittedBefore;
-                    long collectionSkippedDelta = skippedCount - collectionSkippedBefore;
-                    Logger.Info(LogCategory.Export,
-                        $"[{ownerCollectionId}] Completed '{collectionDisplayName}' - emitted {collectionEmittedDelta}, skipped {collectionSkippedDelta} relations");
-                }
-            }
-        }
-        finally
-        {
-            writer.Dispose();
-        }
-
-        result.Shards.AddRange(writer.ShardDescriptors);
-        if (_enableIndex)
-        {
-            result.IndexEntries.AddRange(writer.IndexEntries);
-        }
-
-        Logger.Info(LogCategory.Export, $"Exported {emittedCount} dependency relations (skipped {skippedCount}) across {writer.ShardCount} shards");
-        return result;
-    }
-
-    /// <summary>
     /// Initializes the export context with all necessary data structures and configurations.
     /// </summary>
-    private ExportContext InitializeExportContext(GameData gameData)
+    private DependencyExportContext InitializeExportContext(GameData gameData)
     {
         Logger.Info(LogCategory.Export, "Collecting asset collections for dependency export...");
         List<AssetCollection> collections = gameData.GameBundle.FetchAssetCollections().ToList();
@@ -449,8 +91,8 @@ public sealed class AssetDependencyExporter
         Logger.Info(LogCategory.Export, "Collection lookup ready. Beginning dependency resolution...");
         Logger.Info(LogCategory.Export, $"Resolving dependencies across {collections.Count} collections");
 
-        long maxRecordsPerShard = _options.ShardSize > 0 ? _options.ShardSize : 100_000;
-        long maxBytesPerShard = 100 * 1024 * 1024;
+        long maxRecordsPerShard = _options.ShardSize > 0 ? _options.ShardSize : ExportConstants.DefaultMaxRecordsPerShard;
+        long maxBytesPerShard = ExportConstants.DefaultMaxBytesPerShard;
 
         DomainExportResult result = new DomainExportResult(
             domain: "asset_dependencies",
@@ -464,17 +106,17 @@ public sealed class AssetDependencyExporter
             maxRecordsPerShard,
             maxBytesPerShard,
             _compressionKind,
-            seekableFrameSize: 2 * 1024 * 1024,
+            seekableFrameSize: ExportConstants.DefaultSeekableFrameSize,
             collectIndexEntries: _enableIndex,
             descriptorDomain: result.TableId);
 
-        return new ExportContext(collections, collectionLookup, result, writer);
+        return new DependencyExportContext(collections, collectionLookup, result, writer);
     }
 
     /// <summary>
     /// Processes all asset collections and their dependencies.
     /// </summary>
-    private void ProcessAllCollections(ExportContext context)
+    private void ProcessAllCollections(DependencyExportContext context)
     {
         foreach (AssetCollection collection in context.Collections)
         {
@@ -485,7 +127,7 @@ public sealed class AssetDependencyExporter
     /// <summary>
     /// Processes a single asset collection.
     /// </summary>
-    private void ProcessCollection(ExportContext context, AssetCollection collection)
+    private void ProcessCollection(DependencyExportContext context, AssetCollection collection)
     {
         string ownerCollectionId = context.CollectionLookup.GetCollectionId(collection);
         string collectionDisplayName = string.IsNullOrWhiteSpace(collection.Name) ? "<unnamed>" : collection.Name;
@@ -523,7 +165,7 @@ public sealed class AssetDependencyExporter
     /// Processes dependencies for a single asset.
     /// </summary>
     private void ProcessAsset(
-        ExportContext context,
+        DependencyExportContext context,
         AssetCollection collection,
         string ownerCollectionId,
         IUnityObjectBase asset,
@@ -559,7 +201,7 @@ public sealed class AssetDependencyExporter
     /// Fetches dependencies for an asset with error handling and logging.
     /// </summary>
     private IEnumerable<(string field, PPtr pptr)>? FetchAssetDependencies(
-        ExportContext context,
+        DependencyExportContext context,
         AssetCollection collection,
         IUnityObjectBase asset,
         string ownerCollectionId,
@@ -593,7 +235,7 @@ public sealed class AssetDependencyExporter
     /// Processes all dependencies for a single asset.
     /// </summary>
     private void ProcessAssetDependencies(
-        ExportContext context,
+        DependencyExportContext context,
         AssetCollection collection,
         string ownerCollectionId,
         IUnityObjectBase asset,
@@ -630,7 +272,7 @@ public sealed class AssetDependencyExporter
     /// Processes a single dependency pointer.
     /// </summary>
     private bool ProcessSingleDependency(
-        ExportContext context,
+        DependencyExportContext context,
         AssetCollection collection,
         string ownerCollectionId,
         IUnityObjectBase asset,
@@ -690,7 +332,7 @@ public sealed class AssetDependencyExporter
     /// Emits a dependency record to the writer.
     /// </summary>
     private void EmitDependencyRecord(
-        ExportContext context,
+        DependencyExportContext context,
         DependencyResolutionContext resolutionContext,
         AssetProcessingState state,
         PointerSignature pointerKey)
@@ -719,7 +361,7 @@ public sealed class AssetDependencyExporter
     /// <summary>
     /// Handles null pointer logic. Returns true if enumeration should abort.
     /// </summary>
-    private bool HandleNullPointer(ExportContext context, AssetProcessingState state, PointerSignature pointerKey)
+    private bool HandleNullPointer(DependencyExportContext context, AssetProcessingState state, PointerSignature pointerKey)
     {
         context.SkippedCount++;
         state.ConsecutiveNullPointers++;
@@ -818,7 +460,7 @@ public sealed class AssetDependencyExporter
     /// <summary>
     /// Finalizes the export result with shard and index information.
     /// </summary>
-    private void FinalizeExportResult(ExportContext context)
+    private void FinalizeExportResult(DependencyExportContext context)
     {
         context.Result.Shards.AddRange(context.Writer.ShardDescriptors);
         if (_enableIndex)
@@ -1738,11 +1380,12 @@ public sealed class AssetDependencyExporter
     }
 
     /// <summary>
-    /// Encapsulates the export context and shared state across collection processing.
+    /// Encapsulates the dependency export context and shared state across collection processing.
+    /// Named DependencyExportContext to avoid confusion with Orchestration.ExportContext.
     /// </summary>
-    private sealed class ExportContext
+    private sealed class DependencyExportContext
     {
-        public ExportContext(
+        public DependencyExportContext(
             List<AssetCollection> collections,
             CollectionLookup collectionLookup,
             DomainExportResult result,

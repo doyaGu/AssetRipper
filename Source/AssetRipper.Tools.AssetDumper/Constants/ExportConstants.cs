@@ -49,4 +49,10 @@ public static class ExportConstants
 	/// Default records per shard for scene data.
 	/// </summary>
 	public const long SceneShardMaxRecords = 10_000;
+
+	/// <summary>
+	/// Threshold (as a fraction) for rotating to a new shard based on bytes written.
+	/// When bytes written exceeds this fraction of max bytes, a new shard is started.
+	/// </summary>
+	public const double ShardRotationThreshold = 0.95;
 }
