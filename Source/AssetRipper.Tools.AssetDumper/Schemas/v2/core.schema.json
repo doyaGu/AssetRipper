@@ -3,13 +3,13 @@
   "$id": "https://schemas.assetripper.dev/assetdump/v2/core.schema.json",
   "title": "AssetDump v2 Core Definitions",
   "description": "Shared schema fragments reused across AssetDump v2 Facts, Relations, Indexes and Metrics documents.",
-  "$comment": "The root schema describes the canonical AssetPK structure and exposes it via the #AssetPK anchor.",
+  "$comment": "Shared definitions for AssetDump v2. All reusable schemas must live under $defs so validators discover them.",
   "$defs": {
     "CollectionID": {
       "type": "string",
-      "description": "Stable identifier for a serialized collection (e.g., sharedassets1.assets, BUILTIN-EXTRA). Supports both uppercase and lowercase.",
+      "description": "Stable identifier for a serialized collection (e.g., sharedassets1.assets, BUILTIN-EXTRA). The reserved value 'MISSING' indicates an unresolved collection reference.",
       "minLength": 1,
-      "pattern": "^[A-Za-z0-9:_-]{2,}$"
+      "pattern": "^[A-Za-z0-9:._-]{2,}$"
     },
     "StableKey": {
       "type": "string",
@@ -39,6 +39,24 @@
     "NonEmptyString": {
       "type": "string",
       "minLength": 1
+    },
+    "AssetPK": {
+      "type": "object",
+      "description": "Primary key structure for Unity assets. Combines collection identifier with PathID to create a globally unique asset reference.",
+      "additionalProperties": false,
+      "required": [
+        "collectionId",
+        "pathId"
+      ],
+      "properties": {
+        "collectionId": {
+          "$ref": "#/$defs/CollectionID"
+        },
+        "pathId": {
+          "type": "integer",
+          "description": "Unity m_PathID that uniquely identifies an object inside the owning collection. Corresponds to IUnityObjectBase.PathID."
+        }
+      }
     },
     "AssetRef": {
       "$anchor": "AssetRef",
@@ -144,25 +162,6 @@
           "description": "Hierarchy depth where root = 0. Equals bundlePath.length - 1."
         }
       }
-    }
-  },
-  "AssetPK": {
-    "$anchor": "AssetPK",
-    "type": "object",
-    "description": "Primary key structure for Unity assets. Combines collection identifier with PathID to create a globally unique asset reference.",
-    "additionalProperties": false,
-    "required": [
-      "collectionId",
-      "pathId"
-    ]
-  },
-  "properties": {
-    "collectionId": {
-      "$ref": "#/$defs/CollectionID"
-    },
-    "pathId": {
-      "type": "integer",
-      "description": "Unity m_PathID that uniquely identifies an object inside the owning collection. Corresponds to IUnityObjectBase.PathID."
     }
   }
 }

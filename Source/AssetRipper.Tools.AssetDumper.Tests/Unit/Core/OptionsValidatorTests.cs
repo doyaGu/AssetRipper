@@ -496,7 +496,7 @@ public class OptionsValidatorTests
             { 
                 InputPath = Directory.GetCurrentDirectory(),
                 OutputPath = testOutput,
-                EnableIndexing = false  // Explicitly disabled
+                EnableIndexing = false  // Indexing disabled => no index warnings expected
             };
             var validator = new OptionsValidator(options);
 
@@ -504,8 +504,7 @@ public class OptionsValidatorTests
             validator.Validate();
 
             // Assert
-            validator.Warnings.Should().Contain(w => 
-                w.Message.Contains("Index generation is enabled") && w.Message.Contains("index export is disabled"));
+            validator.Warnings.Should().NotContain(w => w.Message.Contains("Index generation is enabled"));
         }
         finally
         {

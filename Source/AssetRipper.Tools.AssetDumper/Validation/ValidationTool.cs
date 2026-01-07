@@ -1,6 +1,7 @@
 using AssetRipper.Import.Logging;
 using AssetRipper.Tools.AssetDumper.Core;
 using AssetRipper.Tools.AssetDumper.Validation.Models;
+using AssetRipper.Tools.AssetDumper.Writers;
 using System.Text.Json;
 
 namespace AssetRipper.Tools.AssetDumper.Validation;
@@ -291,7 +292,7 @@ public class ValidationTool
                 continue;
             }
 
-            // Create a simple result object since DomainExportResult has read-only properties
+            // Create a result object from discovered shards
             var result = CreateDomainExportResult(domain, mapping.SchemaPath, mapping.Description, ndjsonFiles, outputPath);
             results.Add(result);
         }
@@ -304,14 +305,20 @@ public class ValidationTool
     /// </summary>
     private static DomainExportResult CreateDomainExportResult(string domain, string schemaPath, string description, FileInfo[] ndjsonFiles, string outputPath)
     {
-        // Since DomainExportResult has read-only properties, we need to create it through reflection or use a factory
-        // For now, let's create a simple implementation that works with the existing constructor
-        var result = new DomainExportResult(domain, "ndjson", schemaPath, description);
+        // For validation, we use the domain name as the logical table identifier.
+        // (Export pipelines may use manifest-style IDs like "facts/assets", but SchemaValidator keys off domains.)
+        var result = new DomainExportResult(domain, domain, schemaPath, format: "ndjson");
 
-        // Handle file information separately since we can't set the properties directly
-        // This is a limitation of the current DomainExportResult design
-        // In a real implementation, we'd either modify DomainExportResult to have settable properties
-        // or create a factory method that properly initializes it
+        foreach (FileInfo file in ndjsonFiles)
+        {
+            string relative = Path.GetRelativePath(outputPath, file.FullName);
+            result.Shards.Add(new ShardDescriptor
+            {
+                Domain = domain,
+                Shard = relative,
+                Compression = DetectCompression(file.FullName)
+            });
+        }
 
         return result;
     }

@@ -43,7 +43,7 @@ The AssetRipper AssetDump v2 schema system provides a comprehensive, structured 
 - **4-layer architecture:** Facts, Relations, Indexes, and Metrics
 - **Domain field:** Every record includes a `domain` identifier for NDJSON streaming
 - **Stable identifiers:** FNV-1a hash-based IDs for reproducible exports
-- **Comprehensive coverage:** 10 fact schemas, 6 relation schemas, 2 indexes, 3 metrics
+- **Comprehensive coverage:** 10 fact schemas, 6 relation schemas, 3 indexes, 3 metrics
 - **Unity metadata:** Complete preservation of Unity serialization details
 
 ---
@@ -101,9 +101,9 @@ The schema system is organized into four distinct layers:
 - Bundle parent-child relationships
 - Assembly and type relationships
 
-**Indexes Layer** (2 schemas)
+**Indexes Layer** (3 schemas)
 - Query acceleration structures
-- Grouped asset lists (by class, by collection)
+- Grouped asset lists (by class, by collection, by name)
 - Pre-computed aggregations for fast lookups
 
 **Metrics Layer** (3 schemas)
@@ -516,8 +516,8 @@ The Facts layer contains 10 schemas representing core entity data.
 
 **Dependencies:**
 - Index 0 is always self-reference (Unity convention)
-- May contain `null` for unresolved dependencies
-- `dependencyIndices` provides fast reverse lookup
+- `null` entries indicate unresolved dependencies (schema explicitly allows `anyOf: [CollectionID, null]`)
+- `dependencyIndices` only contains resolved entries (excludes null positions)
 
 **Source Object:**
 ```json
@@ -1432,12 +1432,12 @@ The Relations layer contains 6 schemas representing edges between entities.
 
 **Domain:** `"by_collection"`
 
-**Root Type:** Array
+**Format:** NDJSON (one record per line)
 
-**Item Required Fields:**
+**Required Fields:**
 - `domain`, `collectionId`, `count`
 
-**Item Fields:**
+**Fields:**
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -1460,24 +1460,45 @@ The Relations layer contains 6 schemas representing edges between entities.
 }
 ```
 
+**Example (single NDJSON record):**
+```json
+{"domain":"by_collection","collectionId":"sharedassets0","name":"sharedassets0.assets","count":523,"isScene":false,"bundleName":"level0","typeDistribution":[{"classKey":1,"className":"GameObject","classId":1,"count":245}],"totalTypeCount":25}
+```
+
+---
+
+### 3. by_name.schema.json
+
+**Purpose:** Assets grouped by name for name-based queries
+
+**Domain:** `"by_name"`
+
+**Format:** NDJSON (one record per line)
+
+**Required Fields:**
+- `domain`, `name`, `locations`
+
+**Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `domain` | string | "by_name" |
+| `name` | string | Asset name key |
+| `locations` | array | Asset locations sharing this name |
+
+**Location Item:**
+```json
+{
+  "collectionId": "sharedassets0",
+  "pathId": 123,
+  "classId": 28,
+  "className": "Texture2D"
+}
+```
+
 **Example:**
 ```json
-[
-  {
-    "domain": "by_collection",
-    "collectionId": "sharedassets0",
-    "name": "sharedassets0.assets",
-    "count": 523,
-    "isScene": false,
-    "bundleName": "level0",
-    "typeDistribution": [
-      {"classKey": 1, "className": "GameObject", "classId": 1, "count": 245},
-      {"classKey": 4, "className": "Transform", "classId": 4, "count": 245},
-      {"classKey": 28, "className": "Texture2D", "classId": 28, "count": 15}
-    ],
-    "totalTypeCount": 25
-  }
-]
+{"domain":"by_name","name":"Main Camera","locations":[{"collectionId":"sharedassets0","pathId":1,"classId":20,"className":"Camera"}]}
 ```
 
 ---
@@ -2125,12 +2146,13 @@ Validation tools:
 | script_type_mapping.schema.json | script_type_mapping | MonoScript to TypeDefinition mapping |
 | type_inheritance.schema.json | type_inheritance | Type inheritance relationships |
 
-### Indexes Layer (2 schemas)
+### Indexes Layer (3 schemas)
 
 | Schema | Domain | Purpose |
 |--------|--------|---------|
 | by_class.schema.json | by_class | Assets grouped by type |
 | by_collection.schema.json | by_collection | Collection summaries |
+| by_name.schema.json | by_name | Assets grouped by name |
 
 ### Metrics Layer (3 schemas)
 

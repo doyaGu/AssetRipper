@@ -131,7 +131,7 @@ public sealed class CollectionExporter
 		}
 
 		// New: Build dependencies list
-		List<string> dependencies = new List<string>(collection.Dependencies.Count);
+		List<string?> dependencies = new List<string?>(collection.Dependencies.Count);
 		Dictionary<string, int>? dependencyIndices = null;
 		for (int i = 0; i < collection.Dependencies.Count; i++)
 		{
@@ -145,7 +145,7 @@ public sealed class CollectionExporter
 			}
 			else
 			{
-				dependencies.Add(string.Empty); // null dependency placeholder
+				dependencies.Add(null); // unresolved dependency
 			}
 		}
 

@@ -4,7 +4,6 @@ using AssetRipper.Tools.AssetDumper.Validation.Models;
 using Json.Schema;
 using System.Diagnostics;
 using System.Text.Json;
-using System.Text.Json.Nodes;
 using ZstdSharp;
 
 namespace AssetRipper.Tools.AssetDumper.Validation;
@@ -173,15 +172,10 @@ public sealed class DomainValidator
 					try
 					{
 						// Parse JSON
-						var jsonNode = JsonNode.Parse(line);
-						if (jsonNode is null)
-						{
-							AddError(domainResult, "InvalidJson", $"Failed to parse JSON at line {lineNumber}", lineNumber, filePath);
-							continue;
-						}
+						using var doc = JsonDocument.Parse(line);
 
 						// Validate against schema (Phase 1-3: Structural, DataType, Constraint)
-						var result = schema.Evaluate(jsonNode, _evaluationOptions);
+						var result = schema.Evaluate(doc.RootElement, _evaluationOptions);
 
 						if (!result.IsValid)
 						{

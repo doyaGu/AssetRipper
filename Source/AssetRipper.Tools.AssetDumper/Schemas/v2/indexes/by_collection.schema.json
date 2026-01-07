@@ -3,80 +3,77 @@
   "$id": "https://schemas.assetripper.dev/assetdump/v2/indexes/by_collection.schema.json",
   "title": "AssetDump v2 Index: Collections Summary",
   "description": "Collection-level index providing quick summaries of asset counts and type distribution per collection. Enables fast collection statistics without scanning all assets.",
-  "type": "array",
-  "items": {
-    "type": "object",
-    "additionalProperties": false,
-    "required": [
-      "domain",
-      "collectionId",
-      "count"
-    ],
-    "properties": {
-      "domain": {
-        "type": "string",
-        "const": "by_collection",
-        "description": "Record domain identifier for multi-domain datasets"
-      },
-      "collectionId": {
-        "$ref": "https://schemas.assetripper.dev/assetdump/v2/core.schema.json#/$defs/CollectionID",
-        "description": "Stable collection identifier (e.g., 'sharedassets0.assets', 'level1')"
-      },
-      "name": {
-        "type": "string",
-        "description": "Human-readable collection name for display purposes"
-      },
-      "count": {
-        "type": "integer",
-        "minimum": 0,
-        "description": "Total number of assets in this collection"
-      },
-      "isScene": {
-        "type": "boolean",
-        "description": "Whether this collection represents a Unity scene"
-      },
-      "bundleName": {
-        "type": "string",
-        "description": "Name of the parent bundle containing this collection"
-      },
-      "typeDistribution": {
-        "type": "array",
-        "description": "Top 10 most common types in this collection, sorted by count descending. Uses classKey for consistency with by_class index.",
-        "items": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": [
-            "classKey",
-            "count"
-          ],
-          "properties": {
-            "classKey": {
-              "type": "integer",
-              "minimum": 1,
-              "description": "Dense type key from TypeDictionary (distinguishes MonoBehaviour scripts)"
-            },
-            "className": {
-              "type": "string",
-              "description": "Unity type name for readability (e.g., 'GameObject', 'Transform')"
-            },
-            "classId": {
-              "type": "integer",
-              "description": "Unity ClassID for external tool integration"
-            },
-            "count": {
-              "type": "integer",
-              "minimum": 0,
-              "description": "Number of assets of this type in the collection"
-            }
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "domain",
+    "collectionId",
+    "count"
+  ],
+  "properties": {
+    "domain": {
+      "type": "string",
+      "const": "by_collection",
+      "description": "Record domain identifier for multi-domain datasets"
+    },
+    "collectionId": {
+      "$ref": "../core.schema.json#/$defs/CollectionID",
+      "description": "Stable collection identifier (e.g., 'sharedassets0.assets', 'level1')"
+    },
+    "name": {
+      "type": "string",
+      "description": "Human-readable collection name for display purposes"
+    },
+    "count": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Total number of assets in this collection"
+    },
+    "isScene": {
+      "type": "boolean",
+      "description": "Whether this collection represents a Unity scene"
+    },
+    "bundleName": {
+      "type": "string",
+      "description": "Name of the parent bundle containing this collection"
+    },
+    "typeDistribution": {
+      "type": "array",
+      "description": "Top 10 most common types in this collection, sorted by count descending. Uses classKey for consistency with by_class index.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "classKey",
+          "count"
+        ],
+        "properties": {
+          "classKey": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Dense type key from TypeDictionary (distinguishes MonoBehaviour scripts)"
+          },
+          "className": {
+            "type": "string",
+            "description": "Unity type name for readability (e.g., 'GameObject', 'Transform')"
+          },
+          "classId": {
+            "type": "integer",
+            "description": "Unity ClassID for external tool integration"
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Number of assets of this type in the collection"
           }
-        },
-        "maxItems": 10
+        }
       },
-      "totalTypeCount": {
-        "type": "integer",
-        "minimum": 0,
-        "description": "Total number of distinct types in this collection (may exceed 10 if typeDistribution is truncated)"
-      }
+      "maxItems": 10
+    },
+    "totalTypeCount": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Total number of distinct types in this collection (may exceed 10 if typeDistribution is truncated)"
     }
   }
 }

@@ -241,7 +241,6 @@ public sealed class AssetFactsExporter
 				CollectionId = collectionId,
 				PathId = asset.PathID
 			},
-			PathId = asset.PathID,
 			ClassKey = classKey,
 			ClassName = asset.ClassName,
 			Name = string.IsNullOrWhiteSpace(bestName) ? null : bestName,

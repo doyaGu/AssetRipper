@@ -1,7 +1,7 @@
 using AssetRipper.Tools.AssetDumper.Models.Relations;
 using AssetRipper.Tools.AssetDumper.Tests.TestInfrastructure.Constants;
 using FluentAssertions;
-using System.Text.Json;
+using Newtonsoft.Json;
 using Xunit;
 
 namespace AssetRipper.Tools.AssetDumper.Tests.Unit.Models.Relations;
@@ -32,8 +32,8 @@ public class CollectionDependencyRecordTests
         };
 
         // Act
-        var json = JsonSerializer.Serialize(record);
-        var deserialized = JsonSerializer.Deserialize<CollectionDependencyRecord>(json);
+        var json = JsonConvert.SerializeObject(record, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore });
+        var deserialized = JsonConvert.DeserializeObject<CollectionDependencyRecord>(json);
 
         // Assert
         deserialized.Should().NotBeNull();
@@ -60,12 +60,12 @@ public class CollectionDependencyRecordTests
         };
 
         // Act
-        var json = JsonSerializer.Serialize(record);
+        var json = JsonConvert.SerializeObject(record, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore });
 
         // Assert
-        json.Should().NotContain("resolved");
-        json.Should().NotContain("source");
-        json.Should().NotContain("fileIdentifier");
+        json.Should().NotContain("\"resolved\"");
+        json.Should().NotContain("\"source\"");
+        json.Should().NotContain("\"fileIdentifier\"");
     }
 
     [Theory]
@@ -84,8 +84,8 @@ public class CollectionDependencyRecordTests
         };
 
         // Act
-        var json = JsonSerializer.Serialize(record);
-        var deserialized = JsonSerializer.Deserialize<CollectionDependencyRecord>(json);
+        var json = JsonConvert.SerializeObject(record, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore });
+        var deserialized = JsonConvert.DeserializeObject<CollectionDependencyRecord>(json);
 
         // Assert
         deserialized!.Source.Should().Be(sourceType);
@@ -142,8 +142,8 @@ public class CollectionDependencyRecordTests
         };
 
         // Act
-        var json = JsonSerializer.Serialize(fileId);
-        var deserialized = JsonSerializer.Deserialize<FileIdentifierRecord>(json);
+        var json = JsonConvert.SerializeObject(fileId, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore });
+        var deserialized = JsonConvert.DeserializeObject<FileIdentifierRecord>(json);
 
         // Assert
         deserialized.Should().NotBeNull();
@@ -164,11 +164,11 @@ public class CollectionDependencyRecordTests
         };
 
         // Act
-        var json = JsonSerializer.Serialize(fileId);
+        var json = JsonConvert.SerializeObject(fileId, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore });
 
         // Assert
-        json.Should().Contain("guid");
-        json.Should().Contain("type");
-        json.Should().NotContain("pathName");
+        json.Should().Contain("\"guid\"");
+        json.Should().Contain("\"type\"");
+        json.Should().NotContain("\"pathName\"");
     }
 }

@@ -14,7 +14,7 @@
 	  <PackageReference Include="CommandLineParser" Version="2.9.1" />
 	  <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.14.0" />
 	  <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
-	  <PackageReference Include="JsonSchema.Net" Version="5.2.0" />
+	  <PackageReference Include="JsonSchema.Net" Version="8.0.5" />
 	</ItemGroup>
 
 	<ItemGroup>

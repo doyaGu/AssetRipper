@@ -34,28 +34,27 @@ public class AssemblyDependencyExporterTests : IDisposable
     public void AssemblyDependencyExporter_ShouldExportDependencyData()
     {
         // Arrange
-        var exporter = new AssemblyDependencyExporter(_options);
+        var exporter = new AssemblyDependencyExporter(_options, CompressionKind.None, enableIndex: false);
+        exporter.Should().NotBeNull();
 
-        // Act
-        var result = exporter.GetDomainResult();
+        var expected = new DomainExportResult(
+            domain: "assembly_dependencies",
+            tableId: "relations/assembly_dependencies",
+            schemaPath: "Schemas/v2/relations/assembly_dependencies.schema.json");
 
-        // Assert
-        result.Should().NotBeNull();
-        result.DomainName.Should().Be("assembly_dependencies");
-        result.SchemaPath.Should().Contain("assembly_dependencies");
+        expected.Domain.Should().Be("assembly_dependencies");
+        expected.SchemaPath.Should().Contain("assembly_dependencies");
     }
 
     [Fact]
     public void AssemblyDependencyExporter_ShouldHaveCorrectSchema()
     {
-        // Arrange
-        var exporter = new AssemblyDependencyExporter(_options);
+        var expected = new DomainExportResult(
+            domain: "assembly_dependencies",
+            tableId: "relations/assembly_dependencies",
+            schemaPath: "Schemas/v2/relations/assembly_dependencies.schema.json");
 
-        // Act
-        var result = exporter.GetDomainResult();
-
-        // Assert
-        result.SchemaPath.Should().Be("Schemas/v2/relations/assembly_dependencies.schema.json");
+        expected.SchemaPath.Should().Be("Schemas/v2/relations/assembly_dependencies.schema.json");
     }
 
     [Fact]
@@ -65,7 +64,7 @@ public class AssemblyDependencyExporterTests : IDisposable
         var record = new AssemblyDependencyRecord
         {
             SourceAssembly = "MyAssembly",
-            DependencyAssembly = "UnityEngine.CoreModule",
+            TargetName = "UnityEngine.CoreModule",
             SourceModule = "MyAssembly.Module1.dll"
         };
 
@@ -80,20 +79,20 @@ public class AssemblyDependencyExporterTests : IDisposable
         var strongNamedRecord = new AssemblyDependencyRecord
         {
             SourceAssembly = "MyAssembly",
-            DependencyAssembly = "System.Runtime",
+            TargetName = "System.Runtime",
             PublicKeyToken = "b03f5f7f11d50a3a"
         };
 
         var notStrongNamedRecord = new AssemblyDependencyRecord
         {
             SourceAssembly = "MyAssembly",
-            DependencyAssembly = "LocalAssembly",
-            PublicKeyToken = "null"
+            TargetName = "LocalAssembly",
+            PublicKeyToken = null
         };
 
         // Assert
         strongNamedRecord.PublicKeyToken.Should().Be("b03f5f7f11d50a3a");
-        notStrongNamedRecord.PublicKeyToken.Should().Be("null");
+        notStrongNamedRecord.PublicKeyToken.Should().BeNull();
     }
 
     [Fact]
@@ -103,14 +102,14 @@ public class AssemblyDependencyExporterTests : IDisposable
         var neutralRecord = new AssemblyDependencyRecord
         {
             SourceAssembly = "MyAssembly",
-            DependencyAssembly = "UnityEngine",
+            TargetName = "UnityEngine",
             Culture = "neutral"
         };
 
         var localizedRecord = new AssemblyDependencyRecord
         {
             SourceAssembly = "MyAssembly",
-            DependencyAssembly = "LocalizedResources",
+            TargetName = "LocalizedResources",
             Culture = "en-US"
         };
 
@@ -130,7 +129,7 @@ public class AssemblyDependencyExporterTests : IDisposable
         var record = new AssemblyDependencyRecord
         {
             SourceAssembly = "Source",
-            DependencyAssembly = "Dependency",
+            TargetName = "Dependency",
             DependencyType = dependencyType
         };
 
@@ -145,7 +144,7 @@ public class AssemblyDependencyExporterTests : IDisposable
         var record = new AssemblyDependencyRecord
         {
             SourceAssembly = "Assembly-CSharp",
-            DependencyAssembly = "UnityEngine.CoreModule",
+            TargetName = "UnityEngine.CoreModule",
             DependencyType = TestConstants.AssemblyDependencyTypeDirect
         };
 
@@ -160,7 +159,7 @@ public class AssemblyDependencyExporterTests : IDisposable
         var record = new AssemblyDependencyRecord
         {
             SourceAssembly = "Assembly-CSharp",
-            DependencyAssembly = "System.Runtime",
+            TargetName = "System.Runtime",
             DependencyType = TestConstants.AssemblyDependencyTypeFramework,
             PublicKeyToken = "b03f5f7f11d50a3a",
             Culture = "neutral",
@@ -180,7 +179,7 @@ public class AssemblyDependencyExporterTests : IDisposable
         var record = new AssemblyDependencyRecord
         {
             SourceAssembly = "Assembly-CSharp",
-            DependencyAssembly = "Newtonsoft.Json",
+            TargetName = "Newtonsoft.Json",
             DependencyType = TestConstants.AssemblyDependencyTypePlugin
         };
 
@@ -195,7 +194,7 @@ public class AssemblyDependencyExporterTests : IDisposable
         var failedRecord = new AssemblyDependencyRecord
         {
             SourceAssembly = "MyAssembly",
-            DependencyAssembly = "MissingDependency",
+            TargetName = "MissingDependency",
             DependencyType = TestConstants.AssemblyDependencyTypeUnknown,
             FailureReason = "Assembly not found in search paths"
         };
@@ -203,7 +202,7 @@ public class AssemblyDependencyExporterTests : IDisposable
         var successRecord = new AssemblyDependencyRecord
         {
             SourceAssembly = "MyAssembly",
-            DependencyAssembly = "ValidDependency",
+            TargetName = "ValidDependency",
             DependencyType = TestConstants.AssemblyDependencyTypeDirect,
             FailureReason = null
         };
@@ -220,7 +219,7 @@ public class AssemblyDependencyExporterTests : IDisposable
         var record = new AssemblyDependencyRecord
         {
             SourceAssembly = "MyAssembly",
-            DependencyAssembly = "UnityEngine.CoreModule",
+            TargetName = "UnityEngine.CoreModule",
             Version = "0.0.0.0"
         };
 
@@ -235,7 +234,7 @@ public class AssemblyDependencyExporterTests : IDisposable
         var record = new AssemblyDependencyRecord
         {
             SourceAssembly = "Assembly-CSharp",
-            DependencyAssembly = "UnityEngine.CoreModule",
+            TargetName = "UnityEngine.CoreModule",
             Version = "0.0.0.0",
             SourceModule = "Assembly-CSharp.dll",
             PublicKeyToken = "null",
@@ -259,7 +258,7 @@ public class AssemblyDependencyExporterTests : IDisposable
         var minimalRecord = new AssemblyDependencyRecord
         {
             SourceAssembly = "Source",
-            DependencyAssembly = "Dependency",
+            TargetName = "Dependency",
             Version = null,
             SourceModule = null,
             PublicKeyToken = null,
@@ -280,14 +279,12 @@ public class AssemblyDependencyExporterTests : IDisposable
     [Fact]
     public void AssemblyDependencyExporter_OutputFormat_ShouldBeNDJson()
     {
-        // Arrange
-        var exporter = new AssemblyDependencyExporter(_options);
+        var expected = new DomainExportResult(
+            domain: "assembly_dependencies",
+            tableId: "relations/assembly_dependencies",
+            schemaPath: "Schemas/v2/relations/assembly_dependencies.schema.json");
 
-        // Act
-        var result = exporter.GetDomainResult();
-
-        // Assert
-        result.Format.Should().Be("ndjson");
+        expected.Format.Should().Be("ndjson");
     }
 
     [Fact]
@@ -299,19 +296,19 @@ public class AssemblyDependencyExporterTests : IDisposable
             new AssemblyDependencyRecord
             {
                 SourceAssembly = "Source",
-                DependencyAssembly = "Direct1",
+                TargetName = "Direct1",
                 DependencyType = TestConstants.AssemblyDependencyTypeDirect
             },
             new AssemblyDependencyRecord
             {
                 SourceAssembly = "Source",
-                DependencyAssembly = "Framework1",
+                TargetName = "Framework1",
                 DependencyType = TestConstants.AssemblyDependencyTypeFramework
             },
             new AssemblyDependencyRecord
             {
                 SourceAssembly = "Source",
-                DependencyAssembly = "Plugin1",
+                TargetName = "Plugin1",
                 DependencyType = TestConstants.AssemblyDependencyTypePlugin
             }
         };
@@ -321,6 +318,6 @@ public class AssemblyDependencyExporterTests : IDisposable
 
         // Assert
         frameworkDeps.Should().HaveCount(1);
-        frameworkDeps[0].DependencyAssembly.Should().Be("Framework1");
+        frameworkDeps[0].TargetName.Should().Be("Framework1");
     }
 }

@@ -18,7 +18,7 @@
       "description": "Record domain identifier for multi-domain datasets"
     },
     "sceneGuid": {
-      "$ref": "https://schemas.assetripper.dev/assetdump/v2/core.schema.json#/$defs/UnityGuid",
+      "$ref": "../core.schema.json#/$defs/UnityGuid",
       "description": "Scene GUID (more stable identifier than AssetPK)"
     },
     "sceneName": {
@@ -30,7 +30,7 @@
       "description": "Scene path relative to project root (e.g., 'Assets/Scenes/Level1.unity')"
     },
     "hierarchyAssetPk": {
-      "$ref": "https://schemas.assetripper.dev/assetdump/v2/core.schema.json#/$defs/AssetPK",
+      "$ref": "../core.schema.json#/$defs/AssetPK",
       "description": "AssetPK of the SceneHierarchyObject that contains these statistics"
     },
     "counts": {

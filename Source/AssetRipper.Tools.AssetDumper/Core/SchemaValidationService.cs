@@ -1,6 +1,6 @@
 using AssetRipper.Import.Logging;
 using Json.Schema;
-using System.Text.Json.Nodes;
+using System.Text.Json;
 using ZstdSharp;
 using AssetRipper.Tools.AssetDumper.Helpers;
 using AssetRipper.Tools.AssetDumper.Writers;
@@ -157,10 +157,10 @@ internal sealed class SchemaValidationService
 						continue;
 					}
 
-					JsonNode? node;
+					JsonDocument? doc;
 					try
 					{
-						node = JsonNode.Parse(line);
+						doc = JsonDocument.Parse(line);
 					}
 					catch (Exception ex)
 					{
@@ -173,14 +173,17 @@ internal sealed class SchemaValidationService
 						continue;
 					}
 
-					EvaluationResults evaluation = schema.Evaluate(node, _evaluationOptions);
-					if (!evaluation.IsValid)
+					using (doc)
 					{
-						ReportValidationError(tableId, displayPath, lineNumber, "Schema validation failed.", ref reportedErrors);
-						fileValid = false;
-						if (reportedErrors >= MaxReportedErrors)
+						EvaluationResults evaluation = schema.Evaluate(doc.RootElement, _evaluationOptions);
+						if (!evaluation.IsValid)
 						{
-							break;
+							ReportValidationError(tableId, displayPath, lineNumber, "Schema validation failed.", ref reportedErrors);
+							fileValid = false;
+							if (reportedErrors >= MaxReportedErrors)
+							{
+								break;
+							}
 						}
 					}
 				}

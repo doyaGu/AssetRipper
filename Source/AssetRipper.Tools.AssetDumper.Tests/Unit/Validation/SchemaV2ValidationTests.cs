@@ -1,7 +1,8 @@
 using AssetRipper.Tools.AssetDumper.Models.Relations;
 using AssetRipper.Tools.AssetDumper.Tests.TestInfrastructure.Constants;
 using FluentAssertions;
-using System.Text.Json;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using Xunit;
 
 namespace AssetRipper.Tools.AssetDumper.Tests.Unit.Validation;
@@ -34,14 +35,13 @@ public class SchemaV2ValidationTests
         };
 
         // Act
-        var json = JsonSerializer.Serialize(record);
-        var jsonDoc = JsonDocument.Parse(json);
-        var root = jsonDoc.RootElement;
+        var json = JsonConvert.SerializeObject(record, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore });
+        var root = JObject.Parse(json);
 
         // Assert - All v2.0 fields must be serializable
-        root.TryGetProperty("resolved", out _).Should().BeTrue();
-        root.TryGetProperty("source", out _).Should().BeTrue();
-        root.TryGetProperty("fileIdentifier", out _).Should().BeTrue();
+        root.Property("resolved").Should().NotBeNull();
+        root.Property("source").Should().NotBeNull();
+        root.Property("fileIdentifier").Should().NotBeNull();
     }
 
     [Theory]
@@ -59,7 +59,7 @@ public class SchemaV2ValidationTests
         };
 
         // Act
-        var json = JsonSerializer.Serialize(record);
+        var json = JsonConvert.SerializeObject(record, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore });
 
         // Assert - Enum value should serialize correctly
         json.Should().Contain($"\"{source}\"");
@@ -75,22 +75,22 @@ public class SchemaV2ValidationTests
         // Arrange
         var record = new BundleHierarchyRecord
         {
-            ParentBundle = "main.bundle",
-            ChildBundle = "child.bundle",
+            ParentPk = "main.bundle",
+            ChildPk = "child.bundle",
+            ChildIndex = 0,
             ParentName = "Main Bundle",
             ChildBundleType = TestConstants.BundleTypeGameBundle,
             ChildDepth = 1
         };
 
         // Act
-        var json = JsonSerializer.Serialize(record);
-        var jsonDoc = JsonDocument.Parse(json);
-        var root = jsonDoc.RootElement;
+        var json = JsonConvert.SerializeObject(record, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore });
+        var root = JObject.Parse(json);
 
         // Assert - All v2.0 optimization fields must be serializable
-        root.TryGetProperty("parentName", out _).Should().BeTrue();
-        root.TryGetProperty("childBundleType", out _).Should().BeTrue();
-        root.TryGetProperty("childDepth", out _).Should().BeTrue();
+        root.Property("parentName").Should().NotBeNull();
+        root.Property("childBundleType").Should().NotBeNull();
+        root.Property("childDepth").Should().NotBeNull();
     }
 
     [Theory]
@@ -105,13 +105,14 @@ public class SchemaV2ValidationTests
         // Arrange
         var record = new BundleHierarchyRecord
         {
-            ParentBundle = "parent",
-            ChildBundle = "child",
+            ParentPk = "parent",
+            ChildPk = "child",
+            ChildIndex = 0,
             ChildBundleType = bundleType
         };
 
         // Act
-        var json = JsonSerializer.Serialize(record);
+        var json = JsonConvert.SerializeObject(record, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore });
 
         // Assert - Enum value should serialize correctly
         json.Should().Contain($"\"{bundleType}\"");
@@ -128,13 +129,14 @@ public class SchemaV2ValidationTests
         {
             var record = new BundleHierarchyRecord
             {
-                ParentBundle = "parent",
-                ChildBundle = "child",
+                ParentPk = "parent",
+                ChildPk = "child",
+                ChildIndex = 0,
                 ChildDepth = depth
             };
 
-            var json = JsonSerializer.Serialize(record);
-            var deserialized = JsonSerializer.Deserialize<BundleHierarchyRecord>(json);
+            var json = JsonConvert.SerializeObject(record, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore });
+            var deserialized = JsonConvert.DeserializeObject<BundleHierarchyRecord>(json);
 
             deserialized!.ChildDepth.Should().Be(depth);
         }
@@ -151,7 +153,7 @@ public class SchemaV2ValidationTests
         var record = new AssemblyDependencyRecord
         {
             SourceAssembly = "Assembly-CSharp",
-            DependencyAssembly = "UnityEngine",
+            TargetName = "UnityEngine",
             Version = "0.0.0.0",
             SourceModule = "Assembly-CSharp.dll",
             PublicKeyToken = "null",
@@ -161,15 +163,14 @@ public class SchemaV2ValidationTests
         };
 
         // Act
-        var json = JsonSerializer.Serialize(record);
-        var jsonDoc = JsonDocument.Parse(json);
-        var root = jsonDoc.RootElement;
+        var json = JsonConvert.SerializeObject(record, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore });
+        var root = JObject.Parse(json);
 
         // Assert - All v2.0 metadata fields must be serializable
-        root.TryGetProperty("sourceModule", out _).Should().BeTrue();
-        root.TryGetProperty("publicKeyToken", out _).Should().BeTrue();
-        root.TryGetProperty("culture", out _).Should().BeTrue();
-        root.TryGetProperty("dependencyType", out _).Should().BeTrue();
+        root.Property("sourceModule").Should().NotBeNull();
+        root.Property("publicKeyToken").Should().NotBeNull();
+        root.Property("culture").Should().NotBeNull();
+        root.Property("dependencyType").Should().NotBeNull();
     }
 
     [Theory]
@@ -183,12 +184,12 @@ public class SchemaV2ValidationTests
         var record = new AssemblyDependencyRecord
         {
             SourceAssembly = "Source",
-            DependencyAssembly = "Dependency",
+            TargetName = "Dependency",
             DependencyType = dependencyType
         };
 
         // Act
-        var json = JsonSerializer.Serialize(record);
+        var json = JsonConvert.SerializeObject(record, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore });
 
         // Assert - Enum value should serialize correctly
         json.Should().Contain($"\"{dependencyType}\"");
@@ -212,8 +213,9 @@ public class SchemaV2ValidationTests
 
         var bundleHierarchy = new BundleHierarchyRecord
         {
-            ParentBundle = "p1",
-            ChildBundle = "c1",
+            ParentPk = "p1",
+            ChildPk = "c1",
+            ChildIndex = 0,
             ParentName = "Parent",
             ChildBundleType = TestConstants.BundleTypeGameBundle,
             ChildDepth = 1
@@ -222,16 +224,17 @@ public class SchemaV2ValidationTests
         var assemblyDep = new AssemblyDependencyRecord
         {
             SourceAssembly = "s1",
-            DependencyAssembly = "d1",
+            TargetName = "d1",
             DependencyType = TestConstants.AssemblyDependencyTypeDirect,
             PublicKeyToken = "null",
             Culture = "neutral"
         };
 
         // Act
-        var json1 = JsonSerializer.Serialize(collectionDep);
-        var json2 = JsonSerializer.Serialize(bundleHierarchy);
-        var json3 = JsonSerializer.Serialize(assemblyDep);
+        var settings = new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore };
+        var json1 = JsonConvert.SerializeObject(collectionDep, settings);
+        var json2 = JsonConvert.SerializeObject(bundleHierarchy, settings);
+        var json3 = JsonConvert.SerializeObject(assemblyDep, settings);
 
         // Assert - All v2.0 models should serialize without errors
         json1.Should().NotBeNullOrEmpty();
@@ -289,8 +292,9 @@ public class SchemaV2ValidationTests
 
         var bundleHierarchy = new BundleHierarchyRecord
         {
-            ParentBundle = "p",
-            ChildBundle = "c",
+            ParentPk = "p",
+            ChildPk = "c",
+            ChildIndex = 0,
             ParentName = null,
             ChildBundleType = null,
             ChildDepth = null
@@ -299,7 +303,7 @@ public class SchemaV2ValidationTests
         var assemblyDep = new AssemblyDependencyRecord
         {
             SourceAssembly = "s",
-            DependencyAssembly = "d",
+            TargetName = "d",
             Version = null,
             SourceModule = null,
             PublicKeyToken = null,
@@ -309,14 +313,15 @@ public class SchemaV2ValidationTests
         };
 
         // Act
-        var json1 = JsonSerializer.Serialize(collectionDep);
-        var json2 = JsonSerializer.Serialize(bundleHierarchy);
-        var json3 = JsonSerializer.Serialize(assemblyDep);
+        var settings = new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore };
+        var json1 = JsonConvert.SerializeObject(collectionDep, settings);
+        var json2 = JsonConvert.SerializeObject(bundleHierarchy, settings);
+        var json3 = JsonConvert.SerializeObject(assemblyDep, settings);
 
         // Assert - Null optional fields should not appear in JSON
-        json1.Should().NotContain("resolved");
-        json1.Should().NotContain("source");
-        json1.Should().NotContain("fileIdentifier");
+        json1.Should().NotContain("\"resolved\"");
+        json1.Should().NotContain("\"source\"");
+        json1.Should().NotContain("\"fileIdentifier\"");
 
         json2.Should().NotContain("parentName");
         json2.Should().NotContain("childBundleType");
@@ -339,24 +344,27 @@ public class SchemaV2ValidationTests
         {
             new BundleHierarchyRecord
             {
-                ParentBundle = null,
-                ChildBundle = "root.bundle",
+                ParentPk = string.Empty,
+                ChildPk = "root.bundle",
+                ChildIndex = 0,
                 ParentName = null,
                 ChildBundleType = TestConstants.BundleTypeGameBundle,
                 ChildDepth = 0
             },
             new BundleHierarchyRecord
             {
-                ParentBundle = "root.bundle",
-                ChildBundle = "level1.bundle",
+                ParentPk = "root.bundle",
+                ChildPk = "level1.bundle",
+                ChildIndex = 0,
                 ParentName = "Root Bundle",
                 ChildBundleType = TestConstants.BundleTypeGameBundle,
                 ChildDepth = 1
             },
             new BundleHierarchyRecord
             {
-                ParentBundle = "level1.bundle",
-                ChildBundle = "resource1.bundle",
+                ParentPk = "level1.bundle",
+                ChildPk = "resource1.bundle",
+                ChildIndex = 0,
                 ParentName = "Level 1 Bundle",
                 ChildBundleType = TestConstants.BundleTypeResourceFile,
                 ChildDepth = 2
@@ -370,10 +378,10 @@ public class SchemaV2ValidationTests
 
         // Assert - All optimization queries should work correctly
         rootBundles.Should().HaveCount(1);
-        rootBundles[0].ChildBundle.Should().Be("root.bundle");
+        rootBundles[0].ChildPk.Should().Be("root.bundle");
 
         directChildren.Should().HaveCount(1);
-        directChildren[0].ChildBundle.Should().Be("level1.bundle");
+        directChildren[0].ChildPk.Should().Be("level1.bundle");
 
         resourceBundles.Should().HaveCount(1);
         resourceBundles[0].ChildDepth.Should().Be(2);

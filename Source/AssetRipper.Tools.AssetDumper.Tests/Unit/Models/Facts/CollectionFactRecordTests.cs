@@ -1,4 +1,5 @@
-using AssetRipper.Tools.AssetDumper.Models;
+using AssetRipper.Tools.AssetDumper.Models.Common;
+using AssetRipper.Tools.AssetDumper.Models.Facts;
 
 namespace AssetRipper.Tools.AssetDumper.Tests.Unit.Models.Facts;
 
@@ -12,7 +13,7 @@ public class CollectionFactRecordTests
 	public void CollectionFactRecord_AllFieldsAssignable_ShouldSucceed()
 	{
 		// Arrange & Act
-		var record = new CollectionFactRecord
+		var record = new CollectionRecord
 		{
 			Domain = "collections",
 			CollectionId = "A1B2C3D4",
@@ -30,13 +31,13 @@ public class CollectionFactRecordTests
 			Flags = new List<string> { "Flag1" },
 			IsSceneCollection = true,
 			Bundle = new BundleRef { BundlePk = "00000001", BundleName = "TestBundle" },
-			Scene = new SceneRef { SceneName = "TestScene" },
+			Scene = new SceneRef { SceneGuid = "guid-testscene", SceneName = "TestScene" },
 			CollectionIndex = 0,
-			Dependencies = new List<string> { "A1B2C3D4", "B2C3D4E5" },
+			Dependencies = new List<string?> { "A1B2C3D4", "B2C3D4E5" },
 			DependencyIndices = new Dictionary<string, int> { { "A1B2C3D4", 0 }, { "B2C3D4E5", 1 } },
 			AssetCount = 100,
-			Source = new CollectionSourceRecord { NormalizedPath = "/normalized/path" },
-			Unity = new CollectionUnityRecord { Version = "2020.3.0f1" }
+			Source = new CollectionSourceRecord { Uri = "/normalized/path" },
+			Unity = new CollectionUnityRecord { BuiltInClassification = "unknown" }
 		};
 
 		// Assert
@@ -54,7 +55,7 @@ public class CollectionFactRecordTests
 	public void CollectionType_WithValidTypes_ShouldAssign(string collectionType)
 	{
 		// Arrange & Act
-		var record = new CollectionFactRecord
+		var record = new CollectionRecord
 		{
 			CollectionType = collectionType
 		};
@@ -67,7 +68,7 @@ public class CollectionFactRecordTests
 	public void OriginalUnityVersion_WhenNull_ShouldBeNullable()
 	{
 		// Arrange & Act
-		var record = new CollectionFactRecord
+		var record = new CollectionRecord
 		{
 			UnityVersion = "2020.3.0f1",
 			OriginalUnityVersion = null // Same as current, should be null
@@ -80,16 +81,16 @@ public class CollectionFactRecordTests
 	[Fact]
 	public void Dependencies_WithEmptyString_ShouldHandleUnresolvedDependencies()
 	{
-		// Arrange - Index 1 is unresolved (empty string placeholder)
-		var record = new CollectionFactRecord
+		// Arrange - Index 1 is unresolved (null placeholder)
+		var record = new CollectionRecord
 		{
-			Dependencies = new List<string> { "A1B2C3D4", "", "B2C3D4E5" },
+			Dependencies = new List<string?> { "A1B2C3D4", null, "B2C3D4E5" },
 			DependencyIndices = new Dictionary<string, int> { { "A1B2C3D4", 0 }, { "B2C3D4E5", 2 } }
 		};
 
 		// Act & Assert
 		record.Dependencies.Should().HaveCount(3);
-		record.Dependencies[1].Should().BeEmpty();
+		record.Dependencies[1].Should().BeNull();
 		record.DependencyIndices.Should().HaveCount(2); // Empty string not indexed
 	}
 
@@ -97,10 +98,10 @@ public class CollectionFactRecordTests
 	public void DependencyIndices_SelfReference_ShouldBeIndexZero()
 	{
 		// Arrange - Unity convention: index 0 is always self-reference
-		var record = new CollectionFactRecord
+		var record = new CollectionRecord
 		{
 			CollectionId = "A1B2C3D4",
-			Dependencies = new List<string> { "A1B2C3D4", "B2C3D4E5", "C3D4E5F6" },
+			Dependencies = new List<string?> { "A1B2C3D4", "B2C3D4E5", "C3D4E5F6" },
 			DependencyIndices = new Dictionary<string, int> 
 			{ 
 				{ "A1B2C3D4", 0 }, // Self-reference at index 0
@@ -118,13 +119,13 @@ public class CollectionFactRecordTests
 	public void FormatVersion_OnlyForSerializedCollections_ShouldBeNullable()
 	{
 		// Arrange - Processed/Virtual collections have no FormatVersion
-		var processedRecord = new CollectionFactRecord
+		var processedRecord = new CollectionRecord
 		{
 			CollectionType = "Processed",
 			FormatVersion = null
 		};
 
-		var serializedRecord = new CollectionFactRecord
+		var serializedRecord = new CollectionRecord
 		{
 			CollectionType = "Serialized",
 			FormatVersion = 22
@@ -139,7 +140,7 @@ public class CollectionFactRecordTests
 	public void Bundle_ShouldContainBundlePkAndName()
 	{
 		// Arrange
-		var record = new CollectionFactRecord
+		var record = new CollectionRecord
 		{
 			Bundle = new BundleRef 
 			{ 
@@ -158,13 +159,13 @@ public class CollectionFactRecordTests
 	public void Scene_ForSceneCollections_ShouldBePresent()
 	{
 		// Arrange
-		var sceneRecord = new CollectionFactRecord
+		var sceneRecord = new CollectionRecord
 		{
 			IsSceneCollection = true,
-			Scene = new SceneRef { SceneName = "MainScene" }
+			Scene = new SceneRef { SceneGuid = "guid-mainscene", SceneName = "MainScene" }
 		};
 
-		var nonSceneRecord = new CollectionFactRecord
+		var nonSceneRecord = new CollectionRecord
 		{
 			IsSceneCollection = false,
 			Scene = null
@@ -180,7 +181,7 @@ public class CollectionFactRecordTests
 	public void CollectionIndex_ShouldReflectPositionInBundle()
 	{
 		// Arrange
-		var record = new CollectionFactRecord
+		var record = new CollectionRecord
 		{
 			CollectionIndex = 3 // 4th collection in bundle (0-indexed)
 		};

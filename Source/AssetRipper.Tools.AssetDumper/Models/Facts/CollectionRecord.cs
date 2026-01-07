@@ -64,7 +64,7 @@ public sealed class CollectionRecord
 	public int? CollectionIndex { get; set; }
 
 	[JsonProperty("dependencies")]
-	public List<string> Dependencies { get; set; } = new();
+	public List<string?> Dependencies { get; set; } = new();
 
 	[JsonProperty("dependencyIndices", NullValueHandling = NullValueHandling.Ignore)]
 	public Dictionary<string, int>? DependencyIndices { get; set; }

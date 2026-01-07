@@ -22,7 +22,7 @@
       "const": "collections"
     },
     "collectionId": {
-      "$ref": "https://schemas.assetripper.dev/assetdump/v2/core.schema.json#/$defs/CollectionID"
+      "$ref": "../core.schema.json#/$defs/CollectionID"
     },
     "name": {
       "type": "string",
@@ -89,11 +89,11 @@
       "description": "True when the collection originates from a Unity scene file (.unity)."
     },
     "bundle": {
-      "$ref": "https://schemas.assetripper.dev/assetdump/v2/core.schema.json#BundleRef",
+      "$ref": "../core.schema.json#BundleRef",
       "description": "Reference to the parent Bundle containing this collection. Every collection must belong to a Bundle."
     },
     "scene": {
-      "$ref": "https://schemas.assetripper.dev/assetdump/v2/core.schema.json#SceneRef",
+      "$ref": "../core.schema.json#SceneRef",
       "description": "Reference to the Scene if this collection is part of one. Present when isSceneCollection is true."
     },
     "collectionIndex": {
@@ -104,7 +104,14 @@
     "dependencies": {
       "type": "array",
       "items": {
-        "$ref": "https://schemas.assetripper.dev/assetdump/v2/core.schema.json#/$defs/CollectionID"
+        "anyOf": [
+          {
+            "$ref": "../core.schema.json#/$defs/CollectionID"
+          },
+          {
+            "type": "null"
+          }
+        ]
       },
       "description": "Ordered list of dependency CollectionIDs. Index 0 is always self-reference for correct correspondence with Unity file indices. Subsequent entries may be null if they could not be resolved."
     },

@@ -16,12 +16,12 @@ public class SceneRecordTests
 		var record = new SceneRecord
 		{
 			Domain = "scenes",
-			SceneName = "MainScene",
+			Name = "MainScene",
 			SceneGuid = "abc123",
 			PrimaryCollectionId = "A1B2C3D4",
 			Bundle = new BundleRef { BundlePk = "00000001", BundleName = "Level1" },
-			PathID = 1,
-			ClassID = 142,
+			PathId = 1,
+			ClassId = 142,
 			ClassName = "SceneAsset",
 			GameObjectCount = 100,
 			ComponentCount = 500,
@@ -40,7 +40,7 @@ public class SceneRecordTests
 
 		// Assert
 		record.Domain.Should().Be("scenes");
-		record.SceneName.Should().Be("MainScene");
+		record.Name.Should().Be("MainScene");
 		record.PrimaryCollectionId.Should().Be("A1B2C3D4");
 		record.CollectionDetails.Should().HaveCount(1);
 	}
@@ -68,7 +68,7 @@ public class SceneRecordTests
 		};
 
 		// Act
-		var primaryDetail = record.CollectionDetails.FirstOrDefault(d => d.IsPrimary);
+		var primaryDetail = record.CollectionDetails.FirstOrDefault(d => d.IsPrimary == true);
 
 		// Assert
 		primaryDetail.Should().NotBeNull();
@@ -115,17 +115,17 @@ public class SceneRecordTests
 		// Arrange - Before SceneHierarchyObject creation
 		var record = new SceneRecord
 		{
-			SceneName = "UnprocessedScene",
-			PathID = null,
-			ClassID = null,
+			Name = "UnprocessedScene",
+			PathId = null,
+			ClassId = null,
 			ClassName = null,
 			GameObjects = null,
 			Components = null
 		};
 
 		// Assert
-		record.PathID.Should().BeNull();
-		record.ClassID.Should().BeNull();
+		record.PathId.Should().BeNull();
+		record.ClassId.Should().BeNull();
 		record.ClassName.Should().BeNull();
 		record.GameObjects.Should().BeNull();
 		record.Components.Should().BeNull();
@@ -137,9 +137,9 @@ public class SceneRecordTests
 		// Arrange - After SceneHierarchyObject creation
 		var record = new SceneRecord
 		{
-			SceneName = "ProcessedScene",
-			PathID = 1,
-			ClassID = 142,
+			Name = "ProcessedScene",
+			PathId = 1,
+			ClassId = 142,
 			ClassName = "SceneAsset",
 			GameObjectCount = 50,
 			ComponentCount = 200,
@@ -156,8 +156,8 @@ public class SceneRecordTests
 		};
 
 		// Assert
-		record.PathID.Should().Be(1);
-		record.ClassID.Should().Be(142);
+		record.PathId.Should().Be(1);
+		record.ClassId.Should().Be(142);
 		record.ClassName.Should().Be("SceneAsset");
 		record.GameObjects.Should().HaveCount(2);
 		record.Components.Should().HaveCount(2);
@@ -169,7 +169,7 @@ public class SceneRecordTests
 		// Arrange - MinimalOutput mode (lists not populated)
 		var record = new SceneRecord
 		{
-			SceneName = "MinimalScene",
+			Name = "MinimalScene",
 			GameObjectCount = 1000, // Count still present
 			ComponentCount = 5000,   // Count still present
 			GameObjects = null,      // List omitted
@@ -224,7 +224,7 @@ public class SceneRecordTests
 		};
 
 		// Act
-		int totalAssets = record.CollectionDetails.Sum(d => d.AssetCount);
+		int totalAssets = record.CollectionDetails.Sum(d => d.AssetCount ?? 0);
 
 		// Assert
 		totalAssets.Should().Be(1800);

@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.assetripper.dev/assetdump/v2/indexes/by_name.schema.json",
+  "title": "AssetDump v2 Index: Assets By Name",
+  "description": "Secondary index listing asset locations grouped by asset name for fast name-based queries.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "domain",
+    "name",
+    "locations"
+  ],
+  "properties": {
+    "domain": {
+      "type": "string",
+      "const": "by_name",
+      "description": "Domain identifier for by_name index records"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Asset name key used for lookup. Names are best-effort and may not be unique across assets."
+    },
+    "locations": {
+      "type": "array",
+      "description": "Locations of assets that share this name.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "collectionId",
+          "pathId"
+        ],
+        "properties": {
+          "collectionId": {
+            "$ref": "../core.schema.json#/$defs/CollectionID"
+          },
+          "pathId": {
+            "type": "integer",
+            "description": "Unity m_PathID within the referenced collection."
+          },
+          "classId": {
+            "type": "integer",
+            "description": "Unity ClassID for external tool integration."
+          },
+          "className": {
+            "type": "string",
+            "description": "Unity class name for readability."
+          }
+        }
+      },
+      "minItems": 1
+    }
+  }
+}

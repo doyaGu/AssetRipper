@@ -18,7 +18,7 @@ public class OptionsBuilder
     private string _compression = "none";
     private bool _quiet = true;
     private bool _verbose = false;
-    private long _shardSize = 0; // 0 = auto
+    private int _shardSize = 0; // 0 = auto
     private int _parallelThreads = 1; // Single-threaded for tests by default
     private bool _incrementalMode = false;
     private bool _dryRun = false;
@@ -90,7 +90,7 @@ public class OptionsBuilder
         return this;
     }
 
-    public OptionsBuilder WithShardSize(long size)
+    public OptionsBuilder WithShardSize(int size)
     {
         _shardSize = size;
         return this;

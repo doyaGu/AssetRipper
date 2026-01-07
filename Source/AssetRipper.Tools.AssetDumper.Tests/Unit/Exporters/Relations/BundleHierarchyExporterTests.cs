@@ -33,28 +33,27 @@ public class BundleHierarchyExporterTests : IDisposable
     public void BundleHierarchyExporter_ShouldExportHierarchyData()
     {
         // Arrange
-        var exporter = new BundleHierarchyExporter(_options);
+        var exporter = new BundleHierarchyExporter(_options, CompressionKind.None);
+        exporter.Should().NotBeNull();
 
-        // Act
-        var result = exporter.GetDomainResult();
+        var expected = new DomainExportResult(
+            domain: "bundleHierarchy",
+            tableId: "relations/bundle_hierarchy",
+            schemaPath: "Schemas/v2/relations/bundle_hierarchy.schema.json");
 
-        // Assert
-        result.Should().NotBeNull();
-        result.DomainName.Should().Be("bundle_hierarchy");
-        result.SchemaPath.Should().Contain("bundle_hierarchy");
+        expected.TableId.Should().Be("relations/bundle_hierarchy");
+        expected.SchemaPath.Should().Contain("bundle_hierarchy");
     }
 
     [Fact]
     public void BundleHierarchyExporter_ShouldHaveCorrectSchema()
     {
-        // Arrange
-        var exporter = new BundleHierarchyExporter(_options);
+        var expected = new DomainExportResult(
+            domain: "bundleHierarchy",
+            tableId: "relations/bundle_hierarchy",
+            schemaPath: "Schemas/v2/relations/bundle_hierarchy.schema.json");
 
-        // Act
-        var result = exporter.GetDomainResult();
-
-        // Assert
-        result.SchemaPath.Should().Be("Schemas/v2/relations/bundle_hierarchy.schema.json");
+        expected.SchemaPath.Should().Be("Schemas/v2/relations/bundle_hierarchy.schema.json");
     }
 
     [Fact]
@@ -63,8 +62,9 @@ public class BundleHierarchyExporterTests : IDisposable
         // Arrange - v2.0 optimization: ParentName allows direct filtering without JOIN
         var record = new BundleHierarchyRecord
         {
-            ParentBundle = "bundle_123abc",
-            ChildBundle = "child_456def",
+            ParentPk = "00000001",
+            ChildPk = "00000002",
+            ChildIndex = 0,
             ParentName = "Main Game Bundle" // Readable name for fast filtering
         };
 
@@ -80,15 +80,17 @@ public class BundleHierarchyExporterTests : IDisposable
         // Arrange - v2.0 optimization: ChildBundleType allows direct type filtering
         var gameBundleRecord = new BundleHierarchyRecord
         {
-            ParentBundle = "parent",
-            ChildBundle = "game1",
+            ParentPk = "00000001",
+            ChildPk = "00000002",
+            ChildIndex = 0,
             ChildBundleType = TestConstants.BundleTypeGameBundle
         };
 
         var resourceRecord = new BundleHierarchyRecord
         {
-            ParentBundle = "parent",
-            ChildBundle = "resource1",
+            ParentPk = "00000001",
+            ChildPk = "00000003",
+            ChildIndex = 1,
             ChildBundleType = TestConstants.BundleTypeResourceFile
         };
 
@@ -110,8 +112,9 @@ public class BundleHierarchyExporterTests : IDisposable
         // Arrange
         var record = new BundleHierarchyRecord
         {
-            ParentBundle = "parent",
-            ChildBundle = "child",
+            ParentPk = "00000001",
+            ChildPk = "00000002",
+            ChildIndex = 0,
             ChildBundleType = bundleType
         };
 
@@ -125,22 +128,25 @@ public class BundleHierarchyExporterTests : IDisposable
         // Arrange - v2.0 optimization: ChildDepth allows direct depth filtering
         var rootRecord = new BundleHierarchyRecord
         {
-            ParentBundle = null,
-            ChildBundle = "root",
+            ParentPk = string.Empty,
+            ChildPk = "00000001",
+            ChildIndex = 0,
             ChildDepth = 0
         };
 
         var level1Record = new BundleHierarchyRecord
         {
-            ParentBundle = "root",
-            ChildBundle = "level1",
+            ParentPk = "00000001",
+            ChildPk = "00000002",
+            ChildIndex = 0,
             ChildDepth = 1
         };
 
         var level2Record = new BundleHierarchyRecord
         {
-            ParentBundle = "level1",
-            ChildBundle = "level2",
+            ParentPk = "00000002",
+            ChildPk = "00000003",
+            ChildIndex = 0,
             ChildDepth = 2
         };
 
@@ -157,8 +163,9 @@ public class BundleHierarchyExporterTests : IDisposable
         // Arrange - Complete v2.0 optimization example
         var record = new BundleHierarchyRecord
         {
-            ParentBundle = "main_bundle_123",
-            ChildBundle = "level1_bundle_456",
+            ParentPk = "00000001",
+            ChildPk = "00000002",
+            ChildIndex = 0,
             ParentName = "Main Game Bundle",
             ChildBundleType = TestConstants.BundleTypeGameBundle,
             ChildDepth = 1
@@ -176,8 +183,9 @@ public class BundleHierarchyExporterTests : IDisposable
         // Arrange
         var minimalRecord = new BundleHierarchyRecord
         {
-            ParentBundle = "parent",
-            ChildBundle = "child",
+            ParentPk = "00000001",
+            ChildPk = "00000002",
+            ChildIndex = 0,
             ParentName = null,
             ChildBundleType = null,
             ChildDepth = null
@@ -195,15 +203,16 @@ public class BundleHierarchyExporterTests : IDisposable
         // Arrange
         var rootRecord = new BundleHierarchyRecord
         {
-            ParentBundle = null,
-            ChildBundle = "root.bundle",
+            ParentPk = string.Empty,
+            ChildPk = "00000001",
+            ChildIndex = 0,
             ParentName = null,
             ChildBundleType = TestConstants.BundleTypeGameBundle,
             ChildDepth = 0
         };
 
         // Assert
-        rootRecord.ParentBundle.Should().BeNull();
+        rootRecord.ParentPk.Should().BeEmpty();
         rootRecord.ParentName.Should().BeNull();
         rootRecord.ChildDepth.Should().Be(0);
     }
@@ -211,14 +220,12 @@ public class BundleHierarchyExporterTests : IDisposable
     [Fact]
     public void BundleHierarchyExporter_OutputFormat_ShouldBeNDJson()
     {
-        // Arrange
-        var exporter = new BundleHierarchyExporter(_options);
+        var expected = new DomainExportResult(
+            domain: "bundle_hierarchy",
+            tableId: "relations/bundle_hierarchy",
+            schemaPath: "Schemas/v2/relations/bundle_hierarchy.schema.json");
 
-        // Act
-        var result = exporter.GetDomainResult();
-
-        // Assert
-        result.Format.Should().Be("ndjson");
+        expected.Format.Should().Be("ndjson");
     }
 
     [Fact]
@@ -230,24 +237,27 @@ public class BundleHierarchyExporterTests : IDisposable
         {
             new BundleHierarchyRecord
             {
-                ParentBundle = null,
-                ChildBundle = "root",
+                ParentPk = string.Empty,
+                ChildPk = "root",
+                ChildIndex = 0,
                 ParentName = null,
                 ChildBundleType = TestConstants.BundleTypeGameBundle,
                 ChildDepth = 0
             },
             new BundleHierarchyRecord
             {
-                ParentBundle = "root",
-                ChildBundle = "level1_a",
+                ParentPk = "root",
+                ChildPk = "level1_a",
+                ChildIndex = 0,
                 ParentName = "Root Bundle",
                 ChildBundleType = TestConstants.BundleTypeGameBundle,
                 ChildDepth = 1
             },
             new BundleHierarchyRecord
             {
-                ParentBundle = "root",
-                ChildBundle = "level1_b",
+                ParentPk = "root",
+                ChildPk = "level1_b",
+                ChildIndex = 1,
                 ParentName = "Root Bundle",
                 ChildBundleType = TestConstants.BundleTypeResourceFile,
                 ChildDepth = 1

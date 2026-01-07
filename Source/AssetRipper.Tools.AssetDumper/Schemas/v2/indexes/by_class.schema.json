@@ -25,7 +25,7 @@
     "assets": {
       "type": "array",
       "items": {
-        "$ref": "https://schemas.assetripper.dev/assetdump/v2/core.schema.json#AssetPK"
+          "$ref": "../core.schema.json#/$defs/AssetPK"
       },
       "description": "Array of asset primary keys (collectionId + pathId) for all assets of this type. Sorted by collectionId then pathId for deterministic ordering and efficient lookups.",
       "minItems": 0

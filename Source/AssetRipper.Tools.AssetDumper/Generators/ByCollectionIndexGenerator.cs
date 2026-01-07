@@ -58,7 +58,7 @@ internal sealed class ByCollectionIndexGenerator
 			// Second pass: collect summaries for each collection
 			foreach (AssetCollection collection in gameData.GameBundle.FetchAssetCollections())
 			{
-				string collectionId = collection.Name;
+				string collectionId = ExportHelper.ComputeCollectionId(collection);
 				
 				CollectionSummary summary = new CollectionSummary
 				{
@@ -105,16 +105,22 @@ internal sealed class ByCollectionIndexGenerator
 			// Sort collections by ID for deterministic output
 			summaries.Sort((a, b) => string.CompareOrdinal(a.CollectionId, b.CollectionId));
 
-			// Write as JSON array (small enough for single file)
+			// Write as NDJSON (one record per line) for consistency with other index domains
 			string indexRoot = OutputPathHelper.EnsureSubdirectory(
 				_options.OutputPath,
 				OutputPathHelper.IndexesDirectoryName);
 			
-			string fileName = "by_collection.json";
+			string fileName = "by_collection.ndjson";
 			string absolutePath = Path.Combine(indexRoot, fileName);
 
-			string json = JsonConvert.SerializeObject(summaries, Formatting.Indented);
-			File.WriteAllText(absolutePath, json);
+			using (StreamWriter writer = new StreamWriter(absolutePath))
+			{
+				foreach (CollectionSummary summary in summaries)
+				{
+					string json = JsonConvert.SerializeObject(summary, Formatting.None);
+					writer.WriteLine(json);
+				}
+			}
 
 			int totalAssets = summaries.Sum(s => s.Count);
 			if (!_options.Silent)

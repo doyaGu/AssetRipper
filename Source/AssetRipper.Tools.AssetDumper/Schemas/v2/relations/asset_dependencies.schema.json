@@ -17,11 +17,11 @@
       "const": "asset_dependencies"
     },
     "from": {
-      "$ref": "https://schemas.assetripper.dev/assetdump/v2/core.schema.json#AssetPK",
+      "$ref": "../core.schema.json#/$defs/AssetPK",
       "description": "Source asset that owns the reference (initiating side of the dependency)."
     },
     "to": {
-      "$ref": "https://schemas.assetripper.dev/assetdump/v2/core.schema.json#AssetPK",
+      "$ref": "../core.schema.json#/$defs/AssetPK",
       "description": "Target asset being referenced (receiving side of the dependency)."
     },
     "edge": {

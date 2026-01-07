@@ -94,7 +94,7 @@
     "collectionIds": {
       "type": "array",
       "items": {
-        "$ref": "https://schemas.assetripper.dev/assetdump/v2/core.schema.json#/$defs/CollectionID"
+        "$ref": "../core.schema.json#/$defs/CollectionID"
       },
       "uniqueItems": true,
       "description": "Direct collection identifiers hosted by this bundle."
@@ -149,7 +149,7 @@
       "type": "array",
       "description": "All scenes contained in this bundle's collections. Corresponds to Bundle.Scenes property.",
       "items": {
-        "$ref": "https://schemas.assetripper.dev/assetdump/v2/core.schema.json#SceneRef"
+        "$ref": "../core.schema.json#SceneRef"
       }
     },
     "directCollectionCount": {

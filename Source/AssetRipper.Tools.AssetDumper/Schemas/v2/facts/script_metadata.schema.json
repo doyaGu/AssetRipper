@@ -22,10 +22,10 @@
       "const": "script_metadata"
     },
     "pk": {
-      "$ref": "https://schemas.assetripper.dev/assetdump/v2/core.schema.json#/$defs/StableKey"
+      "$ref": "../core.schema.json#/$defs/StableKey"
     },
     "collectionId": {
-      "$ref": "https://schemas.assetripper.dev/assetdump/v2/core.schema.json#/$defs/CollectionID"
+      "$ref": "../core.schema.json#/$defs/CollectionID"
     },
     "pathId": {
       "type": "integer",
@@ -73,11 +73,11 @@
       "description": "Execution order recorded on the MonoScript importer."
     },
     "scriptGuid": {
-      "$ref": "https://schemas.assetripper.dev/assetdump/v2/core.schema.json#/$defs/UnityGuid",
+      "$ref": "../core.schema.json#/$defs/UnityGuid",
       "description": "Unity GUID derived from the MonoScript content hash."
     },
     "assemblyGuid": {
-      "$ref": "https://schemas.assetripper.dev/assetdump/v2/core.schema.json#/$defs/UnityGuid",
+      "$ref": "../core.schema.json#/$defs/UnityGuid",
       "description": "Unity GUID derived from the assembly name."
     },
     "scriptFileId": {
@@ -107,7 +107,7 @@
           "description": "Project-relative path of the source scene."
         },
         "guid": {
-          "$ref": "https://schemas.assetripper.dev/assetdump/v2/core.schema.json#/$defs/UnityGuid",
+          "$ref": "../core.schema.json#/$defs/UnityGuid",
           "description": "GUID recorded for the source scene asset."
         }
       }

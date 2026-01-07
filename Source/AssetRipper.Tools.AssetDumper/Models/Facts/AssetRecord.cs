@@ -15,9 +15,6 @@ public sealed class AssetRecord
 	[JsonProperty("pk")]
 	public AssetPrimaryKey PrimaryKey { get; set; } = new();
 
-	[JsonProperty("pathId", NullValueHandling = NullValueHandling.Ignore)]
-	public long? PathId { get; set; }
-
 	[JsonProperty("classKey")]
 	public int ClassKey { get; set; }
 

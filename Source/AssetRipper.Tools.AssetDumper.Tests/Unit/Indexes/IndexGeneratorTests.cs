@@ -1,6 +1,7 @@
 using AssetRipper.Tools.AssetDumper.Core;
 using AssetRipper.Tools.AssetDumper.Generators;
 using AssetRipper.Tools.AssetDumper.Models;
+using AssetRipper.Tools.AssetDumper.Models.Common;
 using Xunit;
 
 namespace AssetRipper.Tools.AssetDumper.Tests.Unit.Indexes;

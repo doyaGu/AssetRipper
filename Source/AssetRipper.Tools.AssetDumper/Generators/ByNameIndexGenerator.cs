@@ -60,7 +60,7 @@ internal sealed class ByNameIndexGenerator
 			// Collect all named assets
 			foreach (AssetCollection collection in gameData.GameBundle.FetchAssetCollections())
 			{
-				string collectionId = collection.Name; // Simplified - should use stable ID
+				string collectionId = ExportHelper.ComputeCollectionId(collection);
 
 				foreach (IUnityObjectBase asset in collection)
 				{
@@ -106,6 +106,7 @@ internal sealed class ByNameIndexGenerator
 				{
 					var indexEntry = new
 					{
+						domain = "by_name",
 						name = kvp.Key,
 						locations = kvp.Value.Select(loc => new
 						{

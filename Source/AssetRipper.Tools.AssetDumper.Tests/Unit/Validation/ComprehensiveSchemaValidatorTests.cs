@@ -1,7 +1,6 @@
 using AssetRipper.Tools.AssetDumper.Core;
 using AssetRipper.Tools.AssetDumper.Validation;
 using AssetRipper.Tools.AssetDumper.Validation.Models;
-using Moq;
 using Xunit;
 using FluentAssertions;
 using System.Text.Json.Nodes;
@@ -10,12 +9,12 @@ using System.Text.Json;
 namespace AssetRipper.Tools.AssetDumper.Tests.Unit.Validation;
 
 /// <summary>
-/// Unit tests for ComprehensiveSchemaValidator.
+/// Unit tests for SchemaValidator.
 /// </summary>
 public class ComprehensiveSchemaValidatorTests : IDisposable
 {
-    private readonly Mock<Options> _mockOptions;
-    private readonly ComprehensiveSchemaValidator _validator;
+    private readonly Options _options;
+    private readonly SchemaValidator _validator;
     private readonly string _tempDirectory;
 
     public ComprehensiveSchemaValidatorTests()
@@ -23,12 +22,15 @@ public class ComprehensiveSchemaValidatorTests : IDisposable
         _tempDirectory = Path.Combine(Directory.GetCurrentDirectory(), $"test-{Guid.NewGuid()}");
         Directory.CreateDirectory(_tempDirectory);
 
-        _mockOptions = new Mock<Options>();
-        _mockOptions.Setup(o => o.OutputPath).Returns(_tempDirectory);
-        _mockOptions.Setup(o => o.Verbose).Returns(false);
-        _mockOptions.Setup(o => o.Silent).Returns(true);
+        _options = new Options
+        {
+            InputPath = Directory.GetCurrentDirectory(),
+            OutputPath = _tempDirectory,
+            Verbose = false,
+            Quiet = true
+        };
 
-        _validator = new ComprehensiveSchemaValidator(_mockOptions.Object);
+        _validator = new SchemaValidator(_options);
     }
 
     public void Dispose()
@@ -53,8 +55,8 @@ public class ComprehensiveSchemaValidatorTests : IDisposable
         var report = await _validator.ValidateAllAsync(domainResults);
 
         // Assert
-        report.OverallResult.Should().Be(ValidationResult.Passed);
-        report.Errors.Should().BeEmpty();
+        report.OverallResult.Should().Be(ValidationResult.Passed, DescribeReport(report));
+        report.Errors.Should().BeEmpty(DescribeReport(report));
         report.TotalRecordsValidated.Should().BeGreaterThan(0);
     }
 
@@ -69,8 +71,8 @@ public class ComprehensiveSchemaValidatorTests : IDisposable
         var report = await _validator.ValidateAllAsync(domainResults);
 
         // Assert
-        report.OverallResult.Should().Be(ValidationResult.Failed);
-        report.Errors.Should().NotBeEmpty();
+        report.OverallResult.Should().Be(ValidationResult.Failed, DescribeReport(report));
+        report.Errors.Should().NotBeEmpty(DescribeReport(report));
         report.Errors.Any(e => e.ErrorType == ValidationErrorType.Structural).Should().BeTrue();
     }
 
@@ -101,7 +103,7 @@ public class ComprehensiveSchemaValidatorTests : IDisposable
 
         // Assert
         report.OverallResult.Should().Be(ValidationResult.Failed);
-        report.Errors.Any(e => e.ErrorType == ValidationErrorType.Reference && e.Message.Contains("circular")).Should().BeTrue();
+        report.Errors.Any(e => e.ErrorType == ValidationErrorType.Reference && e.Message.Contains("circular", StringComparison.OrdinalIgnoreCase)).Should().BeTrue();
     }
 
     [Fact]
@@ -115,8 +117,8 @@ public class ComprehensiveSchemaValidatorTests : IDisposable
         var report = await _validator.ValidateAllAsync(domainResults);
 
         // Assert
-        report.OverallResult.Should().Be(ValidationResult.Failed);
-        report.Errors.Any(e => e.ErrorType == ValidationErrorType.Pattern).Should().BeTrue();
+        report.OverallResult.Should().Be(ValidationResult.Failed, DescribeReport(report));
+        report.Errors.Any(e => e.ErrorType == ValidationErrorType.Pattern).Should().BeTrue(DescribeReport(report));
     }
 
     [Fact]
@@ -130,8 +132,8 @@ public class ComprehensiveSchemaValidatorTests : IDisposable
         var report = await _validator.ValidateAllAsync(domainResults);
 
         // Assert
-        report.OverallResult.Should().Be(ValidationResult.Failed);
-        report.Errors.Any(e => e.ErrorType == ValidationErrorType.Pattern).Should().BeTrue();
+        report.OverallResult.Should().Be(ValidationResult.Failed, DescribeReport(report));
+        report.Errors.Any(e => e.ErrorType == ValidationErrorType.Pattern).Should().BeTrue(DescribeReport(report));
     }
 
     [Fact]
@@ -176,9 +178,9 @@ public class ComprehensiveSchemaValidatorTests : IDisposable
             TotalRecordsValidated = 1000,
             SchemasLoaded = 25,
             DataFilesProcessed = 10,
-            Errors = new List<Validation.Models.ValidationError>
+            Errors = new List<ValidationError>
             {
-                new Validation.Models.ValidationError
+                new ValidationError
                 {
                     ErrorType = ValidationErrorType.Structural,
                     Domain = "assets",
@@ -207,36 +209,64 @@ public class ComprehensiveSchemaValidatorTests : IDisposable
     {
         return new List<DomainExportResult>
         {
-            new DomainExportResult("assets", "ndjson", "Schemas/v2/facts/assets.schema.json", "Asset facts"),
-            new DomainExportResult("types", "ndjson", "Schemas/v2/facts/types.schema.json", "Type facts"),
-            new DomainExportResult("asset_dependencies", "ndjson", "Schemas/v2/relations/asset_dependencies.schema.json", "Asset dependency relations")
+            CreateDomainResult("assets", "facts/assets", "Schemas/v2/facts/assets.schema.json"),
+            CreateDomainResult("types", "facts/types", "Schemas/v2/facts/types.schema.json"),
+            CreateDomainResult("scenes", "facts/scenes", "Schemas/v2/facts/scenes.schema.json"),
+            CreateDomainResult("asset_dependencies", "relations/asset_dependencies", "Schemas/v2/relations/asset_dependencies.schema.json")
         };
+    }
+
+    private static DomainExportResult CreateDomainResult(string domain, string tableId, string schemaPath)
+    {
+        var result = new DomainExportResult(domain, tableId, schemaPath);
+        result.EntryFile = $"{tableId}/{domain}.ndjson";
+        return result;
+    }
+
+    private string GetAbsoluteOutputPath(string relativePath)
+    {
+        var absolutePath = Path.Combine(_tempDirectory, relativePath.Replace('/', Path.DirectorySeparatorChar));
+        var directory = Path.GetDirectoryName(absolutePath);
+        if (!string.IsNullOrWhiteSpace(directory))
+        {
+            Directory.CreateDirectory(directory);
+        }
+
+        return absolutePath;
     }
 
     private void CreateValidAssetData()
     {
-        var assetsFile = Path.Combine(_tempDirectory, "assets.ndjson");
-        var assets = new[]
+        var assetsFile = GetAbsoluteOutputPath("facts/assets/assets.ndjson");
+        var assets = new object[]
         {
             new
             {
                 domain = "assets",
                 pk = new { collectionId = "sharedassets1.assets", pathId = 1 },
-                pathId = 1,
                 classKey = 1,
                 className = "GameObject",
                 name = "TestObject",
-                unity = new { classId = 1, typeId = 1 }
+                unity = new { classId = 1, typeId = 1 },
+                data = new
+                {
+                    m_Name = "TestObject"
+                }
             },
             new
             {
                 domain = "assets",
                 pk = new { collectionId = "sharedassets1.assets", pathId = 2 },
-                pathId = 2,
                 classKey = 4,
                 className = "Transform",
                 name = "TestTransform",
-                unity = new { classId = 4, typeId = 4 }
+                unity = new { classId = 4, typeId = 4 },
+                data = new
+                {
+                    m_LocalPosition = new { x = 0, y = 0, z = 0 },
+                    m_LocalRotation = new { x = 0, y = 0, z = 0, w = 1 },
+                    m_LocalScale = new { x = 1, y = 1, z = 1 }
+                }
             }
         };
 
@@ -245,7 +275,7 @@ public class ComprehensiveSchemaValidatorTests : IDisposable
 
     private void CreateValidTypeData()
     {
-        var typesFile = Path.Combine(_tempDirectory, "types.ndjson");
+        var typesFile = GetAbsoluteOutputPath("facts/types/types.ndjson");
         var types = new[]
         {
             new
@@ -269,7 +299,7 @@ public class ComprehensiveSchemaValidatorTests : IDisposable
 
     private void CreateValidDependencyData()
     {
-        var depsFile = Path.Combine(_tempDirectory, "asset_dependencies.ndjson");
+        var depsFile = GetAbsoluteOutputPath("relations/asset_dependencies/asset_dependencies.ndjson");
         var deps = new[]
         {
             new
@@ -291,7 +321,7 @@ public class ComprehensiveSchemaValidatorTests : IDisposable
 
     private void CreateInvalidAssetData()
     {
-        var assetsFile = Path.Combine(_tempDirectory, "assets.ndjson");
+        var assetsFile = GetAbsoluteOutputPath("facts/assets/assets.ndjson");
         var assets = new[]
         {
             new
@@ -308,8 +338,8 @@ public class ComprehensiveSchemaValidatorTests : IDisposable
 
     private void CreateAssetDataWithMissingReferences()
     {
-        var assetsFile = Path.Combine(_tempDirectory, "assets.ndjson");
-        var depsFile = Path.Combine(_tempDirectory, "asset_dependencies.ndjson");
+        var assetsFile = GetAbsoluteOutputPath("facts/assets/assets.ndjson");
+        var depsFile = GetAbsoluteOutputPath("relations/asset_dependencies/asset_dependencies.ndjson");
 
         var assets = new[]
         {
@@ -317,7 +347,6 @@ public class ComprehensiveSchemaValidatorTests : IDisposable
             {
                 domain = "assets",
                 pk = new { collectionId = "sharedassets1.assets", pathId = 1 },
-                pathId = 1,
                 classKey = 1,
                 className = "GameObject"
             }
@@ -344,8 +373,8 @@ public class ComprehensiveSchemaValidatorTests : IDisposable
 
     private void CreateCircularDependencyData()
     {
-        var assetsFile = Path.Combine(_tempDirectory, "assets.ndjson");
-        var depsFile = Path.Combine(_tempDirectory, "asset_dependencies.ndjson");
+        var assetsFile = GetAbsoluteOutputPath("facts/assets/assets.ndjson");
+        var depsFile = GetAbsoluteOutputPath("relations/asset_dependencies/asset_dependencies.ndjson");
 
         var assets = new[]
         {
@@ -353,7 +382,6 @@ public class ComprehensiveSchemaValidatorTests : IDisposable
             {
                 domain = "assets",
                 pk = new { collectionId = "sharedassets1.assets", pathId = 1 },
-                pathId = 1,
                 classKey = 1,
                 className = "GameObject"
             },
@@ -361,7 +389,6 @@ public class ComprehensiveSchemaValidatorTests : IDisposable
             {
                 domain = "assets",
                 pk = new { collectionId = "sharedassets1.assets", pathId = 2 },
-                pathId = 2,
                 classKey = 1,
                 className = "GameObject"
             }
@@ -391,14 +418,13 @@ public class ComprehensiveSchemaValidatorTests : IDisposable
 
     private void CreateAssetDataWithInvalidCollectionId()
     {
-        var assetsFile = Path.Combine(_tempDirectory, "assets.ndjson");
+        var assetsFile = GetAbsoluteOutputPath("facts/assets/assets.ndjson");
         var assets = new[]
         {
             new
             {
                 domain = "assets",
                 pk = new { collectionId = "invalid@id", pathId = 1 }, // Invalid characters
-                pathId = 1,
                 classKey = 1,
                 className = "GameObject"
             }
@@ -409,14 +435,30 @@ public class ComprehensiveSchemaValidatorTests : IDisposable
 
     private void CreateSceneDataWithInvalidGuid()
     {
-        var scenesFile = Path.Combine(_tempDirectory, "scenes.ndjson");
+        var scenesFile = GetAbsoluteOutputPath("facts/scenes/scenes.ndjson");
         var scenes = new[]
         {
             new
             {
                 domain = "scenes",
+                name = "TestScene",
                 sceneGuid = "invalid-guid", // Invalid GUID format
-                sceneName = "TestScene"
+                scenePath = "Assets/TestScene.unity",
+                exportedAt = "2025-01-01T00:00:00Z",
+                version = "2021.3.0f1",
+                platform = "StandaloneWindows64",
+                sceneCollectionCount = 1,
+                collectionIds = new[] { "sharedassets1.assets" },
+                assetCount = 0,
+                gameObjectCount = 0,
+                componentCount = 0,
+                managerCount = 0,
+                prefabInstanceCount = 0,
+                dependencyCount = 0,
+                rootGameObjectCount = 0,
+                strippedAssetCount = 0,
+                hiddenAssetCount = 0,
+                hasSceneRoots = false
             }
         };
 
@@ -425,8 +467,8 @@ public class ComprehensiveSchemaValidatorTests : IDisposable
 
     private void CreateAssetDataWithCorrectDataStructure()
     {
-        var assetsFile = Path.Combine(_tempDirectory, "assets.ndjson");
-        var typesFile = Path.Combine(_tempDirectory, "types.ndjson");
+        var assetsFile = GetAbsoluteOutputPath("facts/assets/assets.ndjson");
+        var typesFile = GetAbsoluteOutputPath("facts/types/types.ndjson");
 
         var assets = new[]
         {
@@ -434,7 +476,6 @@ public class ComprehensiveSchemaValidatorTests : IDisposable
             {
                 domain = "assets",
                 pk = new { collectionId = "sharedassets1.assets", pathId = 1 },
-                pathId = 1L,
                 classKey = 1,
                 className = "GameObject",
                 name = "TestObject",
@@ -467,8 +508,8 @@ public class ComprehensiveSchemaValidatorTests : IDisposable
 
     private void CreateAssetDataWithOldContainerStructure()
     {
-        var assetsFile = Path.Combine(_tempDirectory, "assets.ndjson");
-        var typesFile = Path.Combine(_tempDirectory, "types.ndjson");
+        var assetsFile = GetAbsoluteOutputPath("facts/assets/assets.ndjson");
+        var typesFile = GetAbsoluteOutputPath("facts/types/types.ndjson");
 
         var assets = new[]
         {
@@ -476,7 +517,6 @@ public class ComprehensiveSchemaValidatorTests : IDisposable
             {
                 domain = "assets",
                 pk = new { collectionId = "sharedassets1.assets", pathId = 1 },
-                pathId = 1L,
                 classKey = 1,
                 className = "GameObject",
                 name = "TestObject",
@@ -518,6 +558,11 @@ public class ComprehensiveSchemaValidatorTests : IDisposable
             var json = JsonSerializer.Serialize(item);
             writer.WriteLine(json);
         }
+    }
+
+    private static string DescribeReport(ValidationReport report)
+    {
+        return JsonSerializer.Serialize(report, new JsonSerializerOptions { WriteIndented = true });
     }
 
     #endregion

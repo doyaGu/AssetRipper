@@ -1,102 +1,65 @@
-# AssetDump v2 Schemas# AssetDump v2 Schemas
+# AssetDump v2 Schemas
 
-**Version**: v2 **Version**: v2
+**Version**: v2
 
-**Schema Standard**: JSON Schema Draft 2020-12 **Schema Standard**: JSON Schema Draft 2020-12
+**Schema Standard**: JSON Schema Draft 2020-12
 
-**Last Updated**: 2025-11-11**Last Updated**: 2025-11-11
-
----
-
-## 📚 Quick Overview## 📚 Overview
-
-AssetDump v2 将 AssetRipper 解析的 Unity 资产导出为结构化 JSON Schema 格式，采用四层架构（Facts - Relations - Indexes - Metrics）。AssetDump v2 是一个完整的 Unity 项目数据导出系统，将 AssetRipper 解析的 Unity 资产结构化导出为 JSON Schema 定义的格式。系统采用四层架构（Facts - Relations - Indexes - Metrics），支持增量导出、复杂查询和数据分析。
-
-### 核心特性### 核心特性
-
-- ✅ 四层层次结构 (GameBundle → Bundle → Collection → Asset)- ✅ **完整层次结构**: GameBundle → Bundle → Collection → Asset 四层模型
-
-- ✅ 类型安全 (所有表包含 `domain` 字段)- ✅ **类型安全**: 所有表包含 `domain` 字段用于类型识别和验证
-
-- ✅ 稳定标识符 (FNV-1a 哈希)- ✅ **稳定标识符**: 使用 FNV-1a 哈希生成确定性 ID
-
-- ✅ 双向依赖查询- ✅ **双向依赖**: 支持正向和反向依赖查询（O(1) 索引查找）
-
-- ✅ 丰富元数据- ✅ **丰富元数据**: 包含脚本源码、类型定义、成员信息等
+**Last Updated**: 2026-01-06
 
 ---
 
-## 📂 Directory Structure## 📂 Directory Structure
+## 📚 Overview
 
-````
+AssetDump v2 是一个完整的 Unity 项目数据导出系统，将 AssetRipper 解析的 Unity 资产结构化导出为 JSON Schema 定义的格式。系统采用四层架构（Facts - Relations - Indexes - Metrics），支持增量导出、复杂查询和数据分析。
 
-v2/Schemas/v2/
+### 核心特性
 
-├── core.schema.json              # 共享类型定义├── core.schema.json              # 公共类型定义和锚点
+- ✅ **完整层次结构**: GameBundle → Bundle → Collection → Asset 四层模型
+- ✅ **类型安全**: 所有表包含 `domain` 字段用于类型识别和验证
+- ✅ **稳定标识符**: 使用 FNV-1a 哈希生成确定性 ID
+- ✅ **双向依赖**: 支持正向和反向依赖查询（O(1) 索引查找）
+- ✅ **丰富元数据**: 包含脚本源码、类型定义、成员信息等
 
-├── facts/                        # 事实层 (10 schemas)├── facts/                        # 事实层对象
+---
 
-│   └── README.md│   ├── assets.schema.json        # 资产元数据
+## 📂 Directory Structure
 
-├── relations/                    # 关系层 (6 schemas)│   ├── bundles.schema.json       # Bundle 容器
-
-│   └── README.md│   ├── collections.schema.json   # 资产集合
-
-├── indexes/                      # 索引层 (2 schemas)│   ├── scenes.schema.json        # 场景层次结构
-
-│   └── README.md│   ├── script_metadata.schema.json  # 脚本元数据
-
-└── metrics/                      # 指标层 (3 schemas)│   ├── script_sources.schema.json   # 脚本源代码
-
-    └── README.md│   ├── types.schema.json         # 类型映射
-
-```│   ├── type_definitions.schema.json # 类型定义
-
+```
+Schemas/v2/
+├── core.schema.json              # 公共类型定义和锚点
+├── facts/                        # 事实层对象
+│   ├── assets.schema.json        # 资产元数据
+│   ├── bundles.schema.json       # Bundle 容器
+│   ├── collections.schema.json   # 资产集合
+│   ├── scenes.schema.json        # 场景层次结构
+│   ├── script_metadata.schema.json  # 脚本元数据
+│   ├── script_sources.schema.json   # 脚本源代码
+│   ├── types.schema.json         # 类型映射
+│   ├── type_definitions.schema.json # 类型定义
 │   ├── type_members.schema.json  # 类型成员
-
-### Schema Layers│   └── assemblies.schema.json    # 程序集信息
-
+│   └── assemblies.schema.json    # 程序集信息
 ├── relations/                    # 关系层
-
-| Layer | Schemas | Purpose | Details |│   ├── asset_dependencies.schema.json      # 资产级依赖
-
-|-------|---------|---------|---------|│   ├── collection_dependencies.schema.json # 集合级依赖
-
-| **[Facts](facts/README.md)** | 10 | 基础事实数据 | assets, bundles, collections, scenes, scripts, types, assemblies |│   └── bundle_hierarchy.schema.json        # Bundle 层次结构
-
-| **[Relations](relations/README.md)** | 6 | 实体间关系 | dependencies, hierarchy, type mapping |├── indexes/                      # 索引层
-
-| **[Indexes](indexes/README.md)** | 2 | 查询加速 | by_class, by_collection |│   ├── by_class.schema.json      # 按类型索引
-
-| **[Metrics](metrics/README.md)** | 3 | 派生统计 | scene_stats, asset_distribution, dependency_stats |│   └── by_collection.schema.json # 按集合索引
-
+│   ├── asset_dependencies.schema.json      # 资产级依赖
+│   ├── collection_dependencies.schema.json # 集合级依赖
+│   └── bundle_hierarchy.schema.json        # Bundle 层次结构
+├── indexes/                      # 索引层
+│   ├── by_class.schema.json      # 按类型索引
+│   ├── by_collection.schema.json # 按集合索引
+│   └── by_name.schema.json       # 按名称索引
 ├── metrics/                      # 指标层
-
----│   ├── scene_stats.schema.json   # 场景统计
-
+│   ├── scene_stats.schema.json   # 场景统计
 │   ├── asset_distribution.schema.json  # 资产分布
-
-## 🔑 Core Concepts│   └── dependency_stats.schema.json    # 依赖统计
-
+│   └── dependency_stats.schema.json    # 依赖统计
 └── README.md                     # 本文档
+```
 
-### Domain Field```
+---
 
-所有 schema 包含必需的 `domain` 字段用于表识别：
+## 🏗️ Architecture
 
-```json---
+### Four-Layer Model
 
-{"domain": "assets", "pk": {...}, ...}
-
-```## 🏗️ Architecture
-
-
-
-### Stable Identifiers### Four-Layer Model
-
-- **CollectionID**: FNV-1a 哈希 (8字符十六进制)
-
-- **BundlePK**: Bundle主键 (根节点=`00000000`)AssetDump v2 采用分层架构，支持从原始事实到高级分析的完整数据流：
+AssetDump v2 采用分层架构，支持从原始事实到高级分析的完整数据流：
 
 - **StableKey**: `<collectionId>:<pathId>` (全局唯一)
 

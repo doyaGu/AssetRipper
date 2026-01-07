@@ -22,6 +22,8 @@ namespace AssetRipper.Tools.AssetDumper.Validation;
 /// </summary>
 public sealed class SchemaValidator
 {
+    private static readonly ConcurrentDictionary<string, JsonSchema> SchemaFileCache = new(StringComparer.OrdinalIgnoreCase);
+
     private readonly Options _options;
     private readonly ValidationContext _validationContext;
     private readonly EvaluationOptions _evaluationOptions;
@@ -70,9 +72,45 @@ public sealed class SchemaValidator
         
         _evaluationOptions = new EvaluationOptions
         {
-            OutputFormat = OutputFormat.List,
+            OutputFormat = OutputFormat.Flag,
             RequireFormatValidation = false
         };
+
+        // JsonSchema.Net resolves $ref via the registry. Our v2 schemas often carry hosted $id values
+        // (https://schemas.assetripper.dev/assetdump/v2/...), but in tests and local runs we validate
+        // against the on-disk schema files. Provide a deterministic fetch that maps hosted URIs to
+        // local paths so evaluation doesn't throw on unresolved refs.
+        SchemaRegistry.Global.Fetch = FetchSchemaDocument;
+    }
+
+    private Json.Schema.IBaseDocument? FetchSchemaDocument(Uri uri, SchemaRegistry _)
+    {
+        // The registry may ask for a URI with fragment; retrieval should be by the document URI.
+        Uri documentUri = uri.IsAbsoluteUri ? new Uri(uri.GetLeftPart(UriPartial.Path)) : uri;
+
+        if (documentUri.IsFile)
+        {
+            var filePath = documentUri.LocalPath;
+            if (File.Exists(filePath))
+            {
+                return JsonSchema.FromFile(filePath);
+            }
+        }
+
+        if (string.Equals(documentUri.Host, "schemas.assetripper.dev", StringComparison.OrdinalIgnoreCase)
+            && documentUri.AbsolutePath.StartsWith("/assetdump/v2/", StringComparison.OrdinalIgnoreCase))
+        {
+            string relative = documentUri.AbsolutePath["/assetdump/v2/".Length..].TrimStart('/');
+            string schemaPath = $"Schemas/v2/{relative}";
+
+            var fullPath = ResolveSchemaPath(schemaPath);
+            if (fullPath != null && File.Exists(fullPath))
+            {
+                return JsonSchema.FromFile(fullPath);
+            }
+        }
+
+        return null;
     }
 
     /// <summary>
@@ -160,8 +198,41 @@ public sealed class SchemaValidator
                 var fullPath = ResolveSchemaPath(schemaPath);
                 if (fullPath != null && File.Exists(fullPath))
                 {
-                    var schema = JsonSchema.FromFile(fullPath);
+                    // JsonSchema.Net builds schemas into the global registry and registers anchors.
+                    // Loading the same schema multiple times in one process can throw (duplicate anchors / overwriting).
+                    // Cache by absolute file path to make schema loading idempotent across many validator instances.
+                    var schema = SchemaFileCache.GetOrAdd(fullPath, static path => JsonSchema.FromFile(path));
                     _loadedSchemas[schemaPath] = schema;
+
+                    // Ensure $ref resolution works when schemas reference the canonical hosted IDs
+                    // (e.g., https://schemas.assetripper.dev/assetdump/v2/core.schema.json#AssetPK).
+                    // JsonSchema.Net's SchemaRegistry can register by explicit base URI.
+                    // Our schemas use hosted $id values, so register them under that hosted namespace.
+                    if (schemaPath.StartsWith("Schemas/v2/", StringComparison.Ordinal))
+                    {
+                        string hostedRelative = schemaPath["Schemas/v2/".Length..];
+                        var hostedUri = new Uri($"https://schemas.assetripper.dev/assetdump/v2/{hostedRelative}");
+                        try
+                        {
+                            SchemaRegistry.Global.Register(hostedUri, schema);
+                        }
+                        catch
+                        {
+                            // Ignore duplicate registration across test runs / multiple validators.
+                        }
+                    }
+
+                    // Also register by file URI to support any file:// refs.
+                    var fileUri = new Uri(fullPath);
+                    try
+                    {
+                        SchemaRegistry.Global.Register(fileUri, schema);
+                    }
+                    catch
+                    {
+                        // Ignore duplicate registration across test runs / multiple validators.
+                    }
+
                     Logger.Info($"Loaded schema: {schemaPath}");
                 }
                 else
@@ -172,7 +243,36 @@ public sealed class SchemaValidator
             catch (Exception ex)
             {
                 Logger.Error($"Failed to load schema {schemaPath}: {ex.Message}");
+
+                AddValidationError(
+                    tableId: "schemas",
+                    filePath: schemaPath,
+                    lineNumber: 0,
+                    errorType: ValidationErrorType.Structural,
+                    message: $"Failed to load schema '{schemaPath}'.",
+#if DEBUG
+                    details: ex.ToString());
+#else
+                    details: $"{ex.GetType().Name}: {ex.Message}");
+#endif
             }
+        }
+
+        // If schema discovery fails entirely, surface it as a validation error.
+        // Silent schema load failures would make the validator effectively skip structural checks.
+        if (_loadedSchemas.Count == 0)
+        {
+            string probe = "Schemas" + Path.DirectorySeparatorChar + "v2" + Path.DirectorySeparatorChar + "core.schema.json";
+            string appCandidate = Path.Combine(AppContext.BaseDirectory, probe);
+            string cwdCandidate = Path.Combine(Environment.CurrentDirectory, probe);
+
+            AddValidationError(
+                tableId: "schemas",
+                filePath: "",
+                lineNumber: 0,
+                errorType: ValidationErrorType.Structural,
+                message: "No schemas were loaded; schema path resolution failed.",
+                details: $"AppContext.BaseDirectory='{AppContext.BaseDirectory}'; Environment.CurrentDirectory='{Environment.CurrentDirectory}'. core.schema.json candidates: app='{appCandidate}' (exists={File.Exists(appCandidate)}), cwd='{cwdCandidate}' (exists={File.Exists(cwdCandidate)}).");
         }
     }
 
@@ -199,8 +299,8 @@ public sealed class SchemaValidator
                     await LoadDataFromFileAsync(result.EntryFile, "none", dataList);
                 }
 
-                _loadedData[result.TableId] = dataList;
-                Logger.Info($"Loaded {dataList.Count} records for {result.TableId}");
+                _loadedData[result.Domain] = dataList;
+                Logger.Info($"Loaded {dataList.Count} records for {result.Domain}");
             }
         }
     }
@@ -278,7 +378,7 @@ public sealed class SchemaValidator
             if (!_loadedSchemas.TryGetValue(result.SchemaPath, out var schema))
                 continue;
 
-            if (!_loadedData.TryGetValue(result.TableId, out var data))
+            if (!_loadedData.TryGetValue(result.Domain, out var data))
                 continue;
 
             for (int i = 0; i < data.Count; i++)
@@ -287,17 +387,33 @@ public sealed class SchemaValidator
                 var lineNumber = i + 1;
 
                 // Basic schema validation
-                var evaluation = schema.Evaluate(node, _evaluationOptions);
+                EvaluationResults evaluation;
+                try
+                    {
+                        // JsonSchema.Net evaluation is most reliable with JsonElement input.
+                        // Some JsonNode-based evaluations can throw conversion exceptions.
+                        JsonElement element = JsonSerializer.SerializeToElement(node);
+                        evaluation = schema.Evaluate(element, _evaluationOptions);
+                }
+                catch (Exception ex)
+                {
+                    AddValidationError(result.Domain, result.EntryFile ?? string.Empty, lineNumber,
+                        ValidationErrorType.Structural,
+                        "Schema evaluation threw an exception",
+                        ex.ToString());
+                    continue;
+                }
+
                 if (!evaluation.IsValid)
                 {
-                    AddValidationError(result.TableId, result.EntryFile, lineNumber, 
-                        ValidationErrorType.Structural, 
-                        "Schema validation failed", 
+                    AddValidationError(result.Domain, result.EntryFile ?? string.Empty, lineNumber,
+                        ValidationErrorType.Structural,
+                        "Schema validation failed",
                         GetSchemaErrorDetails(evaluation));
                 }
 
                 // Additional structural checks
-                await ValidateStructureAsync(result.TableId, node, lineNumber);
+                await ValidateStructureAsync(result.Domain, node, lineNumber);
             }
         }
     }
@@ -309,7 +425,7 @@ public sealed class SchemaValidator
     {
         foreach (var result in domainResults)
         {
-            if (!_loadedData.TryGetValue(result.TableId, out var data))
+            if (!_loadedData.TryGetValue(result.Domain, out var data))
                 continue;
 
             for (int i = 0; i < data.Count; i++)
@@ -317,7 +433,7 @@ public sealed class SchemaValidator
                 var node = data[i];
                 var lineNumber = i + 1;
 
-                await ValidateDataTypesAsync(result.TableId, node, lineNumber);
+                await ValidateDataTypesAsync(result.Domain, node, lineNumber);
             }
         }
     }
@@ -332,7 +448,7 @@ public sealed class SchemaValidator
             if (!_loadedSchemas.TryGetValue(result.SchemaPath, out var schema))
                 continue;
 
-            if (!_loadedData.TryGetValue(result.TableId, out var data))
+            if (!_loadedData.TryGetValue(result.Domain, out var data))
                 continue;
 
             for (int i = 0; i < data.Count; i++)
@@ -340,7 +456,7 @@ public sealed class SchemaValidator
                 var node = data[i];
                 var lineNumber = i + 1;
 
-                await ValidateConstraintsAsync(result.TableId, node, schema, lineNumber);
+                await ValidateConstraintsAsync(result.Domain, node, schema, lineNumber);
             }
         }
     }
@@ -352,7 +468,7 @@ public sealed class SchemaValidator
     {
         foreach (var result in domainResults)
         {
-            if (!_loadedData.TryGetValue(result.TableId, out var data))
+            if (!_loadedData.TryGetValue(result.Domain, out var data))
                 continue;
 
             for (int i = 0; i < data.Count; i++)
@@ -360,7 +476,7 @@ public sealed class SchemaValidator
                 var node = data[i];
                 var lineNumber = i + 1;
 
-                await ValidateConditionalLogicAsync(result.TableId, node, lineNumber);
+                await ValidateConditionalLogicAsync(result.Domain, node, lineNumber);
             }
         }
     }
@@ -390,7 +506,7 @@ public sealed class SchemaValidator
     {
         foreach (var result in domainResults)
         {
-            if (!_loadedData.TryGetValue(result.TableId, out var data))
+            if (!_loadedData.TryGetValue(result.Domain, out var data))
                 continue;
 
             for (int i = 0; i < data.Count; i++)
@@ -398,7 +514,7 @@ public sealed class SchemaValidator
                 var node = data[i];
                 var lineNumber = i + 1;
 
-                await ValidateUnitySpecificRulesAsync(result.TableId, node, lineNumber);
+                await ValidateUnitySpecificRulesAsync(result.Domain, node, lineNumber);
             }
         }
     }
@@ -414,13 +530,26 @@ public sealed class SchemaValidator
             return null;
 
         string normalized = schemaRelativePath.Replace('/', Path.DirectorySeparatorChar);
-        string[] segments = normalized.Split(Path.DirectorySeparatorChar, StringSplitOptions.RemoveEmptyEntries);
-        if (segments.Length == 0)
-            return null;
 
         foreach (string baseDirectory in EnumerateCandidateBaseDirectories())
         {
-            string candidate = CombinePath(baseDirectory, segments);
+            // Direct relative (baseDirectory is already the tool root)
+            string candidate = Path.Combine(baseDirectory, normalized);
+            if (File.Exists(candidate))
+                return candidate;
+
+            // Common repo layout: ...\Source\AssetRipper.Tools.AssetDumper\Schemas\...
+            candidate = Path.Combine(baseDirectory, "AssetRipper.Tools.AssetDumper", normalized);
+            if (File.Exists(candidate))
+                return candidate;
+
+            // Common monorepo layout: ...\AssetRipper\Source\AssetRipper.Tools.AssetDumper\Schemas\...
+            candidate = Path.Combine(baseDirectory, "AssetRipper", "Source", "AssetRipper.Tools.AssetDumper", normalized);
+            if (File.Exists(candidate))
+                return candidate;
+
+            // Alternate layout: ...\Source\AssetRipper.Tools.AssetDumper\Schemas\...
+            candidate = Path.Combine(baseDirectory, "Source", "AssetRipper.Tools.AssetDumper", normalized);
             if (File.Exists(candidate))
                 return candidate;
         }
@@ -435,13 +564,13 @@ public sealed class SchemaValidator
     {
         HashSet<string> yielded = new(StringComparer.OrdinalIgnoreCase);
 
-        foreach (string directory in AscendDirectories(AppContext.BaseDirectory, 4))
+        foreach (string directory in AscendDirectories(AppContext.BaseDirectory, 8))
         {
             if (yielded.Add(directory))
                 yield return directory;
         }
 
-        foreach (string directory in AscendDirectories(Environment.CurrentDirectory, 4))
+        foreach (string directory in AscendDirectories(Environment.CurrentDirectory, 8))
         {
             if (yielded.Add(directory))
                 yield return directory;
@@ -459,19 +588,6 @@ public sealed class SchemaValidator
             yield return current;
             current = Path.GetDirectoryName(current);
         }
-    }
-
-    /// <summary>
-    /// Combines path segments.
-    /// </summary>
-    private static string CombinePath(string baseDirectory, string[] segments)
-    {
-        string path = baseDirectory;
-        foreach (string segment in segments)
-        {
-            path = Path.Combine(path, segment);
-        }
-        return path;
     }
 
     /// <summary>
@@ -544,12 +660,12 @@ public sealed class SchemaValidator
         
         if (evaluation.Errors?.Any() == true)
         {
-            details.AddRange(evaluation.Errors.Select(e => e.ToString()));
+            details.AddRange(evaluation.Errors.Select(e => e.ToString() ?? string.Empty).Where(s => !string.IsNullOrWhiteSpace(s)));
         }
 
         if (evaluation.Details?.Any() == true)
         {
-            details.AddRange(evaluation.Details.Select(d => d.ToString()));
+            details.AddRange(evaluation.Details.Select(d => d.ToString() ?? string.Empty).Where(s => !string.IsNullOrWhiteSpace(s)));
         }
 
         return string.Join("; ", details);
@@ -741,14 +857,20 @@ public sealed class SchemaValidator
         if (obj == null) return;
 
         // Validate CollectionID pattern
-        if (obj.ContainsKey("collectionId"))
+        string? collectionId = null;
+        if (string.Equals(tableId, "assets", StringComparison.OrdinalIgnoreCase))
         {
-            var collectionId = obj["collectionId"]?.GetValue<string>();
-            if (collectionId != null && !Regex.IsMatch(collectionId, @"^[A-Za-z0-9:_-]{2,}$"))
-            {
-                AddValidationError(tableId, "", lineNumber, ValidationErrorType.Pattern,
-                    $"CollectionID '{collectionId}' does not match required pattern");
-            }
+            collectionId = obj["pk"]?["collectionId"]?.GetValue<string>();
+        }
+        else if (obj.ContainsKey("collectionId"))
+        {
+            collectionId = obj["collectionId"]?.GetValue<string>();
+        }
+
+            if (collectionId != null && !Regex.IsMatch(collectionId, @"^[A-Za-z0-9:._-]{2,}$"))
+        {
+            AddValidationError(tableId, "", lineNumber, ValidationErrorType.Pattern,
+                $"CollectionID '{collectionId}' does not match required pattern");
         }
 
         // Validate Unity GUID pattern
@@ -875,8 +997,11 @@ public sealed class SchemaValidator
                     // Verify all referenced assets exist
                     foreach (var assetRef in assetsArray)
                     {
-                        var collectionId = assetRef["collectionId"]?.GetValue<string>();
-                        var pathId = assetRef["pathId"]?.GetValue<long>();
+                        if (assetRef is not JsonObject assetRefObject)
+                            continue;
+
+                        var collectionId = assetRefObject["collectionId"]?.GetValue<string>();
+                        var pathId = assetRefObject["pathId"]?.GetValue<long>();
                         if (collectionId != null && pathId.HasValue)
                         {
                             var assetPk = $"{collectionId}:{pathId.Value}";
@@ -921,15 +1046,24 @@ public sealed class SchemaValidator
         var classId = unityObj["classId"]?.GetValue<int>();
         if (!classId.HasValue) return;
 
-        // Check required fields for known Unity classes
-        if (_validationContext.UnityRules.RequiredFields.TryGetValue(classId.Value, out var requiredFields))
+        // Detect legacy container structure inside data (byteStart/byteSize/content wrapper).
+        var dataObj = obj["data"]?.AsObject();
+        if (dataObj != null && dataObj.ContainsKey("content") && (dataObj.ContainsKey("byteStart") || dataObj.ContainsKey("byteSize")))
+        {
+            AddValidationError("assets", "", lineNumber, ValidationErrorType.Structural,
+                "Asset 'data' uses legacy container structure (byteStart/byteSize/content); expected raw payload in 'data' with byteStart/byteSize at root");
+        }
+
+        // Check required fields for known Unity classes in the serialized payload.
+        // Note: these rules apply only when 'data' is an object payload.
+        if (dataObj != null && _validationContext.UnityRules.RequiredFields.TryGetValue(classId.Value, out var requiredFields))
         {
             foreach (var requiredField in requiredFields)
             {
-                if (!obj.ContainsKey(requiredField))
+                if (!dataObj.ContainsKey(requiredField))
                 {
                     AddValidationError("assets", "", lineNumber, ValidationErrorType.MissingRequired,
-                        $"Unity class {classId.Value} ({GetUnityClassName(classId.Value)}) is missing required field: {requiredField}");
+                        $"Unity class {classId.Value} ({GetUnityClassName(classId.Value)}) is missing required payload field: {requiredField}");
                 }
             }
         }
@@ -972,6 +1106,12 @@ public sealed class SchemaValidator
     private bool IsUnexpectedField(string tableId, string fieldName)
     {
         var expectedFields = GetExpectedFieldsForTable(tableId);
+        if (expectedFields.Count == 0)
+        {
+            // No explicit whitelist for this table; do not emit unexpected-field errors.
+            return false;
+        }
+
         return !expectedFields.Contains(fieldName);
     }
 
@@ -982,10 +1122,33 @@ public sealed class SchemaValidator
     {
         return tableId.ToLowerInvariant() switch
         {
-            "assets" => new HashSet<string> { "domain", "pk", "pathId", "classKey", "className", "name", "unity", "data", "hierarchy" },
+            "assets" => new HashSet<string>
+            {
+                "domain",
+                "pk",
+                "classKey",
+                "className",
+                "name",
+                "originalPath",
+                "originalDirectory",
+                "originalName",
+                "originalExtension",
+                "assetBundleName",
+                "hierarchy",
+                "collectionName",
+                "bundleName",
+                "sceneName",
+                "unity",
+                "byteStart",
+                "byteSize",
+                "data",
+                "hash"
+            },
             "types" => new HashSet<string> { "domain", "classKey", "classId", "className", "typeId", "scriptTypeIndex" },
             "asset_dependencies" => new HashSet<string> { "domain", "from", "to", "edge", "status" },
             "by_class" => new HashSet<string> { "domain", "classKey", "assets", "count", "className", "classId" },
+            "by_collection" => new HashSet<string> { "domain", "collectionId", "name", "count", "isScene", "bundleName", "typeDistribution", "totalTypeCount" },
+            "by_name" => new HashSet<string> { "domain", "name", "locations" },
             _ => new HashSet<string>()
         };
     }
@@ -1122,20 +1285,22 @@ public sealed class SchemaValidator
         // Generate domain summaries
         foreach (var result in domainResults)
         {
-            if (_loadedData.TryGetValue(result.TableId, out var data))
+            if (_loadedData.TryGetValue(result.Domain, out var data))
             {
                 var domainErrors = _validationErrors.Where(e => e.TableId == result.TableId).ToList();
                 
                 report.DomainSummaries.Add(new DomainValidationSummary
                 {
-                    Domain = result.TableId.Split('_')[0],
+                    Domain = result.Domain,
                     TableId = result.TableId,
                     Result = domainErrors.Any(e => e.Severity >= ValidationSeverity.Error) ? ValidationResult.Failed : ValidationResult.Passed,
                     RecordsValidated = data.Count,
                     ErrorCount = domainErrors.Count(e => e.Severity >= ValidationSeverity.Error),
                     WarningCount = domainErrors.Count(e => e.Severity == ValidationSeverity.Warning),
                     SchemaPath = result.SchemaPath,
-                    FilesProcessed = result.HasShards ? result.Shards.Select(s => s.Shard).ToList() : new List<string> { result.EntryFile }
+                    FilesProcessed = result.HasShards
+                        ? result.Shards.Select(s => s.Shard).ToList()
+                        : new List<string> { result.EntryFile ?? string.Empty }
                 });
             }
         }

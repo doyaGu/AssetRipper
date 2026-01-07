@@ -58,7 +58,7 @@ internal sealed class ByClassIndexGenerator
 			// Collect all assets grouped by classKey
 			foreach (AssetCollection collection in gameData.GameBundle.FetchAssetCollections())
 			{
-				string collectionId = collection.Name; // Simplified - should use stable ID
+				string collectionId = ExportHelper.ComputeCollectionId(collection);
 
 				foreach (IUnityObjectBase asset in collection)
 				{

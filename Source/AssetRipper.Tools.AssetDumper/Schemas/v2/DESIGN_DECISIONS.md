@@ -62,6 +62,33 @@
 - ⚠️ **字符串长度**: 平均 ~20 字符（比二进制表示大）
 - ✅ **缓解**: 压缩和索引显著减少空间开销
 
+#### AssetPK 结构
+
+**决策**: `pathId` 仅存在于 `pk` 对象内部，不在资产记录顶层重复
+
+**理由**:
+- **单一真实来源**: 避免数据冗余和不一致风险
+- **负载优化**: 减少每条记录 ~8 字节
+- **Schema 简洁性**: 明确的组合键语义
+
+**实现状态**: ✅ 已完成
+- `assets.schema.json`: 移除顶层 `pathId` 字段
+- `AssetRecord.cs`: 移除 `PathId` 属性
+- 访问方式: 使用 `pk.pathId` 获取 pathId
+
+#### $ref 风格统一
+
+**决策**: 所有 `$ref` 使用相对路径（如 `../core.schema.json#/$defs/CollectionID`）
+
+**理由**:
+- **离线验证**: 无需网络访问即可验证 schema
+- **版本独立**: 不依赖远程 URL 可用性
+- **IDE 支持**: 大多数 JSON Schema 工具更好地支持相对引用
+
+**实现状态**: ✅ 已完成
+- 所有 v2 schema 文件已统一使用相对 `$ref`
+- `$id` 保持绝对 URL（用于识别和发布）
+
 ---
 
 ### 3. 层次结构表达
@@ -129,8 +156,21 @@ GameBundle (根容器)
 
 **已知限制**:
 - ⚠️ **索引 0 始终是自引用**: Unity 文件格式约定（依赖数组第一项是自身）
-- ⚠️ **空字符串表示未解析依赖**: 保持索引一致性但失去目标信息
+- ⚠️ **`null` 表示未解析依赖**: 保持索引一致性；schema 允许 `null` 值
 - ✅ **解决方案**: 使用 `collection_dependencies` 关系表记录详细 FileIdentifier
+
+#### 保留哨兵值
+
+**决策**: `MISSING` 是保留的 CollectionID，表示无法解析的集合引用
+
+**理由**:
+- **类型安全**: 避免 null 在 AssetPK 等复合类型中传播
+- **可追踪**: 可通过查询 `MISSING` 统计未解析引用
+- **Join 稳定性**: 不会与真实集合产生碰撞
+
+**实现状态**: ✅ 已完成
+- `FileConstants.MissingCollectionId = "MISSING"`
+- `core.schema.json`: CollectionID 描述已更新以记录保留值
 
 ---
 

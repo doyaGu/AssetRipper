@@ -1,7 +1,7 @@
 using AssetRipper.Tools.AssetDumper.Models.Relations;
 using AssetRipper.Tools.AssetDumper.Tests.TestInfrastructure.Constants;
 using FluentAssertions;
-using System.Text.Json;
+using Newtonsoft.Json;
 using Xunit;
 
 namespace AssetRipper.Tools.AssetDumper.Tests.Unit.Models.Relations;
@@ -19,7 +19,7 @@ public class AssemblyDependencyRecordTests
         var record = new AssemblyDependencyRecord
         {
             SourceAssembly = "Assembly-CSharp",
-            DependencyAssembly = "UnityEngine.CoreModule",
+            TargetName = "UnityEngine.CoreModule",
             Version = "0.0.0.0",
             SourceModule = "Assembly-CSharp.dll",
             PublicKeyToken = "null",
@@ -29,13 +29,13 @@ public class AssemblyDependencyRecordTests
         };
 
         // Act
-        var json = JsonSerializer.Serialize(record);
-        var deserialized = JsonSerializer.Deserialize<AssemblyDependencyRecord>(json);
+        var json = JsonConvert.SerializeObject(record, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore });
+        var deserialized = JsonConvert.DeserializeObject<AssemblyDependencyRecord>(json);
 
         // Assert
         deserialized.Should().NotBeNull();
         deserialized!.SourceAssembly.Should().Be("Assembly-CSharp");
-        deserialized.DependencyAssembly.Should().Be("UnityEngine.CoreModule");
+        deserialized.TargetName.Should().Be("UnityEngine.CoreModule");
         deserialized.Version.Should().Be("0.0.0.0");
         deserialized.SourceModule.Should().Be("Assembly-CSharp.dll");
         deserialized.PublicKeyToken.Should().Be("null");
@@ -50,26 +50,30 @@ public class AssemblyDependencyRecordTests
         var record = new AssemblyDependencyRecord
         {
             SourceAssembly = "Assembly-CSharp",
-            DependencyAssembly = "UnityEngine.CoreModule",
+            TargetName = "UnityEngine.CoreModule",
             Version = null,
             SourceModule = null,
+            TargetAssembly = null,
             PublicKeyToken = null,
             Culture = null,
             DependencyType = null,
+            IsFrameworkAssembly = null,
             FailureReason = null
         };
 
         // Act
-        var json = JsonSerializer.Serialize(record);
+        var json = JsonConvert.SerializeObject(record, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore });
 
         // Assert
         json.Should().Contain("sourceAssembly");
-        json.Should().Contain("dependencyAssembly");
+        json.Should().Contain("targetName");
+        json.Should().NotContain("targetAssembly");
         json.Should().NotContain("version");
         json.Should().NotContain("sourceModule");
         json.Should().NotContain("publicKeyToken");
         json.Should().NotContain("culture");
         json.Should().NotContain("dependencyType");
+        json.Should().NotContain("isFrameworkAssembly");
         json.Should().NotContain("failureReason");
     }
 
@@ -84,13 +88,13 @@ public class AssemblyDependencyRecordTests
         var record = new AssemblyDependencyRecord
         {
             SourceAssembly = "Assembly-CSharp",
-            DependencyAssembly = "SomeDependency",
+            TargetName = "SomeDependency",
             DependencyType = dependencyType
         };
 
         // Act
-        var json = JsonSerializer.Serialize(record);
-        var deserialized = JsonSerializer.Deserialize<AssemblyDependencyRecord>(json);
+        var json = JsonConvert.SerializeObject(record, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore });
+        var deserialized = JsonConvert.DeserializeObject<AssemblyDependencyRecord>(json);
 
         // Assert
         deserialized!.DependencyType.Should().Be(dependencyType);
@@ -103,7 +107,7 @@ public class AssemblyDependencyRecordTests
         var record = new AssemblyDependencyRecord
         {
             SourceAssembly = "Assembly-CSharp",
-            DependencyAssembly = "UnityEngine.CoreModule",
+            TargetName = "UnityEngine.CoreModule",
             DependencyType = TestConstants.AssemblyDependencyTypeDirect
         };
 
@@ -118,7 +122,7 @@ public class AssemblyDependencyRecordTests
         var record = new AssemblyDependencyRecord
         {
             SourceAssembly = "Assembly-CSharp",
-            DependencyAssembly = "System.Runtime",
+            TargetName = "System.Runtime",
             DependencyType = TestConstants.AssemblyDependencyTypeFramework,
             PublicKeyToken = "b03f5f7f11d50a3a"
         };
@@ -135,13 +139,13 @@ public class AssemblyDependencyRecordTests
         var record = new AssemblyDependencyRecord
         {
             SourceAssembly = "MyAssembly",
-            DependencyAssembly = "StrongNamedAssembly",
+            TargetName = "StrongNamedAssembly",
             PublicKeyToken = "89845dcd8080cc91"
         };
 
         // Act
-        var json = JsonSerializer.Serialize(record);
-        var deserialized = JsonSerializer.Deserialize<AssemblyDependencyRecord>(json);
+        var json = JsonConvert.SerializeObject(record, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore });
+        var deserialized = JsonConvert.DeserializeObject<AssemblyDependencyRecord>(json);
 
         // Assert
         deserialized!.PublicKeyToken.Should().Be("89845dcd8080cc91");
@@ -154,13 +158,13 @@ public class AssemblyDependencyRecordTests
         var record = new AssemblyDependencyRecord
         {
             SourceAssembly = "MyAssembly",
-            DependencyAssembly = "LocalizedAssembly",
+            TargetName = "LocalizedAssembly",
             Culture = "en-US"
         };
 
         // Act
-        var json = JsonSerializer.Serialize(record);
-        var deserialized = JsonSerializer.Deserialize<AssemblyDependencyRecord>(json);
+        var json = JsonConvert.SerializeObject(record, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore });
+        var deserialized = JsonConvert.DeserializeObject<AssemblyDependencyRecord>(json);
 
         // Assert
         deserialized!.Culture.Should().Be("en-US");
@@ -173,7 +177,7 @@ public class AssemblyDependencyRecordTests
         var record = new AssemblyDependencyRecord
         {
             SourceAssembly = "MyAssembly",
-            DependencyAssembly = "CultureNeutralAssembly",
+            TargetName = "CultureNeutralAssembly",
             Culture = "neutral"
         };
 
@@ -188,13 +192,13 @@ public class AssemblyDependencyRecordTests
         var record = new AssemblyDependencyRecord
         {
             SourceAssembly = "MyAssembly",
-            DependencyAssembly = "Dependency",
+            TargetName = "Dependency",
             SourceModule = "MyAssembly.Module1.dll"
         };
 
         // Act
-        var json = JsonSerializer.Serialize(record);
-        var deserialized = JsonSerializer.Deserialize<AssemblyDependencyRecord>(json);
+        var json = JsonConvert.SerializeObject(record, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore });
+        var deserialized = JsonConvert.DeserializeObject<AssemblyDependencyRecord>(json);
 
         // Assert
         deserialized!.SourceModule.Should().Be("MyAssembly.Module1.dll");
@@ -207,14 +211,14 @@ public class AssemblyDependencyRecordTests
         var record = new AssemblyDependencyRecord
         {
             SourceAssembly = "MyAssembly",
-            DependencyAssembly = "MissingDependency",
+            TargetName = "MissingDependency",
             DependencyType = TestConstants.AssemblyDependencyTypeUnknown,
             FailureReason = "Assembly not found in search paths"
         };
 
         // Act
-        var json = JsonSerializer.Serialize(record);
-        var deserialized = JsonSerializer.Deserialize<AssemblyDependencyRecord>(json);
+        var json = JsonConvert.SerializeObject(record, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore });
+        var deserialized = JsonConvert.DeserializeObject<AssemblyDependencyRecord>(json);
 
         // Assert
         deserialized!.FailureReason.Should().Be("Assembly not found in search paths");
@@ -228,7 +232,7 @@ public class AssemblyDependencyRecordTests
         var record = new AssemblyDependencyRecord
         {
             SourceAssembly = "MyAssembly",
-            DependencyAssembly = "ValidDependency",
+            TargetName = "ValidDependency",
             DependencyType = TestConstants.AssemblyDependencyTypeDirect,
             FailureReason = null
         };
@@ -244,7 +248,7 @@ public class AssemblyDependencyRecordTests
         var record = new AssemblyDependencyRecord
         {
             SourceAssembly = "Assembly-CSharp",
-            DependencyAssembly = "UnityEngine.CoreModule",
+            TargetName = "UnityEngine.CoreModule",
             Version = "0.0.0.0",
             SourceModule = "Assembly-CSharp.dll",
             PublicKeyToken = "null",
@@ -254,7 +258,7 @@ public class AssemblyDependencyRecordTests
         };
 
         // Act
-        var json = JsonSerializer.Serialize(record, new JsonSerializerOptions { WriteIndented = true });
+        var json = JsonConvert.SerializeObject(record, Formatting.Indented, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore });
 
         // Assert - All v2.0 fields should be present
         json.Should().Contain("sourceModule");
@@ -271,13 +275,13 @@ public class AssemblyDependencyRecordTests
         var record = new AssemblyDependencyRecord
         {
             SourceAssembly = "MyAssembly",
-            DependencyAssembly = "VersionedDependency",
+            TargetName = "VersionedDependency",
             Version = "1.2.3.4"
         };
 
         // Act
-        var json = JsonSerializer.Serialize(record);
-        var deserialized = JsonSerializer.Deserialize<AssemblyDependencyRecord>(json);
+        var json = JsonConvert.SerializeObject(record, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore });
+        var deserialized = JsonConvert.DeserializeObject<AssemblyDependencyRecord>(json);
 
         // Assert
         deserialized!.Version.Should().Be("1.2.3.4");

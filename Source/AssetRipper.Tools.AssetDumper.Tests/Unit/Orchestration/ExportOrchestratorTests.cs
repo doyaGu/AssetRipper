@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Reflection;
 using AssetRipper.Processing;
 using AssetRipper.Tools.AssetDumper.Core;
 using AssetRipper.Tools.AssetDumper.Orchestration;
@@ -103,24 +104,19 @@ public class ExportOrchestratorTests : IDisposable
 			InputPath = "C:\\NonExistentPath", // Will fail but directory should be created
 			OutputPath = outputPath,
 			Quiet = true,
-			ExportDomains = "none",  // Disable all exports for this test
+			ExportDomains = "facts",  // Enable scaffolding creation
 			FactTables = "none"
 		};
 		var orchestrator = new ExportOrchestrator(options);
 
-		// Act
-		// Execute will fail due to invalid input, but should create directory structure
-		try
-		{
-			orchestrator.Execute(null!);
-		}
-		catch
-		{
-			// Expected to fail
-		}
+		// Act - call the internal scaffolding helper directly via reflection
+		var ensureMethod = typeof(ExportOrchestrator)
+			.GetMethod("EnsureExportScaffolding", BindingFlags.Instance | BindingFlags.NonPublic);
+		ensureMethod.Should().NotBeNull("EnsureExportScaffolding should exist to create output structure");
+		ensureMethod!.Invoke(orchestrator, null);
 
-		// Assert - Verify directory was created (if EnsureExportScaffolding was called)
-		// Note: This is a basic test since we don't have real GameData
+		// Assert
+		Directory.Exists(outputPath).Should().BeTrue();
 	}
 
 	#endregion

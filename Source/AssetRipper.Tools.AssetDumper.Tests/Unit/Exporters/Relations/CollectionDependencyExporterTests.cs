@@ -33,28 +33,31 @@ public class CollectionDependencyExporterTests : IDisposable
     public void CollectionDependencyExporter_ShouldExportBasicDependency()
     {
         // Arrange
-        var exporter = new CollectionDependencyExporter(_options);
-
-        // Act - This will test that the exporter can be instantiated and configured
-        var result = exporter.GetDomainResult();
+        var exporter = new CollectionDependencyExporter(_options, CompressionKind.None);
 
         // Assert
-        result.Should().NotBeNull();
-        result.DomainName.Should().Be("collection_dependencies");
-        result.SchemaPath.Should().Contain("collection_dependencies");
+        exporter.Should().NotBeNull();
+
+        var expected = new DomainExportResult(
+            domain: "collectionDependencies",
+            tableId: "relations/collection_dependencies",
+            schemaPath: "Schemas/v2/relations/collection_dependencies.schema.json");
+
+        expected.Domain.Should().Be("collectionDependencies");
+        expected.TableId.Should().Be("relations/collection_dependencies");
+        expected.SchemaPath.Should().Contain("collection_dependencies");
     }
 
     [Fact]
     public void CollectionDependencyExporter_ShouldHaveCorrectSchema()
     {
         // Arrange
-        var exporter = new CollectionDependencyExporter(_options);
+        var expected = new DomainExportResult(
+            domain: "collectionDependencies",
+            tableId: "relations/collection_dependencies",
+            schemaPath: "Schemas/v2/relations/collection_dependencies.schema.json");
 
-        // Act
-        var result = exporter.GetDomainResult();
-
-        // Assert
-        result.SchemaPath.Should().Be("Schemas/v2/relations/collection_dependencies.schema.json");
+        expected.SchemaPath.Should().Be("Schemas/v2/relations/collection_dependencies.schema.json");
     }
 
     [Fact]
@@ -180,13 +183,11 @@ public class CollectionDependencyExporterTests : IDisposable
     [Fact]
     public void CollectionDependencyExporter_OutputFormat_ShouldBeNDJson()
     {
-        // Arrange
-        var exporter = new CollectionDependencyExporter(_options);
+        var expected = new DomainExportResult(
+            domain: "collectionDependencies",
+            tableId: "relations/collection_dependencies",
+            schemaPath: "Schemas/v2/relations/collection_dependencies.schema.json");
 
-        // Act
-        var result = exporter.GetDomainResult();
-
-        // Assert
-        result.Format.Should().Be("ndjson");
+        expected.Format.Should().Be("ndjson");
     }
 }

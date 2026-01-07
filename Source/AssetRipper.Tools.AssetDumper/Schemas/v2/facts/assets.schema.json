@@ -16,11 +16,7 @@
       "const": "assets"
     },
     "pk": {
-      "$ref": "https://schemas.assetripper.dev/assetdump/v2/core.schema.json#AssetPK"
-    },
-    "pathId": {
-      "type": "integer",
-      "description": "PathID within the containing collection. Unique identifier for the asset in its collection."
+      "$ref": "../core.schema.json#/$defs/AssetPK"
     },
     "classKey": {
       "type": "integer",
@@ -55,7 +51,7 @@
       "description": "Name of the asset bundle containing this asset, if applicable."
     },
     "hierarchy": {
-      "$ref": "https://schemas.assetripper.dev/assetdump/v2/core.schema.json#HierarchyPath",
+      "$ref": "../core.schema.json#HierarchyPath",
       "description": "Complete hierarchical path from root bundle to this asset."
     },
     "collectionName": {
@@ -111,6 +107,16 @@
         "boolean",
         "null"
       ]
+    },
+    "byteStart": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Byte offset into the backing serialized data stream where this object's data begins. Present when slice metadata is available."
+    },
+    "byteSize": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Size in bytes of this object's serialized data slice. Present when slice metadata is available."
     },
     "hash": {
       "type": "string",
