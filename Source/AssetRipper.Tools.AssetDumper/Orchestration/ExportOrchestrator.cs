@@ -59,9 +59,10 @@ public sealed class ExportOrchestrator
 			await ExecuteFactsExportAsync(context, existingManifest);
 			await ExecuteRelationsExportAsync(context, existingManifest);
 			ExecuteOptionalExports(context, existingManifest);
+			// Scripts must be decompiled before we can export script source links or AST-dependent metadata.
+			ProcessScripts(gameData);
 			ExecuteScriptCodeExport(context, existingManifest);
 			GenerateManifest(context);
-			ProcessScripts(gameData);
 
 			totalStopwatch.Stop();
 
@@ -423,7 +424,8 @@ public sealed class ExportOrchestrator
 
 	private void ProcessScripts(GameData gameData)
 	{
-		if (!_options.ExportAssemblies && !_options.ExportScripts && !_options.GenerateAst)
+		// Script processing is required for assembly export, decompilation, source linking, and AST generation.
+		if (!_options.ExportAssemblies && !_options.ExportScripts && !_options.GenerateAst && !_options.LinkSourceFiles)
 		{
 			return;
 		}
@@ -489,15 +491,6 @@ public sealed class ExportOrchestrator
 	private bool ResolveIndexingSetting(CompressionKind compressionKind)
 	{
 		bool wantsIndex = _options.EnableIndex;
-
-		if (wantsIndex && !_options.ExportIndexes)
-		{
-			if (!_options.Silent)
-			{
-				Logger.Warning("Key index generation requested but index outputs are disabled (--indexes=false). Skipping index creation.");
-			}
-			return false;
-		}
 
 		// Index generation now supports all compression modes
 		// - For uncompressed: uses byte offsets for direct seeking

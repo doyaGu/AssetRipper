@@ -302,8 +302,9 @@ public sealed class OptionsValidator
         // Check if at least one export option is enabled
         bool hasAnyExport = _options.ExportFacts ||
                            _options.ExportRelations ||
-                           _options.ExportScenes ||
-                           _options.ExportScripts;
+                           _options.ExportScripts ||
+                           _options.ExportAssemblies ||
+                           _options.ExportScriptCodeAssociation;
 
         if (!hasAnyExport)
         {
@@ -311,22 +312,43 @@ public sealed class OptionsValidator
             {
                 Field = "ExportOptions",
                 Message = "All export options are disabled",
-                Suggestion = "Enable at least one export option:\n" +
-                           "  --facts (export asset facts)\n" +
-                           "  --relations (export dependencies)\n" +
-                           "  --scenes (export scene hierarchy)\n" +
-                           "  --scripts (export and decompile scripts)"
+                Suggestion = "Enable at least one export domain using --export, for example:\n" +
+                           "  --export facts\n" +
+                           "  --export relations\n" +
+                           "  --export facts,relations\n" +
+                           "  --export facts,code-analysis"
             });
         }
 
-        // Validate index options
-        if (_options.EnableIndex && !_options.ExportIndexes)
+        // Warn on domain/table mismatches (table options are ignored if their domain is disabled)
+        if (!_options.ExportFacts && !string.IsNullOrWhiteSpace(_options.FactTables))
         {
             _warnings.Add(new OptionsValidationWarning
             {
-                Field = "EnableIndex",
-                Message = "Index generation is enabled but index export is disabled",
-                Suggestion = "Set --indexes=true to export the generated indexes, or set --enable-index=false to skip index generation entirely"
+                Field = "FactTables",
+                Message = "--facts was provided but the 'facts' export domain is disabled",
+                Suggestion = "Add 'facts' to --export (e.g. --export facts or --export facts,relations)."
+            });
+        }
+
+        if (!_options.ExportRelations && !string.IsNullOrWhiteSpace(_options.RelationTables))
+        {
+            _warnings.Add(new OptionsValidationWarning
+            {
+                Field = "RelationTables",
+                Message = "--relations was provided but the 'relations' export domain is disabled",
+                Suggestion = "Add 'relations' to --export (e.g. --export facts,relations)."
+            });
+        }
+
+        if (!_options.ExportScriptCodeAssociation && !string.IsNullOrWhiteSpace(_options.CodeAnalysisTables) &&
+            !_options.CodeAnalysisTables.Equals("none", StringComparison.OrdinalIgnoreCase))
+        {
+            _warnings.Add(new OptionsValidationWarning
+            {
+                Field = "CodeAnalysisTables",
+                Message = "--code-analysis was provided but the 'code-analysis' export domain is disabled",
+                Suggestion = "Add 'code-analysis' to --export (e.g. --export facts,code-analysis)."
             });
         }
     }

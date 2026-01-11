@@ -189,10 +189,22 @@ public class Options
 	// Computed Properties (for backward compatibility)
 	// ========================================
 
-	public bool ExportFacts => ExportDomains.Contains("facts", StringComparison.OrdinalIgnoreCase);
-	public bool ExportRelations => ExportDomains.Contains("relations", StringComparison.OrdinalIgnoreCase);
-	public bool ExportScripts => DecompileScripts;
-	public bool ExportAssemblies => ExportAssemblyFiles;
+	private bool HasExportDomain(string domain)
+	{
+		if (string.IsNullOrWhiteSpace(domain) || string.IsNullOrWhiteSpace(ExportDomains))
+		{
+			return false;
+		}
+
+		return ExportDomains
+			.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+			.Any(d => d.Equals(domain, StringComparison.OrdinalIgnoreCase));
+	}
+
+	public bool ExportFacts => HasExportDomain("facts");
+	public bool ExportRelations => HasExportDomain("relations");
+	public bool ExportScripts => DecompileScripts || GenerateAst || HasExportDomain("scripts");
+	public bool ExportAssemblies => ExportAssemblyFiles || HasExportDomain("assemblies");
 	public bool Silent => Quiet;
 	public bool EnableIndex => EnableIndexing;
 	public int ParallelDegree => ParallelThreads;
@@ -211,19 +223,19 @@ public class Options
 	public bool IncludeAssetMetadata => IncludeExtendedMetadata;
 
 	// Granular fact/relation flags (computed from tables)
-	public bool ExportCollections => FactTables.Contains("collections", StringComparison.OrdinalIgnoreCase) || FactTables.Contains("all", StringComparison.OrdinalIgnoreCase);
-	public bool ExportScenes => FactTables.Contains("scenes", StringComparison.OrdinalIgnoreCase) || FactTables.Contains("all", StringComparison.OrdinalIgnoreCase);
-	public bool ExportScriptMetadata => FactTables.Contains("scripts", StringComparison.OrdinalIgnoreCase) || FactTables.Contains("all", StringComparison.OrdinalIgnoreCase);
-	public bool ExportBundleMetadata => FactTables.Contains("bundles", StringComparison.OrdinalIgnoreCase) || FactTables.Contains("all", StringComparison.OrdinalIgnoreCase);
-	public bool ExportManifest => !FactTables.Contains("none", StringComparison.OrdinalIgnoreCase);
+	public bool ExportCollections => ExportFacts && (FactTables.Contains("collections", StringComparison.OrdinalIgnoreCase) || FactTables.Contains("all", StringComparison.OrdinalIgnoreCase));
+	public bool ExportScenes => ExportFacts && (FactTables.Contains("scenes", StringComparison.OrdinalIgnoreCase) || FactTables.Contains("all", StringComparison.OrdinalIgnoreCase));
+	public bool ExportScriptMetadata => ExportFacts && (FactTables.Contains("scripts", StringComparison.OrdinalIgnoreCase) || FactTables.Contains("all", StringComparison.OrdinalIgnoreCase));
+	public bool ExportBundleMetadata => ExportFacts && (FactTables.Contains("bundles", StringComparison.OrdinalIgnoreCase) || FactTables.Contains("all", StringComparison.OrdinalIgnoreCase));
+	public bool ExportManifest => !PreviewOnly && (ExportFacts || ExportRelations || ExportScripts || ExportAssemblies || ExportScriptCodeAssociation);
 	public bool ExportIndexes => EnableIndexing;
 	public bool ExportMetrics => false; // Deprecated
 
 	// Code analysis flags
-	public bool ExportScriptCodeAssociation => CodeAnalysisTables != "none";
-	public bool ExportTypeDefinitions => CodeAnalysisTables.Contains("types", StringComparison.OrdinalIgnoreCase) || CodeAnalysisTables.Contains("all", StringComparison.OrdinalIgnoreCase);
-	public bool ExportTypeMembers => CodeAnalysisTables.Contains("members", StringComparison.OrdinalIgnoreCase) || CodeAnalysisTables.Contains("all", StringComparison.OrdinalIgnoreCase);
-	public bool LinkSourceFiles => CodeAnalysisTables.Contains("sources", StringComparison.OrdinalIgnoreCase) || CodeAnalysisTables.Contains("all", StringComparison.OrdinalIgnoreCase);
+	public bool ExportScriptCodeAssociation => HasExportDomain("code-analysis") && !CodeAnalysisTables.Equals("none", StringComparison.OrdinalIgnoreCase);
+	public bool ExportTypeDefinitions => ExportScriptCodeAssociation && (CodeAnalysisTables.Contains("types", StringComparison.OrdinalIgnoreCase) || CodeAnalysisTables.Contains("all", StringComparison.OrdinalIgnoreCase));
+	public bool ExportTypeMembers => ExportScriptCodeAssociation && (CodeAnalysisTables.Contains("members", StringComparison.OrdinalIgnoreCase) || CodeAnalysisTables.Contains("all", StringComparison.OrdinalIgnoreCase));
+	public bool LinkSourceFiles => ExportScriptCodeAssociation && (CodeAnalysisTables.Contains("sources", StringComparison.OrdinalIgnoreCase) || CodeAnalysisTables.Contains("all", StringComparison.OrdinalIgnoreCase));
 
 	// Dependency filtering
 	public bool MinimalDeps => false; // Deprecated

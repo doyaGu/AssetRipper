@@ -76,9 +76,20 @@ internal class ScriptProcessor
 					Logger.Info(LogCategory.Export, $"Script decompilation completed in {scriptStopwatch.Elapsed:mm\\:ss\\.fff}");
 				}
 			}
-			
-			// Note: AST generation is now handled by ScriptCodeExportPipeline
-			// when LinkSourceFiles and GenerateAst are both enabled
+
+			// Generate AST from decompiled scripts (if requested).
+			// This is intentionally part of script processing so it works even when code-analysis/source linking is disabled.
+			if (_options.GenerateAst)
+			{
+				if (!_options.Silent)
+				{
+					Logger.Info(LogCategory.Export, "Generating AST from decompiled scripts...");
+				}
+
+				string scriptsRoot = Path.Combine(_options.OutputPath, "scripts");
+				AstGenerator generator = new AstGenerator(_options);
+				generator.GenerateAstFromScripts(scriptsRoot, _options.OutputPath, _filterManager);
+			}
 		}
 		finally
 		{
@@ -140,10 +151,9 @@ internal class ScriptProcessor
 			}
 		}
 		
-		// Note: AST generation preview is now part of ScriptCodeExportPipeline
 		if (_options.GenerateAst && !_options.Silent)
 		{
-			Logger.Info(LogCategory.Export, "AST generation will be handled by ScriptCodeExportPipeline (when LinkSourceFiles is enabled)");
+			Logger.Info(LogCategory.Export, "AST generation is enabled and will run after decompilation");
 		}
 	}
 
