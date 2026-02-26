@@ -257,8 +257,8 @@ AssetDumper provides five built-in presets for common use cases:
 --facts <tables>               Fact tables: assets, collections, scenes, scripts, bundles, types
                                Default: assets,collections,scenes,scripts,bundles,types
 
---relations <tables>           Relation tables: dependencies, hierarchy
-                               Default: dependencies,hierarchy
+--relations <tables>           Relation tables: dependencies, hierarchy, mappings
+                               Default: dependencies,hierarchy,mappings
 
 --code-analysis <tables>       Code analysis: types, members, inheritance, mappings, dependencies, sources
                                Default: types,members,inheritance,mappings
