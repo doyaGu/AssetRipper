@@ -39,9 +39,10 @@ public sealed class ExportOrchestrator
 		CompressionKind compressionKind = ResolveCompressionKind();
 		bool enableIndex = ResolveIndexingSetting(compressionKind);
 		KeyIndexGenerator? indexGenerator = enableIndex ? new KeyIndexGenerator(_options) : null;
+		ExportTableSelection tableSelection = _options.ResolveExportTables();
 
 		// Create export context
-		ExportContext context = new ExportContext(_options, gameData, compressionKind, enableIndex, indexGenerator);
+		ExportContext context = new ExportContext(_options, tableSelection, gameData, compressionKind, enableIndex, indexGenerator);
 
 		// Load existing manifest for incremental processing
 		Manifest? existingManifest = _incrementalManager.TryLoadExistingManifest();
@@ -103,17 +104,17 @@ public sealed class ExportOrchestrator
 
 	private async Task ExecuteFactsExportAsync(ExportContext context, Manifest? existingManifest)
 	{
-		if (!_options.ExportFacts)
+		string[] requiredFactsTables = context.TableSelection
+			.GetTablesForOwner(ExportPipelineOwner.FactsCore)
+			.ToArray();
+		if (requiredFactsTables.Length == 0)
 		{
 			return;
 		}
 
 		// Check if we can reuse existing facts
 		bool canReuseFacts = existingManifest != null
-			&& _incrementalManager.ManifestContainsTables(existingManifest,
-				"facts/collections",
-				"facts/assets",
-				"facts/types");
+			&& _incrementalManager.ManifestContainsTables(existingManifest, requiredFactsTables);
 
 		if (canReuseFacts)
 		{
@@ -122,7 +123,7 @@ public sealed class ExportOrchestrator
 				Logger.Info("Reusing existing facts export (incremental).");
 			}
 
-			ReuseManifestData(existingManifest!, context, "facts/collections", "facts/assets", "facts/types");
+			ReuseManifestData(existingManifest!, context, requiredFactsTables);
 		}
 		else
 		{
@@ -137,17 +138,21 @@ public sealed class ExportOrchestrator
 
 	private async Task ExecuteRelationsExportAsync(ExportContext context, Manifest? existingManifest)
 	{
-		if (!_options.ExportRelations)
+		string[] requiredRelationTables = context.TableSelection
+			.GetTablesForOwner(ExportPipelineOwner.Relations)
+			.ToArray();
+		if (requiredRelationTables.Length == 0)
 		{
+			if (!_options.Silent)
+			{
+				Logger.Info("Relations export skipped: no relation tables selected.");
+			}
 			return;
 		}
 
 		// Check if we can reuse existing relations
 		bool canReuseRelations = existingManifest != null
-			&& _incrementalManager.ManifestContainsTables(existingManifest,
-				"relations/bundle_hierarchy",
-				"relations/collection_dependencies",
-				"relations/asset_dependencies");
+			&& _incrementalManager.ManifestContainsTables(existingManifest, requiredRelationTables);
 
 		if (canReuseRelations)
 		{
@@ -156,10 +161,7 @@ public sealed class ExportOrchestrator
 				Logger.Info("Reusing existing relations export (incremental).");
 			}
 
-			ReuseManifestData(existingManifest!, context,
-				"relations/bundle_hierarchy",
-				"relations/collection_dependencies",
-				"relations/asset_dependencies");
+			ReuseManifestData(existingManifest!, context, requiredRelationTables);
 		}
 		else
 		{
@@ -185,7 +187,8 @@ public sealed class ExportOrchestrator
 
 		bool canReuseScriptMetadata = _options.ExportScriptMetadata
 			&& existingManifest != null
-			&& _incrementalManager.ManifestContainsTables(existingManifest, "facts/scripts");
+			&& (_incrementalManager.ManifestContainsTables(existingManifest, "facts/script_metadata")
+				|| _incrementalManager.ManifestContainsTables(existingManifest, "facts/scripts"));
 
 		// Reuse what we can
 		if (canReuseBundleMetadata)
@@ -212,7 +215,10 @@ public sealed class ExportOrchestrator
 			{
 				Logger.Info("Reusing existing script metadata (incremental).");
 			}
-			ReuseManifestData(existingManifest!, context, "facts/scripts");
+			string scriptMetadataTableId = existingManifest!.Tables.ContainsKey("facts/script_metadata")
+				? "facts/script_metadata"
+				: "facts/scripts";
+			ReuseManifestData(existingManifest, context, scriptMetadataTableId);
 		}
 
 		// Export what needs to be regenerated
@@ -236,31 +242,42 @@ public sealed class ExportOrchestrator
 
 	private void ExecuteScriptCodeExport(ExportContext context, Manifest? existingManifest)
 	{
-		if (!_options.ExportScriptCodeAssociation)
+		string[] selectedScriptCodeTables = context.TableSelection
+			.GetTablesForOwner(ExportPipelineOwner.ScriptCode)
+			.ToArray();
+		if (selectedScriptCodeTables.Length == 0)
 		{
 			return;
 		}
 
+		string[] phaseATableIds = selectedScriptCodeTables
+			.Where(static tableId =>
+				tableId.Equals("facts/assemblies", StringComparison.OrdinalIgnoreCase)
+				|| tableId.Equals("facts/type_definitions", StringComparison.OrdinalIgnoreCase))
+			.ToArray();
+		string[] phaseBTableIds = selectedScriptCodeTables
+			.Where(static tableId =>
+				tableId.Equals("relations/assembly_dependencies", StringComparison.OrdinalIgnoreCase)
+				|| tableId.Equals("relations/type_inheritance", StringComparison.OrdinalIgnoreCase))
+			.ToArray();
+		bool needsTypeMembers = selectedScriptCodeTables.Contains("facts/type_members", StringComparer.OrdinalIgnoreCase);
+		bool needsScriptSources = selectedScriptCodeTables.Contains("facts/script_sources", StringComparer.OrdinalIgnoreCase);
+
 		// Phase A: Core tables (always required)
-		bool canReuseCoreData = existingManifest != null
-			&& _incrementalManager.ManifestContainsTables(existingManifest, 
-				"facts/assemblies", 
-				"facts/type_definitions",
-				"relations/script_type_mapping");
+		bool canReuseCoreData = phaseATableIds.Length == 0
+			|| (existingManifest != null && _incrementalManager.ManifestContainsTables(existingManifest, phaseATableIds));
 
 		// Phase B: Enhanced relationship tables
-		bool canReuseEnhancedData = existingManifest != null
-			&& _incrementalManager.ManifestContainsTables(existingManifest,
-				"relations/assembly_dependencies",
-				"relations/type_inheritance");
+		bool canReuseEnhancedData = phaseBTableIds.Length == 0
+			|| (existingManifest != null && _incrementalManager.ManifestContainsTables(existingManifest, phaseBTableIds));
 
 		// Phase C: Optional detailed member data
-		bool canReuseMemberData = _options.ExportTypeMembers 
+		bool canReuseMemberData = needsTypeMembers
 			&& existingManifest != null 
 			&& _incrementalManager.ManifestContainsTables(existingManifest, "facts/type_members");
 
 		// Source linking (optional)
-		bool canReuseSourceData = _options.LinkSourceFiles
+		bool canReuseSourceData = needsScriptSources
 			&& existingManifest != null
 			&& _incrementalManager.ManifestContainsTables(existingManifest, "facts/script_sources");
 
@@ -287,10 +304,10 @@ public sealed class ExportOrchestrator
 			}
 
 			// Reuse Phase A: Core data
-			ReuseManifestData(existingManifest!, context, 
-				"facts/assemblies",
-				"facts/type_definitions",
-				"relations/script_type_mapping");
+			if (phaseATableIds.Length > 0)
+			{
+				ReuseManifestData(existingManifest!, context, phaseATableIds);
+			}
 
 			// Reuse or re-export Phase B: Enhanced relationships
 			if (canReuseEnhancedData)
@@ -299,11 +316,12 @@ public sealed class ExportOrchestrator
 				{
 					Logger.Verbose(LogCategory.Export, "Reusing assembly dependencies and type inheritance data.");
 				}
-				ReuseManifestData(existingManifest!, context,
-					"relations/assembly_dependencies",
-					"relations/type_inheritance");
+				if (phaseBTableIds.Length > 0)
+				{
+					ReuseManifestData(existingManifest!, context, phaseBTableIds);
+				}
 			}
-			else
+			else if (phaseBTableIds.Length > 0)
 			{
 				// Re-export Phase B data only
 				if (!_options.Silent)
@@ -314,7 +332,7 @@ public sealed class ExportOrchestrator
 			}
 
 			// Reuse or re-export Phase C: Type members
-			if (_options.ExportTypeMembers)
+			if (needsTypeMembers)
 			{
 				if (canReuseMemberData)
 				{
@@ -335,7 +353,7 @@ public sealed class ExportOrchestrator
 			}
 
 			// Reuse or re-export source linking
-			if (_options.LinkSourceFiles)
+			if (needsScriptSources)
 			{
 				if (canReuseSourceData)
 				{
@@ -362,19 +380,25 @@ public sealed class ExportOrchestrator
 	/// </summary>
 	private void ExportPhaseB(ExportContext context)
 	{
-		AssemblyDependencyExporter depExporter = new AssemblyDependencyExporter(
-			_options,
-			context.CompressionKind,
-			context.EnableIndex);
-		DomainExportResult depResult = depExporter.ExportDependencies(context.GameData);
-		context.AddResult(depResult);
+		if (_options.ExportAssemblyDependencies)
+		{
+			AssemblyDependencyExporter depExporter = new AssemblyDependencyExporter(
+				_options,
+				context.CompressionKind,
+				context.EnableIndex);
+			DomainExportResult depResult = depExporter.ExportDependencies(context.GameData);
+			context.AddResult(depResult, ExportPipelineOwner.ScriptCode);
+		}
 
-		TypeInheritanceExporter inhExporter = new TypeInheritanceExporter(
-			_options,
-			context.CompressionKind,
-			context.EnableIndex);
-		DomainExportResult inhResult = inhExporter.ExportInheritance(context.GameData);
-		context.AddResult(inhResult);
+		if (_options.ExportTypeInheritance)
+		{
+			TypeInheritanceExporter inhExporter = new TypeInheritanceExporter(
+				_options,
+				context.CompressionKind,
+				context.EnableIndex);
+			DomainExportResult inhResult = inhExporter.ExportInheritance(context.GameData);
+			context.AddResult(inhResult, ExportPipelineOwner.ScriptCode);
+		}
 	}
 
 	/// <summary>
@@ -387,7 +411,7 @@ public sealed class ExportOrchestrator
 			context.CompressionKind,
 			context.EnableIndex);
 		DomainExportResult result = exporter.ExportMembers(context.GameData);
-		context.AddResult(result);
+		context.AddResult(result, ExportPipelineOwner.ScriptCode);
 	}
 
 	/// <summary>
@@ -400,7 +424,7 @@ public sealed class ExportOrchestrator
 			context.CompressionKind,
 			context.EnableIndex);
 		DomainExportResult result = exporter.ExportSources(context.GameData);
-		context.AddResult(result);
+		context.AddResult(result, ExportPipelineOwner.ScriptCode);
 	}
 
 	private void GenerateManifest(ExportContext context)
@@ -456,7 +480,7 @@ public sealed class ExportOrchestrator
 			DomainExportResult? result = _incrementalManager.CreateResultFromManifest(manifest, tableId);
 			if (result != null)
 			{
-				context.AddResult(result);
+				context.AddResult(result, ExportTableMatrix.GetOwnerOrUnknown(tableId));
 			}
 		}
 	}
@@ -500,12 +524,18 @@ public sealed class ExportOrchestrator
 
 	private void EnsureExportScaffolding()
 	{
-		if (_options.ExportFacts)
+		ExportTableSelection selection = _options.ResolveExportTables();
+		bool hasFactsTables = selection.SelectedTables.Any(static tableId =>
+			tableId.StartsWith("facts/", StringComparison.OrdinalIgnoreCase));
+		bool hasRelationTables = selection.SelectedTables.Any(static tableId =>
+			tableId.StartsWith("relations/", StringComparison.OrdinalIgnoreCase));
+
+		if (_options.ExportFacts || hasFactsTables)
 		{
 			OutputPathHelper.EnsureSubdirectory(_options.OutputPath, OutputPathHelper.FactsDirectoryName);
 		}
 
-		if (_options.ExportRelations)
+		if (_options.ExportRelations || hasRelationTables)
 		{
 			OutputPathHelper.EnsureSubdirectory(_options.OutputPath, OutputPathHelper.RelationsDirectoryName);
 		}

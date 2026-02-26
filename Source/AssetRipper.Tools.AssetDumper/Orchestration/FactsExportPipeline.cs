@@ -27,8 +27,11 @@ public sealed class FactsExportPipeline
 			ExportCollectionFacts();
 		}
 
-		// Export assets
-		ExportAssetFacts();
+		// Export assets/types share the same extraction pass.
+		if (_context.Options.ExportAssetFacts || _context.Options.ExportTypeFacts)
+		{
+			ExportAssetFacts();
+		}
 	}
 
 	private void ExportCollectionFacts()
@@ -45,7 +48,7 @@ public sealed class FactsExportPipeline
 				_context.CompressionKind);
 
 			DomainExportResult result = exporter.ExportCollections(_context.GameData);
-			_context.AddResult(result);
+			_context.AddResult(result, ExportPipelineOwner.FactsCore);
 		}
 		catch (Exception ex)
 		{
@@ -69,17 +72,29 @@ public sealed class FactsExportPipeline
 				_context.EnableIndex);
 
 			DomainExportResult assetResult = assetExporter.ExportAssets(_context.GameData);
-			_context.AddResult(assetResult);
+			bool includeAssetResult = _context.Options.ExportAssetFacts || _context.Options.ExportTypeFacts;
+			if (!_context.Options.ExportAssetFacts && _context.Options.ExportTypeFacts && !_context.Options.Silent)
+			{
+				Logger.Warning("facts/types requires facts/assets extraction; including facts/assets in the export set.");
+			}
+
+			if (includeAssetResult)
+			{
+				_context.AddResult(assetResult, ExportPipelineOwner.FactsCore);
+			}
 
 			// Export type facts based on collected type dictionary
-			if (!_context.Options.Silent)
+			if (_context.Options.ExportTypeFacts && !_context.Options.Silent)
 			{
 				Logger.Info("Exporting type facts...");
 			}
 
-			TypeExporter typeExporter = new TypeExporter(_context.Options);
-			DomainExportResult typeResult = typeExporter.ExportTypes(assetExporter.TypeDictionary.Entries);
-			_context.AddResult(typeResult);
+			if (_context.Options.ExportTypeFacts)
+			{
+				TypeExporter typeExporter = new TypeExporter(_context.Options);
+				DomainExportResult typeResult = typeExporter.ExportTypes(assetExporter.TypeDictionary.Entries);
+				_context.AddResult(typeResult, ExportPipelineOwner.FactsCore);
+			}
 		}
 		catch (Exception ex)
 		{

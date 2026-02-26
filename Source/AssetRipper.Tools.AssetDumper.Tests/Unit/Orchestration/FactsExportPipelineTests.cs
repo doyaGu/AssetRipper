@@ -66,6 +66,7 @@ public class FactsExportPipelineTests : IDisposable
 		// we'll create a minimal context for testing
 		return new ExportContext(
 			options,
+			options.ResolveExportTables(),
 			null!, // GameData - would require mock
 			CompressionKind.None,
 			enableIndex: false,

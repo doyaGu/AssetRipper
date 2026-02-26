@@ -62,7 +62,7 @@ public sealed class OptionalExportPipeline
 			List<DomainExportResult> metricsResults = ExportMetrics();
 			foreach (DomainExportResult result in metricsResults)
 			{
-				_context.AddResult(result);
+				_context.AddResult(result, ExportPipelineOwner.Metrics);
 			}
 		}
 	}
@@ -82,7 +82,7 @@ public sealed class OptionalExportPipeline
 				_context.EnableIndex);
 
 			DomainExportResult result = exporter.ExportScenes(_context.GameData);
-			_context.AddResult(result);
+			_context.AddResult(result, ExportPipelineOwner.FactsOptional);
 		}
 		catch (Exception ex)
 		{
@@ -106,7 +106,7 @@ public sealed class OptionalExportPipeline
 				_context.EnableIndex);
 
 			DomainExportResult result = exporter.Export(_context.GameData);
-			_context.AddResult(result);
+			_context.AddResult(result, ExportPipelineOwner.FactsOptional);
 		}
 		catch (Exception ex)
 		{
@@ -130,7 +130,7 @@ public sealed class OptionalExportPipeline
 				_context.EnableIndex);
 
 			DomainExportResult result = exporter.ExportScripts(_context.GameData);
-			_context.AddResult(result);
+			_context.AddResult(result, ExportPipelineOwner.FactsOptional);
 		}
 		catch (Exception ex)
 		{

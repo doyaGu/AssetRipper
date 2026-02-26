@@ -138,6 +138,7 @@ public class OptionalExportPipelineTests : IDisposable
 	{
 		return new ExportContext(
 			options,
+			options.ResolveExportTables(),
 			null!,
 			CompressionKind.None,
 			enableIndex: false,

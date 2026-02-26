@@ -64,6 +64,7 @@ public class RelationsExportPipelineTests : IDisposable
 	{
 		return new ExportContext(
 			options,
+			options.ResolveExportTables(),
 			null!,
 			CompressionKind.None,
 			enableIndex: false,

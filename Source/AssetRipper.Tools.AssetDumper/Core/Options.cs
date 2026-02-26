@@ -1,5 +1,6 @@
 using CommandLine;
 using CommandLine.Text;
+using System.Linq;
 
 namespace AssetRipper.Tools.AssetDumper.Core;
 
@@ -33,9 +34,9 @@ public class Options
 		HelpText = "Fact tables to export (comma-separated): assets, collections, scenes, scripts, bundles, types, all, none")]
 	public string FactTables { get; set; } = "assets,collections,scenes,scripts,bundles,types";
 
-	[Option("relations", Required = false, Default = "dependencies,hierarchy",
-		HelpText = "Relation tables to export (comma-separated): dependencies, hierarchy, all, none")]
-	public string RelationTables { get; set; } = "dependencies,hierarchy";
+	[Option("relations", Required = false, Default = "dependencies,hierarchy,mappings",
+		HelpText = "Relation tables to export (comma-separated): dependencies, hierarchy, mappings, all, none")]
+	public string RelationTables { get; set; } = "dependencies,hierarchy,mappings";
 
 	[Option("code-analysis", Required = false, Default = "types,members,inheritance,mappings",
 		HelpText = "Code analysis tables: types, members, inheritance, mappings, dependencies, sources, all, none")]
@@ -196,13 +197,33 @@ public class Options
 			return false;
 		}
 
-		return ExportDomains
+		HashSet<string> domains = ExportDomains
 			.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-			.Any(d => d.Equals(domain, StringComparison.OrdinalIgnoreCase));
+			.Where(static token => !string.IsNullOrWhiteSpace(token))
+			.ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+		bool hasAll = domains.Contains("all");
+		bool hasNone = domains.Contains("none");
+		if (hasNone && !hasAll)
+		{
+			return false;
+		}
+
+		return hasAll || domains.Contains(domain);
+	}
+
+	private ExportTableSelection ResolveTableSelection()
+	{
+		return ExportTableMatrix.Resolve(this);
 	}
 
 	public bool ExportFacts => HasExportDomain("facts");
 	public bool ExportRelations => HasExportDomain("relations");
+	public bool ExportRelationDependencies =>
+		ResolveTableSelection().IsTableSelected("relations/asset_dependencies")
+		|| ResolveTableSelection().IsTableSelected("relations/collection_dependencies");
+	public bool ExportRelationHierarchy => ResolveTableSelection().IsTableSelected("relations/bundle_hierarchy");
+	public bool ExportRelationScriptTypeMapping => ResolveTableSelection().IsTableSelected("relations/script_type_mapping");
 	public bool ExportScripts => DecompileScripts || GenerateAst || HasExportDomain("scripts");
 	public bool ExportAssemblies => ExportAssemblyFiles || HasExportDomain("assemblies");
 	public bool Silent => Quiet;
@@ -222,20 +243,30 @@ public class Options
 	public int MinimumLines => MinCodeLines;
 	public bool IncludeAssetMetadata => IncludeExtendedMetadata;
 
-	// Granular fact/relation flags (computed from tables)
-	public bool ExportCollections => ExportFacts && (FactTables.Contains("collections", StringComparison.OrdinalIgnoreCase) || FactTables.Contains("all", StringComparison.OrdinalIgnoreCase));
-	public bool ExportScenes => ExportFacts && (FactTables.Contains("scenes", StringComparison.OrdinalIgnoreCase) || FactTables.Contains("all", StringComparison.OrdinalIgnoreCase));
-	public bool ExportScriptMetadata => ExportFacts && (FactTables.Contains("scripts", StringComparison.OrdinalIgnoreCase) || FactTables.Contains("all", StringComparison.OrdinalIgnoreCase));
-	public bool ExportBundleMetadata => ExportFacts && (FactTables.Contains("bundles", StringComparison.OrdinalIgnoreCase) || FactTables.Contains("all", StringComparison.OrdinalIgnoreCase));
+	// Granular fact/relation flags (computed from table matrix)
+	public bool ExportAssetFacts => ResolveTableSelection().IsTableSelected("facts/assets");
+	public bool ExportTypeFacts => ResolveTableSelection().IsTableSelected("facts/types");
+	public bool ExportCollections => ResolveTableSelection().IsTableSelected("facts/collections");
+	public bool ExportScenes => ResolveTableSelection().IsTableSelected("facts/scenes");
+	public bool ExportScriptMetadata => ResolveTableSelection().IsTableSelected("facts/script_metadata");
+	public bool ExportBundleMetadata => ResolveTableSelection().IsTableSelected("facts/bundles");
 	public bool ExportManifest => !PreviewOnly && (ExportFacts || ExportRelations || ExportScripts || ExportAssemblies || ExportScriptCodeAssociation);
 	public bool ExportIndexes => EnableIndexing;
 	public bool ExportMetrics => false; // Deprecated
 
 	// Code analysis flags
-	public bool ExportScriptCodeAssociation => HasExportDomain("code-analysis") && !CodeAnalysisTables.Equals("none", StringComparison.OrdinalIgnoreCase);
-	public bool ExportTypeDefinitions => ExportScriptCodeAssociation && (CodeAnalysisTables.Contains("types", StringComparison.OrdinalIgnoreCase) || CodeAnalysisTables.Contains("all", StringComparison.OrdinalIgnoreCase));
-	public bool ExportTypeMembers => ExportScriptCodeAssociation && (CodeAnalysisTables.Contains("members", StringComparison.OrdinalIgnoreCase) || CodeAnalysisTables.Contains("all", StringComparison.OrdinalIgnoreCase));
-	public bool LinkSourceFiles => ExportScriptCodeAssociation && (CodeAnalysisTables.Contains("sources", StringComparison.OrdinalIgnoreCase) || CodeAnalysisTables.Contains("all", StringComparison.OrdinalIgnoreCase));
+	public bool ExportScriptCodeAssociation => ResolveTableSelection().HasSelectionsForSelector(ExportSelectorDomain.CodeAnalysis);
+	public bool ExportAssemblyFacts => ResolveTableSelection().IsTableSelected("facts/assemblies");
+	public bool ExportTypeDefinitions => ResolveTableSelection().IsTableSelected("facts/type_definitions");
+	public bool ExportTypeMembers => ResolveTableSelection().IsTableSelected("facts/type_members");
+	public bool ExportAssemblyDependencies => ResolveTableSelection().IsTableSelected("relations/assembly_dependencies");
+	public bool ExportTypeInheritance => ResolveTableSelection().IsTableSelected("relations/type_inheritance");
+	public bool LinkSourceFiles => ResolveTableSelection().IsTableSelected("facts/script_sources");
+
+	public ExportTableSelection ResolveExportTables()
+	{
+		return ResolveTableSelection();
+	}
 
 	// Dependency filtering
 	public bool MinimalDeps => false; // Deprecated

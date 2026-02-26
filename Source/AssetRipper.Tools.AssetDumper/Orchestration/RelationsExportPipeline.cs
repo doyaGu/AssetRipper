@@ -21,9 +21,21 @@ public sealed class RelationsExportPipeline
 	/// </summary>
 	public void Execute()
 	{
-		ExportBundleHierarchy();
-		ExportCollectionDependencies();
-		ExportAssetDependencies();
+		if (_context.Options.ExportRelationHierarchy)
+		{
+			ExportBundleHierarchy();
+		}
+
+		if (_context.Options.ExportRelationDependencies)
+		{
+			ExportCollectionDependencies();
+			ExportAssetDependencies();
+		}
+
+		if (_context.Options.ExportRelationScriptTypeMapping)
+		{
+			ExportScriptTypeMappings();
+		}
 	}
 
 	private void ExportAssetDependencies()
@@ -41,7 +53,7 @@ public sealed class RelationsExportPipeline
 				_context.EnableIndex);
 
 			DomainExportResult result = exporter.Export(_context.GameData);
-			_context.AddResult(result);
+			_context.AddResult(result, ExportPipelineOwner.Relations);
 		}
 		catch (Exception ex)
 		{
@@ -64,7 +76,7 @@ public sealed class RelationsExportPipeline
 				_context.CompressionKind);
 
 			DomainExportResult result = exporter.Export(_context.GameData);
-			_context.AddResult(result);
+			_context.AddResult(result, ExportPipelineOwner.Relations);
 		}
 		catch (Exception ex)
 		{
@@ -87,11 +99,35 @@ public sealed class RelationsExportPipeline
 				_context.CompressionKind);
 
 			DomainExportResult result = exporter.Export(_context.GameData);
-			_context.AddResult(result);
+			_context.AddResult(result, ExportPipelineOwner.Relations);
 		}
 		catch (Exception ex)
 		{
 			Logger.Error("Failed to export collection dependencies", ex);
+			throw;
+		}
+	}
+
+	private void ExportScriptTypeMappings()
+	{
+		if (!_context.Options.Silent)
+		{
+			Logger.Info("Exporting script-type mapping relations...");
+		}
+
+		try
+		{
+			ScriptTypeMappingExporter exporter = new ScriptTypeMappingExporter(
+				_context.Options,
+				_context.CompressionKind,
+				_context.EnableIndex);
+
+			DomainExportResult result = exporter.ExportMappings(_context.GameData);
+			_context.AddResult(result, ExportPipelineOwner.Relations);
+		}
+		catch (Exception ex)
+		{
+			Logger.Error("Failed to export script-type mappings", ex);
 			throw;
 		}
 	}

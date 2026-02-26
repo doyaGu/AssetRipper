@@ -1,16 +1,12 @@
 ﻿using AssetRipper.Import.Logging;
 using AssetRipper.Tools.AssetDumper.Core;
-using AssetRipper.Tools.AssetDumper.Models.Facts;
-using AssetRipper.Tools.AssetDumper.Models.Relations;
-using AssetRipper.Tools.AssetDumper.Generators;
-using AssetRipper.Tools.AssetDumper.Helpers;
 using AssetRipper.Tools.AssetDumper.Exporters.Facts;
 using AssetRipper.Tools.AssetDumper.Exporters.Relations;
 
 namespace AssetRipper.Tools.AssetDumper.Orchestration;
 
 /// <summary>
-/// Pipeline for exporting script-code association metadata (assemblies, types, mappings).
+/// Pipeline for exporting script-code association metadata (assemblies, type metadata and code relationships).
 /// Optionally generates AST files when linking source files.
 /// </summary>
 internal sealed class ScriptCodeExportPipeline
@@ -29,14 +25,25 @@ internal sealed class ScriptCodeExportPipeline
 	{
 		try
 		{
-			// Phase A: Core exports (always execute if enabled)
-			ExportAssemblyFacts();
-			ExportTypeDefinitions();
-			ExportScriptTypeMappings();
+			// Phase A: Core exports
+			if (_context.Options.ExportAssemblyFacts)
+			{
+				ExportAssemblyFacts();
+			}
+			if (_context.Options.ExportTypeDefinitions)
+			{
+				ExportTypeDefinitions();
+			}
 
 			// Phase B: Enhanced relationship exports
-			ExportAssemblyDependencies();
-			ExportTypeInheritance();
+			if (_context.Options.ExportAssemblyDependencies)
+			{
+				ExportAssemblyDependencies();
+			}
+			if (_context.Options.ExportTypeInheritance)
+			{
+				ExportTypeInheritance();
+			}
 
 			// Optional: Link to source files if available
 			if (_context.Options.LinkSourceFiles)
@@ -70,7 +77,7 @@ internal sealed class ScriptCodeExportPipeline
 			_context.EnableIndex);
 
 		DomainExportResult result = exporter.ExportAssemblies(_context.GameData);
-		_context.AddResult(result);
+		_context.AddResult(result, ExportPipelineOwner.ScriptCode);
 	}
 
 	private void ExportTypeDefinitions()
@@ -86,23 +93,7 @@ internal sealed class ScriptCodeExportPipeline
 			_context.EnableIndex);
 
 		DomainExportResult result = exporter.ExportTypes(_context.GameData);
-		_context.AddResult(result);
-	}
-
-	private void ExportScriptTypeMappings()
-	{
-		if (!_context.Options.Silent)
-		{
-			Logger.Info("Exporting script-type mappings...");
-		}
-
-		ScriptTypeMappingExporter exporter = new ScriptTypeMappingExporter(
-			_context.Options,
-			_context.CompressionKind,
-			_context.EnableIndex);
-
-		DomainExportResult result = exporter.ExportMappings(_context.GameData);
-		_context.AddResult(result);
+		_context.AddResult(result, ExportPipelineOwner.ScriptCode);
 	}
 
 	private void ExportScriptSources()
@@ -118,7 +109,7 @@ internal sealed class ScriptCodeExportPipeline
 			_context.EnableIndex);
 
 		DomainExportResult result = exporter.ExportSources(_context.GameData);
-		_context.AddResult(result);
+		_context.AddResult(result, ExportPipelineOwner.ScriptCode);
 	}
 
 	private void ExportTypeMembers()
@@ -134,7 +125,7 @@ internal sealed class ScriptCodeExportPipeline
 			_context.EnableIndex);
 
 		DomainExportResult result = exporter.ExportMembers(_context.GameData);
-		_context.AddResult(result);
+		_context.AddResult(result, ExportPipelineOwner.ScriptCode);
 	}
 
 	private void ExportAssemblyDependencies()
@@ -150,7 +141,7 @@ internal sealed class ScriptCodeExportPipeline
 			_context.EnableIndex);
 
 		DomainExportResult result = exporter.ExportDependencies(_context.GameData);
-		_context.AddResult(result);
+		_context.AddResult(result, ExportPipelineOwner.ScriptCode);
 	}
 
 	private void ExportTypeInheritance()
@@ -166,6 +157,6 @@ internal sealed class ScriptCodeExportPipeline
 			_context.EnableIndex);
 
 		DomainExportResult result = exporter.ExportInheritance(_context.GameData);
-		_context.AddResult(result);
+		_context.AddResult(result, ExportPipelineOwner.ScriptCode);
 	}
 }
