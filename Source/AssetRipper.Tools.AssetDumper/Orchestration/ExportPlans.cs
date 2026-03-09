@@ -62,15 +62,40 @@ internal sealed class DumpBackedExportPlan : ExportPlan
 			return false;
 		}
 
-		return RequiredInputsExist(options.OutputPath);
+		return RequiredInputsExist(options.OutputPath, tableSelection);
 	}
 
-	public static bool RequiredInputsExist(string outputPath)
+	public static bool RequiredInputsExist(string outputPath, ExportTableSelection tableSelection)
 	{
-		return Directory.Exists(Path.Combine(outputPath, "facts", "script_metadata")) &&
-			Directory.Exists(Path.Combine(outputPath, "facts", "assemblies")) &&
-			Directory.Exists(Path.Combine(outputPath, "scripts")) &&
-			Directory.Exists(Path.Combine(outputPath, "ast"));
+		if (string.IsNullOrWhiteSpace(outputPath))
+		{
+			throw new ArgumentException("Output path cannot be null or empty", nameof(outputPath));
+		}
+
+		if (tableSelection is null)
+		{
+			throw new ArgumentNullException(nameof(tableSelection));
+		}
+
+		bool needsAssemblies = tableSelection.IsTableSelected("facts/assemblies");
+		bool needsScriptSources = tableSelection.IsTableSelected("facts/script_sources");
+
+		if (needsAssemblies && !Directory.Exists(Path.Combine(outputPath, "facts", "assemblies")))
+		{
+			return false;
+		}
+
+		if (needsScriptSources)
+		{
+			if (!Directory.Exists(Path.Combine(outputPath, "facts", "script_metadata")) ||
+				!Directory.Exists(Path.Combine(outputPath, "scripts")) ||
+				!Directory.Exists(Path.Combine(outputPath, "ast")))
+			{
+				return false;
+			}
+		}
+
+		return needsAssemblies || needsScriptSources;
 	}
 }
 

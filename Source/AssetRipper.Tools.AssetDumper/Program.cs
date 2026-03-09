@@ -1,6 +1,7 @@
 using AssetRipper.Import.Logging;
 using AssetRipper.Tools.AssetDumper.Constants;
 using AssetRipper.Tools.AssetDumper.Core;
+using AssetRipper.Tools.AssetDumper.Orchestration;
 using AssetRipper.Tools.AssetDumper.Processors;
 using CommandLine;
 using System.Text.RegularExpressions;
@@ -99,10 +100,13 @@ internal static class Program
 			{
 				if (IsAssetDumperOutput(options.InputPath))
 				{
-					Logger.Error($"Input path appears to be an AssetDumper export directory (contains manifest.json).");
-					Logger.Error("AssetDumper requires a Unity game directory as input, not a previous export result.");
-					Logger.Error("Please provide the original Unity game directory (e.g., GameName_Data).");
-					return 2;
+					if (!CanUseInputAsDumpBackedSource(options))
+					{
+						Logger.Error($"Input path appears to be an AssetDumper export directory (contains manifest.json).");
+						Logger.Error("AssetDumper requires a Unity game directory as input, not a previous export result.");
+						Logger.Error("For dump-backed re-export, point --input and --output to the same export directory and select only supported dump-backed tables.");
+						return 2;
+					}
 				}
 			}
 
@@ -245,6 +249,29 @@ internal static class Program
 		}
 
 		return false;
+	}
+
+	private static bool CanUseInputAsDumpBackedSource(Options options)
+	{
+		if (options is null)
+		{
+			throw new ArgumentNullException(nameof(options));
+		}
+
+		if (!Directory.Exists(options.InputPath))
+		{
+			return false;
+		}
+
+		string inputPath = Path.GetFullPath(options.InputPath);
+		string outputPath = Path.GetFullPath(options.OutputPath);
+		if (!string.Equals(inputPath, outputPath, StringComparison.OrdinalIgnoreCase))
+		{
+			return false;
+		}
+
+		ExportTableSelection tableSelection = options.ResolveExportTables();
+		return DumpBackedExportPlan.CanHandle(options, tableSelection);
 	}
 
 	private static int HandleParseErrors(IEnumerable<CommandLine.Error> errors)

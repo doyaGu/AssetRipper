@@ -25,12 +25,10 @@ internal sealed class ScriptSourceIndexBuilder
 	public ScriptSourceIndexBuildResult Build()
 	{
 		string scriptMetadataDir = Path.Combine(_options.OutputPath, "facts", "script_metadata");
-		string assembliesDir = Path.Combine(_options.OutputPath, "facts", "assemblies");
 		string scriptsDir = Path.Combine(_options.OutputPath, "scripts");
 		string astDir = Path.Combine(_options.OutputPath, "ast");
 
 		EnsureRequiredDirectory(scriptMetadataDir, "facts/script_metadata");
-		EnsureRequiredDirectory(assembliesDir, "facts/assemblies");
 		EnsureRequiredDirectory(scriptsDir, "scripts");
 		EnsureRequiredDirectory(astDir, "ast");
 
@@ -104,9 +102,12 @@ internal sealed class ScriptSourceIndexBuilder
 	{
 		Dictionary<string, ScriptInfo> map = new(StringComparer.Ordinal);
 		List<string> duplicates = new();
-		foreach (string shardPath in Directory.EnumerateFiles(scriptMetadataDir, "*.ndjson", SearchOption.AllDirectories))
+		foreach (string shardPath in Directory
+			.EnumerateFiles(scriptMetadataDir, "*.ndjson*", SearchOption.AllDirectories)
+			.OrderBy(static path => path, StringComparer.OrdinalIgnoreCase))
 		{
-			using StreamReader reader = new StreamReader(shardPath, Encoding.UTF8);
+			using Stream stream = ShardReader.OpenShardStream(shardPath);
+			using StreamReader reader = new StreamReader(stream, Encoding.UTF8, detectEncodingFromByteOrderMarks: true);
 			string? line;
 			while ((line = reader.ReadLine()) != null)
 			{

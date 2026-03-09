@@ -1,11 +1,10 @@
 using AssetRipper.Tools.AssetDumper.Core;
+using AssetRipper.Tools.AssetDumper.Exporters.Facts;
 using AssetRipper.Tools.AssetDumper.Helpers;
 using AssetRipper.Tools.AssetDumper.Models.Common;
 using AssetRipper.Tools.AssetDumper.Writers;
-using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Text;
-using ZstdSharp;
 
 namespace AssetRipper.Tools.AssetDumper.Orchestration;
 
@@ -58,7 +57,7 @@ internal sealed class TableResultLoader
 		foreach (string shardPath in shardPaths)
 		{
 			FileInfo fileInfo = new(shardPath);
-			string compression = ResolveCompression(shardPath);
+			string compression = ShardReader.ResolveCompression(shardPath);
 			result.Shards.Add(new ShardDescriptor
 			{
 				Domain = tableId,
@@ -102,16 +101,10 @@ internal sealed class TableResultLoader
 		return count;
 	}
 
-	private static Stream OpenShardStream(string shardPath, string compression)
-	{
-		FileStream fileStream = File.OpenRead(shardPath);
-		return compression.ToLowerInvariant() switch
-		{
-			"gzip" => new GZipStream(fileStream, CompressionMode.Decompress),
-			"zstd" => new DecompressionStream(fileStream),
-			_ => fileStream
-		};
-	}
+	private static Stream OpenShardStream(string shardPath, string compression) =>
+		compression.Equals("none", StringComparison.OrdinalIgnoreCase)
+			? File.OpenRead(shardPath)
+			: ShardReader.OpenShardStream(shardPath);
 
 	private static string ComputeSha256(string filePath)
 	{
