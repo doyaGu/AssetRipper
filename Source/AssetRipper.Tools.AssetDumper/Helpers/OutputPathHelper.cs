@@ -5,6 +5,8 @@ namespace AssetRipper.Tools.AssetDumper.Helpers;
 /// </summary>
 internal static class OutputPathHelper
 {
+	public const string SchemasDirectoryName = "Schemas";
+	public const string SchemaVersionDirectoryName = "v2";
 	public const string FactsDirectoryName = "facts";
 	public const string RelationsDirectoryName = "relations";
 	public const string IndexesDirectoryName = "indexes";
@@ -88,5 +90,44 @@ internal static class OutputPathHelper
 		string absolute = Path.Combine(root, subdirectory);
 		Directory.CreateDirectory(absolute);
 		return absolute;
+	}
+
+	/// <summary>
+	/// Copies bundled JSON schemas into the export output so manifests and validators can resolve them in-place.
+	/// </summary>
+	public static void MaterializeSchemas(string root)
+	{
+		if (string.IsNullOrWhiteSpace(root))
+		{
+			throw new ArgumentException("Root cannot be null or empty", nameof(root));
+		}
+
+		string sourceRoot = Path.Combine(AppContext.BaseDirectory, SchemasDirectoryName, SchemaVersionDirectoryName);
+		if (!Directory.Exists(sourceRoot))
+		{
+			throw new DirectoryNotFoundException($"Bundled schema directory not found: {sourceRoot}");
+		}
+
+		string targetRoot = Path.Combine(root, SchemasDirectoryName, SchemaVersionDirectoryName);
+		Directory.CreateDirectory(targetRoot);
+
+		foreach (string directory in Directory.GetDirectories(sourceRoot, "*", SearchOption.AllDirectories))
+		{
+			string relativePath = Path.GetRelativePath(sourceRoot, directory);
+			Directory.CreateDirectory(Path.Combine(targetRoot, relativePath));
+		}
+
+		foreach (string filePath in Directory.GetFiles(sourceRoot, "*", SearchOption.AllDirectories))
+		{
+			string relativePath = Path.GetRelativePath(sourceRoot, filePath);
+			string destinationPath = Path.Combine(targetRoot, relativePath);
+			string? destinationDirectory = Path.GetDirectoryName(destinationPath);
+			if (!string.IsNullOrEmpty(destinationDirectory))
+			{
+				Directory.CreateDirectory(destinationDirectory);
+			}
+
+			File.Copy(filePath, destinationPath, overwrite: true);
+		}
 	}
 }

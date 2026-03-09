@@ -41,6 +41,25 @@ internal class AssetProcessor
 					Logger.Info($"Input: {_options.InputPath} -> Output: {_options.OutputPath}");
 				}
 
+				ExportPlan exportPlan = ExportPlanSelector.Select(_options);
+				ExportOrchestrator orchestrator = new ExportOrchestrator(_options);
+
+				if (exportPlan is DumpBackedExportPlan dumpBackedPlan)
+				{
+					if (!_options.Silent)
+					{
+						Logger.Info("Using dump-backed export stage.");
+					}
+
+					Directory.CreateDirectory(_options.OutputPath);
+					return await orchestrator.ExecuteDumpBackedAsync(dumpBackedPlan);
+				}
+
+				if (!_options.Silent)
+				{
+					Logger.Info("Using import-backed export stage.");
+				}
+
 				// Load game data
 				GameData gameData = LoadGameData();
 

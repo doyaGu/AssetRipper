@@ -19,44 +19,26 @@ internal class AstGenerator
 	public AstGenerator(Options options)
 	{
 		_options = options;
-		_jsonSettings = new JsonSerializerSettings
-		{
-			ReferenceLoopHandling = ReferenceLoopHandling.Ignore,
-			ContractResolver = new SyntaxNodePropertiesResolver(),
-			Formatting = _options.CompactJson ? Formatting.None : Formatting.Indented,
-			NullValueHandling = _options.IgnoreNullValues ? NullValueHandling.Ignore : NullValueHandling.Include,
-			MaxDepth = 64
-		};
+		_jsonSettings = CreateJsonSettings();
 	}
 
-	public void GenerateAstFromScripts(string scriptsDir, string outputPath, FilterManager filterManager)
+	public AstGenerationReport GenerateAstFromScripts(string scriptsDir, string outputPath)
 	{
 		if (!Directory.Exists(scriptsDir))
 		{
 			Logger.Warning(LogCategory.Export, $"Scripts directory not found: {scriptsDir}");
-			return;
+			return AstGenerationReport.Empty;
 		}
 
 		string astDir = Path.Combine(outputPath, _options.AstOutputFolder);
 
-		// Quick incremental check
-		if (_options.IncrementalProcessing && Directory.Exists(astDir))
-		{
-			var existingAst = Directory.EnumerateFiles(astDir, "*.json", SearchOption.AllDirectories);
-			if (existingAst.Any())
-			{
-				if (!_options.Silent)
-				{
-					Logger.Info(LogCategory.Export, "Skipping AST generation (already exists)");
-				}
-				return;
-			}
-		}
-
 		Directory.CreateDirectory(astDir);
 
-		// Use FilterManager for consistent filtering
-		var scriptFiles = filterManager.GetFilteredFiles(new DirectoryInfo(scriptsDir)).ToList();
+		// AST is an authoritative contract for all decompiled source files under scripts/.
+		var scriptFiles = Directory.EnumerateFiles(scriptsDir, "*.cs", SearchOption.AllDirectories)
+			.Select(path => new FileInfo(path))
+			.OrderBy(file => file.FullName, StringComparer.OrdinalIgnoreCase)
+			.ToList();
 
 		if (!_options.Silent)
 		{
@@ -85,16 +67,9 @@ internal class AstGenerator
 
 		// Start timing
 		var stopwatch = Stopwatch.StartNew();
-		var processed = new ConcurrentBag<string>();
 		var errors = new ConcurrentBag<string>();
-		var skipped = new ConcurrentBag<string>();
 		var totalCompleted = 0;
 		var lockObject = new object();
-
-		int timeoutSeconds = _options.FileTimeoutSeconds;
-		TimeSpan perFileTimeout = timeoutSeconds > 0
-			? TimeSpan.FromSeconds(timeoutSeconds)
-			: System.Threading.Timeout.InfiniteTimeSpan;
 		TimeSpan? overallTimeout = null;
 		CancellationTokenSource? overallTimeoutCts = null;
 		bool cancelled = false;
@@ -108,7 +83,7 @@ internal class AstGenerator
 				parallelOptions.MaxDegreeOfParallelism = _options.ParallelDegree;
 			}
 
-			overallTimeout = CalculateOverallTimeout(scriptFiles.Count, parallelOptions.MaxDegreeOfParallelism, perFileTimeout);
+			overallTimeout = CalculateOverallTimeout(scriptFiles.Count, parallelOptions.MaxDegreeOfParallelism);
 			if (overallTimeout.HasValue)
 			{
 				overallTimeoutCts = new CancellationTokenSource(overallTimeout.Value);
@@ -126,16 +101,11 @@ internal class AstGenerator
 
 				try
 				{
-					// Add timeout for individual file processing
-					var result = ProcessSingleFileWithTimeout(fileInfo.FullName, scriptsDir, astDir, perFileTimeout);
+					var result = ProcessSingleFile(fileInfo.FullName, scriptsDir, astDir, outputPath);
 
 					switch (result.Status)
 					{
 						case ProcessingStatus.Success:
-							processed.Add(fileInfo.FullName);
-							break;
-						case ProcessingStatus.Skipped:
-							skipped.Add($"{relativePath}: {result.Reason}");
 							break;
 						case ProcessingStatus.Error:
 							errors.Add($"{relativePath}: {result.Reason}");
@@ -221,19 +191,18 @@ internal class AstGenerator
 		}
 
 		// Final reporting
-		var processedCount = processed.Count;
-		var skippedCount = skipped.Count;
+		var processedCount = Math.Max(0, totalCompleted - errors.Count);
 		var errorCount = errors.Count;
 		if (cancelled && errorCount == 0)
 		{
 			errorCount = 1;
 		}
-		var actualTotal = processedCount + skippedCount + errorCount;
+		var actualTotal = processedCount + errorCount;
 
 		if (!_options.Silent)
 		{
 			string summary = $"AST generation {(cancelled ? "cancelled" : "completed")} in {stopwatch.Elapsed:mm\\:ss\\.fff}: " +
-				$"{processedCount} successful, {skippedCount} skipped, {errorCount} errors " +
+				$"{processedCount} successful, {errorCount} errors " +
 				$"(total: {actualTotal}/{scriptFiles.Count})";
 			if (cancelled)
 			{
@@ -252,19 +221,6 @@ internal class AstGenerator
 			{
 				var avgTimePerFile = stopwatch.Elapsed.TotalMilliseconds / actualTotal;
 				Logger.Info(LogCategory.Export, $"Average processing time: {avgTimePerFile:F2}ms per file");
-			}
-
-			if (skippedCount > 0)
-			{
-				Logger.Info(LogCategory.Export, $"Skipped files breakdown:");
-				foreach (var skip in skipped.Take(10))
-				{
-					Logger.Info(LogCategory.Export, $"  - {skip}");
-				}
-				if (skippedCount > 10)
-				{
-					Logger.Info(LogCategory.Export, $"  ... and {skippedCount - 10} more skipped");
-				}
 			}
 
 			if (errorCount > 0)
@@ -291,6 +247,8 @@ internal class AstGenerator
 		{
 			Logger.Warning(LogCategory.Export, $"AST generation had {errorCount} errors (use --verbose for details)");
 		}
+
+		return new AstGenerationReport(scriptFiles.Count, processedCount, errors.ToList(), cancelled);
 	}
 
 	public void PreviewAstGeneration(string outputPath, FilterManager filterManager)
@@ -364,68 +322,26 @@ internal class AstGenerator
 		}
 	}
 
-	private ProcessingResult ProcessSingleFileWithTimeout(string filePath, string scriptsDir, string astDir, TimeSpan timeout)
-	{
-		var task = Task.Run(() => ProcessSingleFile(filePath, scriptsDir, astDir));
-
-		try
-		{
-			if (timeout == System.Threading.Timeout.InfiniteTimeSpan)
-			{
-				task.Wait();
-				return task.Result;
-			}
-
-			if (task.Wait(timeout))
-			{
-				return task.Result;
-			}
-			else
-			{
-				// Task timed out
-				string relativePath = Path.GetRelativePath(scriptsDir, filePath);
-				Logger.Warning(LogCategory.Export, $"File processing timed out after {timeout.TotalSeconds}s: {relativePath}");
-				return ProcessingResult.Error($"timeout after {timeout.TotalSeconds}s");
-			}
-		}
-		catch (AggregateException ex)
-		{
-			// Unwrap the inner exception from the task
-			var innerEx = ex.InnerException ?? ex;
-			string relativePath = Path.GetRelativePath(scriptsDir, filePath);
-			Logger.Warning(LogCategory.Export, $"Exception in file processing: {relativePath}: {innerEx.Message}");
-			return ProcessingResult.Error(innerEx.Message);
-		}
-	}
-
-	private ProcessingResult ProcessSingleFile(string filePath, string scriptsDir, string astDir)
+	private ProcessingResult ProcessSingleFile(string filePath, string scriptsDir, string astDir, string outputRoot)
 	{
 		try
 		{
-			// Check incremental
 			string outputPath = GetOutputPath(filePath, scriptsDir, astDir);
-			if (_options.IncrementalProcessing && File.Exists(outputPath) &&
-				File.GetLastWriteTime(outputPath) >= File.GetLastWriteTime(filePath))
-			{
-				return ProcessingResult.Skipped("already up to date");
-			}
 
 			// Safe file reading with encoding detection and fallback
 			string? code = ReadFileWithEncodingFallback(filePath);
 			if (code == null)
 				return ProcessingResult.Error("failed to read file");
 
-			// Content-based filters (FileFilterManager handles file-level filters)
-			if (_options.MinimumLines > 0 && code.Split('\n').Length < _options.MinimumLines)
-				return ProcessingResult.Skipped($"too few lines (<{_options.MinimumLines})");
-
-			if (_options.MaxFileSizeBytes > 0 && Encoding.UTF8.GetByteCount(code) > _options.MaxFileSizeBytes)
-				return ProcessingResult.Skipped($"too large (>{_options.MaxFileSizeBytes} bytes)");
-
-			if (TryGenerateAstForFile(filePath, code, out string json))
+			string canonicalSourcePath = GetCanonicalSourcePath(filePath, outputRoot);
+			if (TryGenerateAstForFile(canonicalSourcePath, code, out string json, out bool hadParseErrors))
 			{
 				Directory.CreateDirectory(Path.GetDirectoryName(outputPath)!);
 				File.WriteAllText(outputPath, json, Encoding.UTF8);
+				if (hadParseErrors)
+				{
+					Logger.Warning(LogCategory.Export, $"Generated AST with parser diagnostics: {canonicalSourcePath}");
+				}
 				return ProcessingResult.Success();
 			}
 			else
@@ -479,22 +395,35 @@ internal class AstGenerator
 		}
 	}
 
-	private bool TryGenerateAstForFile(string filePath, string code, out string json)
+	private bool TryGenerateAstForFile(string canonicalFilePath, string code, out string json, out bool hadParseErrors)
 	{
 		json = "";
+		hadParseErrors = false;
 		try
 		{
 			var tree = CSharpSyntaxTree.ParseText(code);
-			var hasErrors = tree.GetDiagnostics().Any(d => d.Severity == DiagnosticSeverity.Error);
+			hadParseErrors = tree.GetDiagnostics().Any(d => d.Severity == DiagnosticSeverity.Error);
 
-			var wrapper = new AstGenWrapper(filePath, tree);
+			var wrapper = new AstGenWrapper(canonicalFilePath, tree);
 			json = JsonConvert.SerializeObject(wrapper, _jsonSettings);
-			return !hasErrors;
+			return true;
 		}
 		catch
 		{
 			return false;
 		}
+	}
+
+	private static JsonSerializerSettings CreateJsonSettings()
+	{
+		return new JsonSerializerSettings
+		{
+			ReferenceLoopHandling = ReferenceLoopHandling.Ignore,
+			ContractResolver = new SyntaxNodePropertiesResolver(),
+			Formatting = Formatting.Indented,
+			NullValueHandling = NullValueHandling.Ignore,
+			MaxDepth = 64
+		};
 	}
 
 	private string GetOutputPath(string filePath, string scriptsDir, string astDir)
@@ -504,14 +433,15 @@ internal class AstGenerator
 		return Path.Combine(astDir, jsonPath);
 	}
 
-	private static TimeSpan? CalculateOverallTimeout(int fileCount, int requestedParallelism, TimeSpan perFileTimeout)
+	private static string GetCanonicalSourcePath(string filePath, string outputRoot)
+	{
+		string relativePath = Path.GetRelativePath(outputRoot, filePath);
+		return OutputPathHelper.NormalizeRelativePath(relativePath);
+	}
+
+	private static TimeSpan? CalculateOverallTimeout(int fileCount, int requestedParallelism)
 	{
 		if (fileCount == 0)
-		{
-			return null;
-		}
-
-		if (perFileTimeout == System.Threading.Timeout.InfiniteTimeSpan)
 		{
 			return null;
 		}
@@ -519,9 +449,9 @@ internal class AstGenerator
 		int effectiveParallelism = requestedParallelism > 0 ? requestedParallelism : Environment.ProcessorCount;
 		effectiveParallelism = Math.Max(1, effectiveParallelism);
 
-		double perFileSeconds = Math.Max(5.0, perFileTimeout.TotalSeconds);
+		double perFileSeconds = 5.0;
 		double estimatedSeconds = (double)fileCount / effectiveParallelism * perFileSeconds;
-		double bufferSeconds = Math.Max(300.0, perFileSeconds * 2.0);
+		double bufferSeconds = 300.0;
 		double totalSeconds = Math.Max(estimatedSeconds + bufferSeconds, 1800.0);
 
 		return TimeSpan.FromSeconds(totalSeconds);
@@ -530,7 +460,6 @@ internal class AstGenerator
 	private enum ProcessingStatus
 	{
 		Success,
-		Skipped,
 		Error
 	}
 
@@ -540,7 +469,26 @@ internal class AstGenerator
 		public string Reason { get; set; } = "";
 
 		public static ProcessingResult Success() => new() { Status = ProcessingStatus.Success };
-		public static ProcessingResult Skipped(string reason) => new() { Status = ProcessingStatus.Skipped, Reason = reason };
 		public static ProcessingResult Error(string reason) => new() { Status = ProcessingStatus.Error, Reason = reason };
+	}
+}
+
+internal sealed class AstGenerationReport
+{
+	public static AstGenerationReport Empty { get; } = new(0, 0, new List<string>(), cancelled: false);
+
+	public int TotalFiles { get; }
+	public int SuccessCount { get; }
+	public IReadOnlyList<string> Errors { get; }
+	public bool Cancelled { get; }
+	public int FailureCount => Math.Max(0, TotalFiles - SuccessCount);
+	public bool IsCompleteSuccess => !Cancelled && FailureCount == 0;
+
+	public AstGenerationReport(int totalFiles, int successCount, IReadOnlyList<string> errors, bool cancelled)
+	{
+		TotalFiles = totalFiles;
+		SuccessCount = successCount;
+		Errors = errors;
+		Cancelled = cancelled;
 	}
 }

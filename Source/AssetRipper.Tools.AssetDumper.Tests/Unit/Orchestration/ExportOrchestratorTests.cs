@@ -119,5 +119,31 @@ public class ExportOrchestratorTests : IDisposable
 		Directory.Exists(outputPath).Should().BeTrue();
 	}
 
+	[Fact]
+	public void EnsureExportScaffolding_ShouldMaterializeSchemasIntoOutput()
+	{
+		// Arrange
+		var outputPath = Path.Combine(_testOutputPath, "export_with_schemas");
+		var options = new Options
+		{
+			InputPath = "C:\\NonExistentPath",
+			OutputPath = outputPath,
+			Quiet = true,
+			ExportDomains = "facts",
+			FactTables = "assets"
+		};
+		var orchestrator = new ExportOrchestrator(options);
+
+		// Act
+		var ensureMethod = typeof(ExportOrchestrator)
+			.GetMethod("EnsureExportScaffolding", BindingFlags.Instance | BindingFlags.NonPublic);
+		ensureMethod.Should().NotBeNull();
+		ensureMethod!.Invoke(orchestrator, null);
+
+		// Assert
+		File.Exists(Path.Combine(outputPath, "Schemas", "v2", "facts", "assets.schema.json")).Should().BeTrue();
+		File.Exists(Path.Combine(outputPath, "Schemas", "v2", "facts", "scenes.schema.json")).Should().BeTrue();
+	}
+
 	#endregion
 }

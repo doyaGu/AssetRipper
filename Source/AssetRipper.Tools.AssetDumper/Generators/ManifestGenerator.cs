@@ -33,7 +33,8 @@ internal sealed class ManifestGenerator
 	public void GenerateManifest(
 		GameData gameData,
 		IReadOnlyList<DomainExportResult> domainResults,
-		Dictionary<string, ManifestIndex>? indexes = null)
+		Dictionary<string, ManifestIndex>? indexes = null,
+		Manifest? baseline = null)
 	{
 		if (gameData is null)
 		{
@@ -45,253 +46,42 @@ internal sealed class ManifestGenerator
 			throw new ArgumentNullException(nameof(domainResults));
 		}
 
-		Manifest manifest = new()
+		FinalizeAndWriteManifest(CreateProducer(gameData), domainResults, indexes, baseline);
+	}
+
+	public void GenerateManifest(
+		ManifestProducer producer,
+		IReadOnlyList<DomainExportResult> domainResults,
+		Dictionary<string, ManifestIndex>? indexes = null,
+		Manifest? baseline = null)
+	{
+		if (producer is null)
 		{
-			CreatedAt = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ"),
-			Producer = CreateProducer(gameData)
-		};
+			throw new ArgumentNullException(nameof(producer));
+		}
 
-		PopulateFormats(manifest, domainResults, indexes);
-		PopulateTables(manifest, domainResults, indexes);
-		manifest.Statistics = BuildStatistics(manifest);
-		manifest.Metadata = BuildMetadata(domainResults, indexes);
-		manifest.Indexes = indexes != null && indexes.Count > 0
-			? new Dictionary<string, ManifestIndex>(indexes, StringComparer.OrdinalIgnoreCase)
-			: null;
+		if (domainResults is null)
+		{
+			throw new ArgumentNullException(nameof(domainResults));
+		}
 
+		FinalizeAndWriteManifest(producer, domainResults, indexes, baseline);
+	}
+
+	private void FinalizeAndWriteManifest(
+		ManifestProducer producer,
+		IReadOnlyList<DomainExportResult> domainResults,
+		Dictionary<string, ManifestIndex>? indexes,
+		Manifest? baseline)
+	{
+		if (producer is null)
+		{
+			throw new ArgumentNullException(nameof(producer));
+		}
+
+		ManifestAssembler assembler = new ManifestAssembler(_options);
+		Manifest manifest = assembler.Assemble(producer, domainResults, indexes, baseline);
 		WriteManifest(manifest);
-	}
-
-	private static ManifestStatistics? BuildStatistics(Manifest manifest)
-	{
-		if (manifest.Tables.Count == 0)
-		{
-			return null;
-		}
-
-		ManifestStatistics statistics = new()
-		{
-			TotalRecords = manifest.Tables.Values.Sum(static table => table.RecordCount ?? 0),
-			TotalBytes = manifest.Tables.Values.Sum(static table => table.ByteCount ?? 0)
-		};
-
-		foreach ((string tableId, ManifestTable table) in manifest.Tables)
-		{
-			if (table.Statistics != null)
-			{
-				statistics.Tables[tableId] = new ManifestTableStatistics
-				{
-					Records = table.Statistics.Records,
-					Bytes = table.Statistics.Bytes,
-					Shards = table.Statistics.Shards
-				};
-			}
-		}
-
-		return statistics;
-	}
-
-	private Dictionary<string, object> BuildMetadata(
-		IEnumerable<DomainExportResult> domainResults,
-		Dictionary<string, ManifestIndex>? indexes)
-	{
-		Dictionary<string, object> exportOptions = new()
-		{
-			["compression"] = _options.Compression ?? "none",
-			["shardSize"] = _options.ShardSize,
-			["indexEnabled"] = _options.EnableIndex,
-			["minimalOutput"] = _options.MinimalOutput
-		};
-
-		Dictionary<string, object> tableSummary = domainResults
-			.OrderBy(static result => result.TableId, StringComparer.OrdinalIgnoreCase)
-			.ToDictionary(
-				static result => result.TableId,
-				static result => (object)new Dictionary<string, object>
-				{
-					["records"] = result.TotalRecords,
-					["bytes"] = result.TotalBytes,
-					["shards"] = result.Shards.Count
-				},
-				StringComparer.OrdinalIgnoreCase);
-
-		Dictionary<string, object> metadata = new()
-		{
-			["exportOptions"] = exportOptions,
-			["tables"] = tableSummary
-		};
-
-		Dictionary<string, object>? indexSummary = BuildIndexMetadata(indexes);
-		if (indexSummary is not null)
-		{
-			metadata["indexes"] = indexSummary;
-		}
-
-		return metadata;
-	}
-
-	private void PopulateFormats(Manifest manifest, IEnumerable<DomainExportResult> domainResults, Dictionary<string, ManifestIndex>? indexes)
-	{
-		foreach (IGrouping<string, DomainExportResult> group in domainResults
-			.GroupBy(static result => result.Format, StringComparer.OrdinalIgnoreCase))
-		{
-			string format = group.Key;
-			ManifestFormat manifestFormat;
-
-			if (format.Equals("ndjson", StringComparison.OrdinalIgnoreCase))
-			{
-				manifestFormat = new ManifestFormat { Mime = "application/x-ndjson", Extension = ".ndjson" };
-			}
-			else if (format.Equals("json-metrics", StringComparison.OrdinalIgnoreCase))
-			{
-				manifestFormat = new ManifestFormat { Mime = "application/json", Extension = ".json" };
-			}
-			else
-			{
-				manifestFormat = new ManifestFormat { Mime = "application/json" };
-			}
-
-			string? compression = group
-				.SelectMany(static result => result.Shards)
-				.Select(static shard => shard.Compression)
-				.FirstOrDefault(static value => !string.IsNullOrWhiteSpace(value) && !string.Equals(value, "none", StringComparison.OrdinalIgnoreCase));
-
-			if (!string.IsNullOrWhiteSpace(compression))
-			{
-				manifestFormat.Compression = compression;
-			}
-
-			manifest.Formats[format] = manifestFormat;
-		}
-
-		if (indexes != null && indexes.Count > 0)
-		{
-			manifest.Formats["kindex"] = new ManifestFormat
-			{
-				Mime = "application/json",
-				Extension = ".kindex"
-			};
-		}
-	}
-
-	private void PopulateTables(
-		Manifest manifest,
-		IEnumerable<DomainExportResult> domainResults,
-		Dictionary<string, ManifestIndex>? indexes)
-	{
-		foreach (DomainExportResult result in domainResults.OrderBy(static r => r.TableId, StringComparer.OrdinalIgnoreCase))
-		{
-			List<ManifestTableShard>? shardEntries = null;
-			if (result.HasShards)
-			{
-				shardEntries = result.Shards
-					.Select(shard => new ManifestTableShard
-					{
-						Path = OutputPathHelper.NormalizeRelativePath(shard.Shard),
-						Records = shard.Records,
-						Bytes = shard.Bytes,
-						Compression = shard.Compression,
-						UncompressedBytes = shard.UncompressedBytes,
-						FrameSize = shard.FrameSize,
-						FirstKey = shard.FirstKey,
-						LastKey = shard.LastKey,
-						Sha256 = shard.Sha256
-					})
-					.OrderBy(static shard => shard.Path, StringComparer.Ordinal)
-					.ToList();
-			}
-
-			long totalRecords = result.TotalRecords;
-			long totalBytes = result.TotalBytes;
-			bool shouldEmitCounts = result.HasShards || result.RecordCountOverride.HasValue || totalRecords > 0;
-			bool shouldEmitBytes = result.HasShards || result.ByteCountOverride.HasValue || totalBytes > 0;
-
-			ManifestTableStatistics? tableStatistics = null;
-			if (result.HasShards || result.RecordCountOverride.HasValue || result.ByteCountOverride.HasValue)
-			{
-				tableStatistics = new ManifestTableStatistics
-				{
-					Records = totalRecords,
-					Bytes = totalBytes,
-					Shards = shardEntries?.Count ?? 0
-				};
-			}
-
-			ManifestTable table = new()
-			{
-				Schema = result.SchemaPath,
-				Format = result.Format,
-				File = result.EntryFile != null ? OutputPathHelper.NormalizeRelativePath(result.EntryFile) : null,
-				Sharded = result.HasShards,
-				Shards = shardEntries,
-				RecordCount = shouldEmitCounts ? totalRecords : null,
-				ByteCount = shouldEmitBytes ? totalBytes : null,
-				Checksum = result.Checksum,
-				Statistics = tableStatistics
-			};
-
-			if (indexes != null && indexes.ContainsKey(result.Domain))
-			{
-				table.Indexes = new List<string> { result.Domain };
-			}
-
-			manifest.Tables[result.TableId] = table;
-		}
-	}
-
-	private static Dictionary<string, object>? BuildIndexMetadata(Dictionary<string, ManifestIndex>? indexes)
-	{
-		if (indexes is null || indexes.Count == 0)
-		{
-			return null;
-		}
-
-		Dictionary<string, object> domainSummaries = new(StringComparer.OrdinalIgnoreCase);
-		foreach ((string domain, ManifestIndex index) in indexes)
-		{
-			Dictionary<string, object> summary = new(StringComparer.OrdinalIgnoreCase)
-			{
-				["path"] = index.Path,
-				["type"] = index.Type
-			};
-
-			if (!string.IsNullOrWhiteSpace(index.Format))
-			{
-				summary["format"] = index.Format!;
-			}
-
-			if (index.RecordCount.HasValue)
-			{
-				summary["records"] = index.RecordCount.Value;
-			}
-
-			if (index.Checksum is not null)
-			{
-				summary["checksum"] = new Dictionary<string, object>
-				{
-					["algo"] = index.Checksum.Algorithm,
-					["value"] = index.Checksum.Value
-				};
-			}
-
-			if (!string.IsNullOrWhiteSpace(index.CreatedAt))
-			{
-				summary["createdAt"] = index.CreatedAt!;
-			}
-
-			if (index.Metadata is not null && index.Metadata.Count > 0)
-			{
-				summary["metadata"] = index.Metadata;
-			}
-
-			domainSummaries[domain] = summary;
-		}
-
-		return new Dictionary<string, object>
-		{
-			["count"] = indexes.Count,
-			["domains"] = domainSummaries
-		};
 	}
 
 	private ManifestProducer CreateProducer(GameData gameData)

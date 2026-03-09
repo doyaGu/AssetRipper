@@ -26,7 +26,7 @@ public static class SchemaConstants
 	public const string TypesSchemaId = "facts/types.schema.json";
 	public const string BundlesSchemaId = "facts/bundles.schema.json";
 	public const string ScenesSchemaId = "facts/scenes.schema.json";
-	public const string ScriptsSchemaId = "facts/scripts.schema.json";
+	public const string ScriptsSchemaId = "facts/script_metadata.schema.json";
 
 	// Relations schema identifiers
 	public const string DependenciesSchemaId = "relations/asset_dependencies.schema.json";

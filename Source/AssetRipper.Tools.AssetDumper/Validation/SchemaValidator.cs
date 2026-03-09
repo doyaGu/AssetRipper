@@ -22,14 +22,12 @@ namespace AssetRipper.Tools.AssetDumper.Validation;
 /// </summary>
 public sealed class SchemaValidator
 {
-    private static readonly ConcurrentDictionary<string, JsonSchema> SchemaFileCache = new(StringComparer.OrdinalIgnoreCase);
-
     private readonly Options _options;
     private readonly ValidationContext _validationContext;
     private readonly EvaluationOptions _evaluationOptions;
     private readonly ConcurrentBag<Validation.Models.ValidationError> _validationErrors;
     private readonly Dictionary<string, JsonSchema> _loadedSchemas;
-    private readonly Dictionary<string, List<JsonNode>> _loadedData;
+    private readonly Dictionary<string, List<LoadedRecord>> _loadedData;
 
     // Unity-specific validation rules
     private static readonly Dictionary<int, string> UnityClassIdNames = new()
@@ -68,12 +66,12 @@ public sealed class SchemaValidator
         _validationContext = new ValidationContext();
         _validationErrors = new ConcurrentBag<Validation.Models.ValidationError>();
         _loadedSchemas = new Dictionary<string, JsonSchema>();
-        _loadedData = new Dictionary<string, List<JsonNode>>();
+        _loadedData = new Dictionary<string, List<LoadedRecord>>();
         
         _evaluationOptions = new EvaluationOptions
         {
-            OutputFormat = OutputFormat.Flag,
-            RequireFormatValidation = false
+            OutputFormat = OutputFormat.List,
+            RequireFormatValidation = true
         };
 
         // JsonSchema.Net resolves $ref via the registry. Our v2 schemas often carry hosted $id values
@@ -81,6 +79,13 @@ public sealed class SchemaValidator
         // against the on-disk schema files. Provide a deterministic fetch that maps hosted URIs to
         // local paths so evaluation doesn't throw on unresolved refs.
         SchemaRegistry.Global.Fetch = FetchSchemaDocument;
+    }
+
+    private sealed class LoadedRecord
+    {
+        public required JsonNode Node { get; init; }
+        public required string FilePath { get; init; }
+        public required long LineNumber { get; init; }
     }
 
     private Json.Schema.IBaseDocument? FetchSchemaDocument(Uri uri, SchemaRegistry _)
@@ -93,7 +98,7 @@ public sealed class SchemaValidator
             var filePath = documentUri.LocalPath;
             if (File.Exists(filePath))
             {
-                return JsonSchema.FromFile(filePath);
+                return SchemaLoadHelper.LoadFromFile(filePath);
             }
         }
 
@@ -106,7 +111,7 @@ public sealed class SchemaValidator
             var fullPath = ResolveSchemaPath(schemaPath);
             if (fullPath != null && File.Exists(fullPath))
             {
-                return JsonSchema.FromFile(fullPath);
+                return SchemaLoadHelper.LoadFromFile(fullPath);
             }
         }
 
@@ -201,7 +206,7 @@ public sealed class SchemaValidator
                     // JsonSchema.Net builds schemas into the global registry and registers anchors.
                     // Loading the same schema multiple times in one process can throw (duplicate anchors / overwriting).
                     // Cache by absolute file path to make schema loading idempotent across many validator instances.
-                    var schema = SchemaFileCache.GetOrAdd(fullPath, static path => JsonSchema.FromFile(path));
+                    var schema = SchemaLoadHelper.LoadFromFile(fullPath);
                     _loadedSchemas[schemaPath] = schema;
 
                     // Ensure $ref resolution works when schemas reference the canonical hosted IDs
@@ -245,7 +250,7 @@ public sealed class SchemaValidator
                 Logger.Error($"Failed to load schema {schemaPath}: {ex.Message}");
 
                 AddValidationError(
-                    tableId: "schemas",
+                    tableIdOrDomain: "schemas",
                     filePath: schemaPath,
                     lineNumber: 0,
                     errorType: ValidationErrorType.Structural,
@@ -267,7 +272,7 @@ public sealed class SchemaValidator
             string cwdCandidate = Path.Combine(Environment.CurrentDirectory, probe);
 
             AddValidationError(
-                tableId: "schemas",
+                tableIdOrDomain: "schemas",
                 filePath: "",
                 lineNumber: 0,
                 errorType: ValidationErrorType.Structural,
@@ -285,7 +290,7 @@ public sealed class SchemaValidator
         {
             if (string.Equals(result.Format, "ndjson", StringComparison.OrdinalIgnoreCase))
             {
-                var dataList = new List<JsonNode>();
+                var dataList = new List<LoadedRecord>();
 
                 if (result.HasShards)
                 {
@@ -308,7 +313,7 @@ public sealed class SchemaValidator
     /// <summary>
     /// Loads data from a single NDJSON file.
     /// </summary>
-    private async Task LoadDataFromFileAsync(string filePath, string? compression, List<JsonNode> dataList)
+    private async Task LoadDataFromFileAsync(string filePath, string? compression, List<LoadedRecord> dataList)
     {
         var absolutePath = OutputPathHelper.ResolveAbsolutePath(_options.OutputPath, filePath);
         
@@ -326,8 +331,11 @@ public sealed class SchemaValidator
             using (reader)
             {
                 string? line;
+                long lineNumber = 0;
                 while ((line = await reader.ReadLineAsync()) != null)
                 {
+                    lineNumber++;
+
                     if (string.IsNullOrWhiteSpace(line))
                         continue;
 
@@ -335,7 +343,14 @@ public sealed class SchemaValidator
                     {
                         var node = JsonNode.Parse(line);
                         if (node != null)
-                            dataList.Add(node);
+                        {
+                            dataList.Add(new LoadedRecord
+                            {
+                                Node = node,
+                                FilePath = filePath,
+                                LineNumber = lineNumber
+                            });
+                        }
                     }
                     catch (Exception ex)
                     {
@@ -383,21 +398,22 @@ public sealed class SchemaValidator
 
             for (int i = 0; i < data.Count; i++)
             {
-                var node = data[i];
-                var lineNumber = i + 1;
+                var record = data[i];
+                var node = record.Node;
+                var lineNumber = record.LineNumber;
 
                 // Basic schema validation
                 EvaluationResults evaluation;
                 try
-                    {
-                        // JsonSchema.Net evaluation is most reliable with JsonElement input.
-                        // Some JsonNode-based evaluations can throw conversion exceptions.
-                        JsonElement element = JsonSerializer.SerializeToElement(node);
-                        evaluation = schema.Evaluate(element, _evaluationOptions);
+                {
+                    // JsonSchema.Net evaluation is most reliable with JsonElement input.
+                    // Some JsonNode-based evaluations can throw conversion exceptions.
+                    JsonElement element = JsonSerializer.SerializeToElement(node);
+                    evaluation = schema.Evaluate(element, _evaluationOptions);
                 }
                 catch (Exception ex)
                 {
-                    AddValidationError(result.Domain, result.EntryFile ?? string.Empty, lineNumber,
+                    AddValidationError(result.TableId, record.FilePath, lineNumber,
                         ValidationErrorType.Structural,
                         "Schema evaluation threw an exception",
                         ex.ToString());
@@ -406,14 +422,14 @@ public sealed class SchemaValidator
 
                 if (!evaluation.IsValid)
                 {
-                    AddValidationError(result.Domain, result.EntryFile ?? string.Empty, lineNumber,
+                    AddValidationError(result.TableId, record.FilePath, lineNumber,
                         ValidationErrorType.Structural,
                         "Schema validation failed",
                         GetSchemaErrorDetails(evaluation));
                 }
 
                 // Additional structural checks
-                await ValidateStructureAsync(result.Domain, node, lineNumber);
+                await ValidateStructureAsync(result.Domain, node, lineNumber, record.FilePath);
             }
         }
     }
@@ -430,10 +446,11 @@ public sealed class SchemaValidator
 
             for (int i = 0; i < data.Count; i++)
             {
-                var node = data[i];
-                var lineNumber = i + 1;
+                var record = data[i];
+                var node = record.Node;
+                var lineNumber = record.LineNumber;
 
-                await ValidateDataTypesAsync(result.Domain, node, lineNumber);
+                await ValidateDataTypesAsync(result.Domain, node, lineNumber, record.FilePath);
             }
         }
     }
@@ -453,10 +470,11 @@ public sealed class SchemaValidator
 
             for (int i = 0; i < data.Count; i++)
             {
-                var node = data[i];
-                var lineNumber = i + 1;
+                var record = data[i];
+                var node = record.Node;
+                var lineNumber = record.LineNumber;
 
-                await ValidateConstraintsAsync(result.Domain, node, schema, lineNumber);
+                await ValidateConstraintsAsync(result.Domain, node, schema, lineNumber, record.FilePath);
             }
         }
     }
@@ -473,10 +491,11 @@ public sealed class SchemaValidator
 
             for (int i = 0; i < data.Count; i++)
             {
-                var node = data[i];
-                var lineNumber = i + 1;
+                var record = data[i];
+                var node = record.Node;
+                var lineNumber = record.LineNumber;
 
-                await ValidateConditionalLogicAsync(result.Domain, node, lineNumber);
+                await ValidateConditionalLogicAsync(result.Domain, node, lineNumber, record.FilePath);
             }
         }
     }
@@ -511,10 +530,11 @@ public sealed class SchemaValidator
 
             for (int i = 0; i < data.Count; i++)
             {
-                var node = data[i];
-                var lineNumber = i + 1;
+                var record = data[i];
+                var node = record.Node;
+                var lineNumber = record.LineNumber;
 
-                await ValidateUnitySpecificRulesAsync(result.Domain, node, lineNumber);
+                await ValidateUnitySpecificRulesAsync(result.Domain, node, lineNumber, record.FilePath);
             }
         }
     }
@@ -635,20 +655,69 @@ public sealed class SchemaValidator
     /// <summary>
     /// Adds a validation error to the error collection.
     /// </summary>
-    private void AddValidationError(string tableId, string filePath, long lineNumber,
+    private void AddValidationError(string tableIdOrDomain, string filePath, long lineNumber,
         ValidationErrorType errorType, string message, string? details = null)
     {
+        string normalizedTableId = NormalizeTableId(tableIdOrDomain);
+
         var error = new Validation.Models.ValidationError
         {
-            TableId = tableId,
+            Domain = ExtractDomain(normalizedTableId),
+            TableId = normalizedTableId,
             FilePath = filePath,
             LineNumber = lineNumber,
             ErrorType = errorType,
             Message = message,
-            RuleDescription = details ?? message
+            RuleDescription = string.IsNullOrWhiteSpace(details) ? message : details,
+            Category = errorType.ToString(),
+            Details = string.IsNullOrWhiteSpace(details)
+                ? new Dictionary<string, object>()
+                : new Dictionary<string, object> { ["details"] = details }
         };
 
         _validationErrors.Add(error);
+    }
+
+    private static string NormalizeTableId(string tableIdOrDomain)
+    {
+        if (string.IsNullOrWhiteSpace(tableIdOrDomain))
+            return string.Empty;
+
+        if (tableIdOrDomain.Contains('/'))
+            return tableIdOrDomain;
+
+        return tableIdOrDomain switch
+        {
+            "assets" => "facts/assets",
+            "assemblies" => "facts/assemblies",
+            "bundles" => "facts/bundles",
+            "collections" => "facts/collections",
+            "scenes" => "facts/scenes",
+            "script_metadata" => "facts/script_metadata",
+            "script_sources" => "facts/script_sources",
+            "type_definitions" => "facts/type_definitions",
+            "type_members" => "facts/type_members",
+            "types" => "facts/types",
+            "asset_dependencies" => "relations/asset_dependencies",
+            "assembly_dependencies" => "relations/assembly_dependencies",
+            "bundle_hierarchy" => "relations/bundle_hierarchy",
+            "collection_dependencies" => "relations/collection_dependencies",
+            "script_type_mapping" => "relations/script_type_mapping",
+            "type_inheritance" => "relations/type_inheritance",
+            "by_class" => "indexes/by_class",
+            "by_collection" => "indexes/by_collection",
+            "by_name" => "indexes/by_name",
+            "asset_distribution" => "metrics/asset_distribution",
+            "dependency_stats" => "metrics/dependency_stats",
+            "scene_stats" => "metrics/scene_stats",
+            _ => tableIdOrDomain
+        };
+    }
+
+    private static string ExtractDomain(string normalizedTableId)
+    {
+        int separatorIndex = normalizedTableId.IndexOf('/');
+        return separatorIndex > 0 ? normalizedTableId[(separatorIndex + 1)..] : normalizedTableId;
     }
 
     /// <summary>
@@ -656,19 +725,37 @@ public sealed class SchemaValidator
     /// </summary>
     private string GetSchemaErrorDetails(EvaluationResults evaluation)
     {
-        var details = new List<string>();
-        
+        List<string> details = new();
+        CollectSchemaErrorDetails(evaluation, details);
+        return string.Join("; ", details.Distinct(StringComparer.Ordinal));
+    }
+
+    private static void CollectSchemaErrorDetails(EvaluationResults evaluation, List<string> details)
+    {
         if (evaluation.Errors?.Any() == true)
         {
-            details.AddRange(evaluation.Errors.Select(e => e.ToString() ?? string.Empty).Where(s => !string.IsNullOrWhiteSpace(s)));
+            foreach (var error in evaluation.Errors)
+            {
+                string detail = $"{evaluation.InstanceLocation} -> {evaluation.SchemaLocation}: {error.Value}";
+                if (!string.IsNullOrWhiteSpace(detail))
+                {
+                    details.Add(detail);
+                }
+            }
         }
 
-        if (evaluation.Details?.Any() == true)
+        if (evaluation.Details?.Any() != true)
         {
-            details.AddRange(evaluation.Details.Select(d => d.ToString() ?? string.Empty).Where(s => !string.IsNullOrWhiteSpace(s)));
+            return;
         }
 
-        return string.Join("; ", details);
+        foreach (var child in evaluation.Details)
+        {
+            if (!child.IsValid)
+            {
+                CollectSchemaErrorDetails(child, details);
+            }
+        }
     }
 
     #endregion
@@ -682,8 +769,9 @@ public sealed class SchemaValidator
     {
         if (_loadedData.TryGetValue("assets", out var assetData))
         {
-            foreach (var node in assetData)
+            foreach (var record in assetData)
             {
+                var node = record.Node;
                 var pk = node["pk"]?.AsObject();
                 var collectionId = pk?["collectionId"]?.GetValue<string>();
                 var pathId = pk?["pathId"]?.GetValue<long>();
@@ -721,8 +809,9 @@ public sealed class SchemaValidator
     {
         if (_loadedData.TryGetValue("types", out var typeData))
         {
-            foreach (var node in typeData)
+            foreach (var record in typeData)
             {
+                var node = record.Node;
                 var classKey = node["classKey"]?.GetValue<int>();
                 var classId = node["classId"]?.GetValue<int>();
                 var className = node["className"]?.GetValue<string>();
@@ -754,8 +843,9 @@ public sealed class SchemaValidator
     {
         if (_loadedData.TryGetValue("asset_dependencies", out var depData))
         {
-            foreach (var node in depData)
+            foreach (var record in depData)
             {
+                var node = record.Node;
                 var from = node["from"]?.AsObject();
                 var to = node["to"]?.AsObject();
                 var edge = node["edge"]?.AsObject();
@@ -815,7 +905,7 @@ public sealed class SchemaValidator
     /// <summary>
     /// Validates structure beyond basic schema validation.
     /// </summary>
-    private async Task ValidateStructureAsync(string tableId, JsonNode node, long lineNumber)
+    private async Task ValidateStructureAsync(string tableId, JsonNode node, long lineNumber, string filePath)
     {
         // Check for unexpected fields
         var obj = node.AsObject();
@@ -825,7 +915,7 @@ public sealed class SchemaValidator
             {
                 if (IsUnexpectedField(tableId, property.Key))
                 {
-                    AddValidationError(tableId, "", lineNumber, ValidationErrorType.UnexpectedField,
+                    AddValidationError(tableId, filePath, lineNumber, ValidationErrorType.UnexpectedField,
                         $"Unexpected field '{property.Key}' found in {tableId} table");
                 }
             }
@@ -837,21 +927,21 @@ public sealed class SchemaValidator
     /// <summary>
     /// Validates data types with enhanced checking.
     /// </summary>
-    private async Task ValidateDataTypesAsync(string tableId, JsonNode node, long lineNumber)
+    private async Task ValidateDataTypesAsync(string tableId, JsonNode node, long lineNumber, string filePath)
     {
         var obj = node.AsObject();
         if (obj == null) return;
 
         foreach (var property in obj)
         {
-            await ValidateFieldDataType(tableId, property.Key, property.Value, lineNumber);
+            await ValidateFieldDataType(tableId, property.Key, property.Value, lineNumber, filePath);
         }
     }
 
     /// <summary>
     /// Validates constraints like patterns, ranges, and lengths.
     /// </summary>
-    private async Task ValidateConstraintsAsync(string tableId, JsonNode node, JsonSchema schema, long lineNumber)
+    private async Task ValidateConstraintsAsync(string tableId, JsonNode node, JsonSchema schema, long lineNumber, string filePath)
     {
         var obj = node.AsObject();
         if (obj == null) return;
@@ -869,7 +959,7 @@ public sealed class SchemaValidator
 
             if (collectionId != null && !Regex.IsMatch(collectionId, @"^[A-Za-z0-9:._-]{2,}$"))
         {
-            AddValidationError(tableId, "", lineNumber, ValidationErrorType.Pattern,
+            AddValidationError(tableId, filePath, lineNumber, ValidationErrorType.Pattern,
                 $"CollectionID '{collectionId}' does not match required pattern");
         }
 
@@ -879,7 +969,7 @@ public sealed class SchemaValidator
             var sceneGuid = obj["sceneGuid"]?.GetValue<string>();
             if (sceneGuid != null && !Regex.IsMatch(sceneGuid, @"^([0-9A-Fa-f]{32}|[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12})$"))
             {
-                AddValidationError(tableId, "", lineNumber, ValidationErrorType.Pattern,
+                AddValidationError(tableId, filePath, lineNumber, ValidationErrorType.Pattern,
                     $"Scene GUID '{sceneGuid}' does not match required pattern");
             }
         }
@@ -890,7 +980,7 @@ public sealed class SchemaValidator
     /// <summary>
     /// Validates conditional logic and field dependencies.
     /// </summary>
-    private async Task ValidateConditionalLogicAsync(string tableId, JsonNode node, long lineNumber)
+    private async Task ValidateConditionalLogicAsync(string tableId, JsonNode node, long lineNumber, string filePath)
     {
         var obj = node.AsObject();
         if (obj == null) return;
@@ -902,10 +992,10 @@ public sealed class SchemaValidator
             if (classId == 114) // MonoBehaviour
             {
                 var scriptTypeIndex = obj["unity"]?["scriptTypeIndex"]?.GetValue<int>();
-                if (!scriptTypeIndex.HasValue || scriptTypeIndex.Value < 0)
+                if (scriptTypeIndex.HasValue && scriptTypeIndex.Value < 0)
                 {
-                    AddValidationError(tableId, "", lineNumber, ValidationErrorType.Conditional,
-                        "MonoBehaviour assets must have a valid scriptTypeIndex >= 0");
+                    AddValidationError(tableId, filePath, lineNumber, ValidationErrorType.Conditional,
+                        "MonoBehaviour assets must not use a negative scriptTypeIndex");
                 }
             }
         }
@@ -937,12 +1027,13 @@ public sealed class SchemaValidator
     {
         if (_loadedData.TryGetValue("assets", out var assetData))
         {
-            foreach (var node in assetData)
+            foreach (var record in assetData)
             {
+                var node = record.Node;
                 var classKey = node["classKey"]?.GetValue<int>();
                 if (classKey.HasValue && !_validationContext.TypeReferences.ContainsKey(classKey.Value))
                 {
-                    AddValidationError("assets", "", 0, ValidationErrorType.Reference,
+                    AddValidationError("assets", record.FilePath, record.LineNumber, ValidationErrorType.Reference,
                         $"Reference to non-existent type with classKey: {classKey.Value}");
                 }
             }
@@ -980,8 +1071,9 @@ public sealed class SchemaValidator
         // Validate by_class index consistency
         if (_loadedData.TryGetValue("by_class", out var indexData))
         {
-            foreach (var indexNode in indexData)
+            foreach (var indexRecord in indexData)
             {
+                var indexNode = indexRecord.Node;
                 var classKey = indexNode["classKey"]?.GetValue<int>();
                 var assetsArray = indexNode["assets"]?.AsArray();
                 var count = indexNode["count"]?.GetValue<int>();
@@ -990,7 +1082,7 @@ public sealed class SchemaValidator
                 {
                     if (assetsArray.Count != count.Value)
                     {
-                        AddValidationError("by_class", "", 0, ValidationErrorType.Structural,
+                        AddValidationError("by_class", indexRecord.FilePath, indexRecord.LineNumber, ValidationErrorType.Structural,
                             $"Index count mismatch for classKey {classKey.Value}: expected {count.Value}, found {assetsArray.Count}");
                     }
 
@@ -1007,7 +1099,7 @@ public sealed class SchemaValidator
                             var assetPk = $"{collectionId}:{pathId.Value}";
                             if (!_validationContext.AssetReferences.ContainsKey(assetPk))
                             {
-                                AddValidationError("by_class", "", 0, ValidationErrorType.Reference,
+                                AddValidationError("by_class", indexRecord.FilePath, indexRecord.LineNumber, ValidationErrorType.Reference,
                                     $"Index references non-existent asset: {assetPk}");
                             }
                         }
@@ -1022,14 +1114,14 @@ public sealed class SchemaValidator
     /// <summary>
     /// Validates Unity-specific rules and constraints.
     /// </summary>
-    private async Task ValidateUnitySpecificRulesAsync(string tableId, JsonNode node, long lineNumber)
+    private async Task ValidateUnitySpecificRulesAsync(string tableId, JsonNode node, long lineNumber, string filePath)
     {
         var obj = node.AsObject();
         if (obj == null) return;
 
         if (tableId == "assets")
         {
-            await ValidateAssetUnityRules(obj, lineNumber);
+            await ValidateAssetUnityRules(obj, lineNumber, filePath);
         }
 
         await Task.CompletedTask;
@@ -1038,7 +1130,7 @@ public sealed class SchemaValidator
     /// <summary>
     /// Validates Unity-specific rules for assets.
     /// </summary>
-    private async Task ValidateAssetUnityRules(JsonObject obj, long lineNumber)
+    private async Task ValidateAssetUnityRules(JsonObject obj, long lineNumber, string filePath)
     {
         var unityObj = obj["unity"]?.AsObject();
         if (unityObj == null) return;
@@ -1050,7 +1142,7 @@ public sealed class SchemaValidator
         var dataObj = obj["data"]?.AsObject();
         if (dataObj != null && dataObj.ContainsKey("content") && (dataObj.ContainsKey("byteStart") || dataObj.ContainsKey("byteSize")))
         {
-            AddValidationError("assets", "", lineNumber, ValidationErrorType.Structural,
+            AddValidationError("assets", filePath, lineNumber, ValidationErrorType.Structural,
                 "Asset 'data' uses legacy container structure (byteStart/byteSize/content); expected raw payload in 'data' with byteStart/byteSize at root");
         }
 
@@ -1062,7 +1154,7 @@ public sealed class SchemaValidator
             {
                 if (!dataObj.ContainsKey(requiredField))
                 {
-                    AddValidationError("assets", "", lineNumber, ValidationErrorType.MissingRequired,
+                    AddValidationError("assets", filePath, lineNumber, ValidationErrorType.MissingRequired,
                         $"Unity class {classId.Value} ({GetUnityClassName(classId.Value)}) is missing required payload field: {requiredField}");
                 }
             }
@@ -1071,7 +1163,7 @@ public sealed class SchemaValidator
         // Validate MonoBehaviour specific rules
         if (classId.Value == 114)
         {
-            await ValidateMonoBehaviourRules(obj, lineNumber);
+            await ValidateMonoBehaviourRules(obj, lineNumber, filePath);
         }
 
         await Task.CompletedTask;
@@ -1080,7 +1172,7 @@ public sealed class SchemaValidator
     /// <summary>
     /// Validates MonoBehaviour specific rules.
     /// </summary>
-    private async Task ValidateMonoBehaviourRules(JsonObject obj, long lineNumber)
+    private async Task ValidateMonoBehaviourRules(JsonObject obj, long lineNumber, string filePath)
     {
         var scriptTypeIndex = obj["unity"]?["scriptTypeIndex"]?.GetValue<int>();
         if (scriptTypeIndex.HasValue && scriptTypeIndex.Value >= 0)
@@ -1088,7 +1180,7 @@ public sealed class SchemaValidator
             // Verify script type exists in types table
             if (!_validationContext.TypeReferences.Any(t => t.Value.ScriptTypeIndex == scriptTypeIndex.Value))
             {
-                AddValidationError("assets", "", lineNumber, ValidationErrorType.Reference,
+                AddValidationError("assets", filePath, lineNumber, ValidationErrorType.Reference,
                     $"MonoBehaviour references non-existent script type index: {scriptTypeIndex.Value}");
             }
         }
@@ -1156,7 +1248,7 @@ public sealed class SchemaValidator
     /// <summary>
     /// Validates data type for a specific field.
     /// </summary>
-    private async Task ValidateFieldDataType(string tableId, string fieldName, JsonNode? value, long lineNumber)
+    private async Task ValidateFieldDataType(string tableId, string fieldName, JsonNode? value, long lineNumber, string filePath)
     {
         if (value == null) return;
 
@@ -1166,7 +1258,7 @@ public sealed class SchemaValidator
         var actualType = GetJsonNodeType(value);
         if (!IsCompatibleType(expectedType, actualType))
         {
-            AddValidationError(tableId, "", lineNumber, ValidationErrorType.DataType,
+            AddValidationError(tableId, filePath, lineNumber, ValidationErrorType.DataType,
                 $"Field '{fieldName}' has incorrect type: expected {expectedType}, got {actualType}");
         }
 

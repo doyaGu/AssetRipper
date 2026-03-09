@@ -103,12 +103,15 @@ internal sealed class ScriptCodeExportPipeline
 			Logger.Info("Linking script sources...");
 		}
 
+		ScriptSourceIndexBuilder builder = new ScriptSourceIndexBuilder(_context.Options);
+		ScriptSourceIndexBuildResult buildResult = builder.Build();
+
 		ScriptSourceExporter exporter = new ScriptSourceExporter(
 			_context.Options,
 			_context.CompressionKind,
 			_context.EnableIndex);
 
-		DomainExportResult result = exporter.ExportSources(_context.GameData);
+		DomainExportResult result = exporter.ExportSources(buildResult);
 		_context.AddResult(result, ExportPipelineOwner.ScriptCode);
 	}
 

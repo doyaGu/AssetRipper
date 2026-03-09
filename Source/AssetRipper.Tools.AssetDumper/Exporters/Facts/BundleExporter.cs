@@ -33,8 +33,7 @@ internal sealed class BundleExporter
 		_jsonSettings = new JsonSerializerSettings
 		{
 			Formatting = Formatting.None,
-			NullValueHandling = NullValueHandling.Ignore,
-			DefaultValueHandling = DefaultValueHandling.Ignore
+			NullValueHandling = NullValueHandling.Ignore
 		};
 	}
 
@@ -57,7 +56,7 @@ internal sealed class BundleExporter
 			}
 
 			return new DomainExportResult(
-				domain: "bundleMetadata",
+				domain: "bundles",
 				tableId: "facts/bundles",
 				schemaPath: "Schemas/v2/facts/bundles.schema.json");
 		}
@@ -77,7 +76,7 @@ internal sealed class BundleExporter
 		long maxBytesPerShard = 25 * 1024 * 1024;
 
 		DomainExportResult result = new(
-			domain: "bundleMetadata",
+			domain: "bundles",
 			tableId: "facts/bundles",
 			schemaPath: "Schemas/v2/facts/bundles.schema.json");
 
@@ -146,7 +145,7 @@ internal sealed class BundleExporter
 		List<SceneRefRecord>? sceneRecords = BuildSceneRecords(bundle);
 
 		// New: Collect child bundle information
-		List<string>? childBundlePks = null;
+		List<string> childBundlePks = new();
 		List<string>? childBundleNames = null;
 		if (bundle.Bundles.Count > 0)
 		{

@@ -117,13 +117,13 @@ public class GRISIntegrationTests
 		Assert.True(options.ExportScriptMetadata);
 
 		// Verify script facts table
-		string scriptsPath = Path.Combine(_outputPath, "facts", "scripts");
-		Assert.True(Directory.Exists(scriptsPath), "scripts table should exist");
+		string scriptsPath = Path.Combine(_outputPath, "facts", "script_metadata");
+		Assert.True(Directory.Exists(scriptsPath), "script_metadata table should exist");
 
 		// Verify manifest includes scripts table
 		string manifestPath = Path.Combine(_outputPath, "manifest.json");
 		string manifestContent = File.ReadAllText(manifestPath);
-		Assert.Contains("\"facts/scripts\"", manifestContent);
+		Assert.Contains("\"facts/script_metadata\"", manifestContent);
 	}
 
 	[Fact(Skip = "Integration test - requires GRIS sample")]
@@ -145,7 +145,7 @@ public class GRISIntegrationTests
 		Assert.True(options.ExportScriptMetadata);
 
 		// Verify custom scripts are exported
-		string scriptsPath = Path.Combine(_outputPath, "facts", "scripts");
+		string scriptsPath = Path.Combine(_outputPath, "facts", "script_metadata");
 		var scriptFiles = Directory.GetFiles(scriptsPath, "*.ndjson", SearchOption.AllDirectories);
 
 		bool hasCustomScripts = false;
@@ -239,7 +239,7 @@ public class GRISIntegrationTests
 		// Verify key tables exist
 		Assert.Contains("\"facts/assets\"", manifestJson);
 		Assert.Contains("\"facts/dependencies\"", manifestJson);
-		Assert.Contains("\"facts/scripts\"", manifestJson);
+		Assert.Contains("\"facts/script_metadata\"", manifestJson);
 
 		// Verify metrics tables are registered
 		Assert.Contains("\"metrics/scene_stats\"", manifestJson);

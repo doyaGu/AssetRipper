@@ -41,7 +41,7 @@ public sealed class TypeExporter
 			.ToList();
 
 		DomainExportResult result = new DomainExportResult(
-			"assets",
+			"types",
 			"facts/types",
 			"Schemas/v2/facts/types.schema.json");
 

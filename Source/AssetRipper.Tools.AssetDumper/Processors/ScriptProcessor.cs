@@ -88,7 +88,13 @@ internal class ScriptProcessor
 
 				string scriptsRoot = Path.Combine(_options.OutputPath, "scripts");
 				AstGenerator generator = new AstGenerator(_options);
-				generator.GenerateAstFromScripts(scriptsRoot, _options.OutputPath, _filterManager);
+				AstGenerationReport report = generator.GenerateAstFromScripts(scriptsRoot, _options.OutputPath);
+				if (!report.IsCompleteSuccess)
+				{
+					string summary =
+						$"Authoritative AST generation failed: {report.SuccessCount}/{report.TotalFiles} succeeded, {report.FailureCount} failed";
+					throw new InvalidOperationException(summary);
+				}
 			}
 		}
 		finally

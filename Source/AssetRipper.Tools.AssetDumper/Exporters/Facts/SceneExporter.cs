@@ -31,8 +31,7 @@ internal class SceneExporter
 		_jsonSettings = new JsonSerializerSettings
 		{
 			Formatting = Formatting.None,
-			NullValueHandling = NullValueHandling.Ignore,
-			DefaultValueHandling = DefaultValueHandling.Ignore
+			NullValueHandling = NullValueHandling.Ignore
 		};
 		_compressionKind = compressionKind;
 		_enableIndex = enableIndex;
@@ -171,7 +170,7 @@ internal class SceneExporter
 			PrimaryCollectionId = primaryCollectionId,
 			Bundle = primaryCollection.Bundle != null ? BuildBundleRef(primaryCollection.Bundle) : null,
 			CollectionDetails = scene.Collections
-				.Select((c, index) => CreateSceneCollectionDetail(c, index == 0))
+				.Select(c => CreateSceneCollectionDetail(c, primaryCollectionId))
 				.ToList(),
 
 			Hierarchy = hierarchyRef,
@@ -228,7 +227,7 @@ internal class SceneExporter
 	private SceneCollectionDescriptor CreateSceneCollectionDescriptor(AssetCollection collection, string primaryCollectionId)
 	{
 		string collectionId = ExportHelper.ComputeCollectionId(collection);
-		bool isPrimary = collectionId == primaryCollectionId;
+		bool isPrimary = IsPrimaryCollection(collectionId, primaryCollectionId);
 
 		return new SceneCollectionDescriptor
 		{
@@ -249,7 +248,12 @@ internal class SceneExporter
 		};
 	}
 
-	private SceneCollectionDetail CreateSceneCollectionDetail(AssetCollection collection, bool isPrimary)
+	internal static bool IsPrimaryCollection(string collectionId, string primaryCollectionId)
+	{
+		return string.Equals(collectionId, primaryCollectionId, StringComparison.Ordinal);
+	}
+
+	private SceneCollectionDetail CreateSceneCollectionDetail(AssetCollection collection, string primaryCollectionId)
 	{
 		string collectionId = ExportHelper.ComputeCollectionId(collection);
 		BundleRef bundleRef = BuildBundleRef(collection.Bundle);
@@ -258,7 +262,7 @@ internal class SceneExporter
 		{
 			CollectionId = collectionId,
 			Bundle = bundleRef,
-			IsPrimary = isPrimary,
+			IsPrimary = IsPrimaryCollection(collectionId, primaryCollectionId),
 			AssetCount = collection.Count
 		};
 	}

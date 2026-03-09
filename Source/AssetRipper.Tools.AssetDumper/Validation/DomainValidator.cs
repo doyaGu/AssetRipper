@@ -19,12 +19,14 @@ public sealed class DomainValidator
 	private readonly EvaluationOptions _evaluationOptions;
 	private readonly List<ValidationError> _errors;
 	private readonly List<ValidationWarning> _warnings;
+	private bool _schemasRegistered;
 
 	public DomainValidator(Options options)
 	{
 		_options = options ?? throw new ArgumentNullException(nameof(options));
 		_errors = new List<ValidationError>();
 		_warnings = new List<ValidationWarning>();
+		_schemasRegistered = false;
 
 		_evaluationOptions = new EvaluationOptions
 		{
@@ -115,6 +117,8 @@ public sealed class DomainValidator
 	{
 		try
 		{
+			await EnsureSchemasRegisteredAsync();
+
 			// Schema paths are relative to the output directory
 			var schemaPath = Path.Combine(_options.OutputPath, schemaRelativePath);
 
@@ -124,14 +128,59 @@ public sealed class DomainValidator
 				return null;
 			}
 
-			var schemaJson = await File.ReadAllTextAsync(schemaPath);
-			return JsonSchema.FromText(schemaJson);
+			return await Task.Run(() => SchemaLoadHelper.LoadFromFile(schemaPath));
 		}
 		catch (Exception ex)
 		{
 			Logger.Error(LogCategory.Export, $"Failed to load schema {schemaRelativePath}: {ex.Message}");
 			return null;
 		}
+	}
+
+	private async Task EnsureSchemasRegisteredAsync()
+	{
+		if (_schemasRegistered)
+		{
+			return;
+		}
+
+		string schemasRoot = Path.Combine(_options.OutputPath, "Schemas", "v2");
+		if (!Directory.Exists(schemasRoot))
+		{
+			_schemasRegistered = true;
+			return;
+		}
+
+		await Task.Run(() =>
+		{
+			foreach (string fullPath in Directory.EnumerateFiles(schemasRoot, "*.json", SearchOption.AllDirectories))
+			{
+				JsonSchema schema = SchemaLoadHelper.LoadFromFile(fullPath);
+				string hostedRelative = Path.GetRelativePath(schemasRoot, fullPath).Replace('\\', '/');
+
+				try
+				{
+					SchemaRegistry.Global.Register(
+						new Uri($"https://schemas.assetripper.dev/assetdump/v2/{hostedRelative}"),
+						schema);
+				}
+				catch
+				{
+					// Ignore duplicate registrations across validator runs.
+				}
+
+				try
+				{
+					SchemaRegistry.Global.Register(new Uri(fullPath), schema);
+				}
+				catch
+				{
+					// Ignore duplicate registrations across validator runs.
+				}
+			}
+		});
+
+		_schemasRegistered = true;
 	}
 
 	/// <summary>
@@ -232,29 +281,48 @@ public sealed class DomainValidator
 		if (result.IsValid)
 			return;
 
-		// Extract validation errors from the result
-		foreach (var detail in result.Details)
+		List<EvaluationResults> errorDetails = new();
+		CollectErrorDetails(result, errorDetails);
+
+		foreach (EvaluationResults detail in errorDetails)
 		{
-			if (!detail.IsValid)
+			string message = detail.Errors?.FirstOrDefault().Value ?? "Schema validation failed";
+
+			var error = new ValidationError
 			{
-				var errorType = DetermineErrorType(detail);
-				var message = detail.Errors?.FirstOrDefault().Value ?? "Schema validation failed";
+				ErrorType = DetermineErrorType(detail),
+				Severity = ValidationSeverity.Error,
+				Domain = domainResult.Domain,
+				TableId = domainResult.TableId,
+				FilePath = filePath,
+				LineNumber = lineNumber,
+				JsonPath = detail.InstanceLocation.ToString(),
+				Message = message,
+				RuleDescription = detail.SchemaLocation.ToString(),
+				Category = "Schema"
+			};
 
-				var error = new ValidationError
-				{
-					ErrorType = errorType,
-					Severity = ValidationSeverity.Error,
-					Domain = domainResult.Domain,
-					TableId = domainResult.TableId,
-					FilePath = filePath,
-					LineNumber = lineNumber,
-					JsonPath = detail.InstanceLocation.ToString(),
-					Message = message,
-					RuleDescription = detail.SchemaLocation.ToString(),
-					Category = "Schema"
-				};
+			_errors.Add(error);
+		}
+	}
 
-				_errors.Add(error);
+	private static void CollectErrorDetails(EvaluationResults evaluation, List<EvaluationResults> details)
+	{
+		if (evaluation.Errors?.Any() == true)
+		{
+			details.Add(evaluation);
+		}
+
+		if (evaluation.Details?.Any() != true)
+		{
+			return;
+		}
+
+		foreach (EvaluationResults child in evaluation.Details)
+		{
+			if (!child.IsValid)
+			{
+				CollectErrorDetails(child, details);
 			}
 		}
 	}

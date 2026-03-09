@@ -35,8 +35,7 @@ public sealed class CollectionExporter
 		_jsonSettings = new JsonSerializerSettings
 		{
 			Formatting = Formatting.None,
-			NullValueHandling = NullValueHandling.Ignore,
-			DefaultValueHandling = DefaultValueHandling.Ignore
+			NullValueHandling = NullValueHandling.Ignore
 		};
 	}
 

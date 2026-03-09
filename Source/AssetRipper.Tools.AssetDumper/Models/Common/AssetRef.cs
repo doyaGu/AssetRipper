@@ -7,10 +7,10 @@ namespace AssetRipper.Tools.AssetDumper.Models.Common;
 /// </summary>
 public class AssetRef
 {
-	[JsonProperty("c")]
+	[JsonProperty("collectionId")]
 	public string CollectionId { get; set; } = string.Empty;
 
-	[JsonProperty("p")]
+	[JsonProperty("pathId")]
 	public long PathId { get; set; }
 
 	public AssetRef() { }

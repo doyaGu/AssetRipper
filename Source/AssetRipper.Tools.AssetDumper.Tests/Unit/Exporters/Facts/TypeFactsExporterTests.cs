@@ -105,7 +105,7 @@ public class TypeFactsExporterTests : IDisposable
 
 		// Assert
 		result.Should().NotBeNull();
-		result.Domain.Should().Be("assets");
+		result.Domain.Should().Be("types");
 		result.TableId.Should().Be("facts/types");
 	}
 

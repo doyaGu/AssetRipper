@@ -1,8 +1,11 @@
-﻿using System;
+using System;
 using System.IO;
+using System.Reflection;
 using AssetRipper.Processing;
 using AssetRipper.Tools.AssetDumper.Core;
 using AssetRipper.Tools.AssetDumper.Exporters.Facts;
+using AssetRipper.Tools.AssetDumper.Models.Facts;
+using Newtonsoft.Json;
 
 namespace AssetRipper.Tools.AssetDumper.Tests.Unit.Exporters.Facts;
 
@@ -83,6 +86,39 @@ public class CollectionFactsExporterTests : IDisposable
 
 		// Assert
 		exporter.Should().NotBeNull();
+	}
+
+	[Fact]
+	public void Constructor_ShouldSerializeAssetCountWhenValueIsZero()
+	{
+		// Arrange
+		var options = new Options
+		{
+			InputPath = "C:\\TestInput",
+			OutputPath = _testOutputPath,
+			Quiet = true
+		};
+		var exporter = new CollectionExporter(options, CompressionKind.None);
+		var settingsField = typeof(CollectionExporter).GetField("_jsonSettings", BindingFlags.Instance | BindingFlags.NonPublic);
+		settingsField.Should().NotBeNull();
+		var settings = (JsonSerializerSettings)settingsField!.GetValue(exporter)!;
+
+		var record = new CollectionRecord
+		{
+			CollectionId = "collection-1",
+			Name = "Collection",
+			Platform = "NoTarget",
+			UnityVersion = "2021.3.0f1",
+			Endian = "LittleEndian",
+			Bundle = new(),
+			AssetCount = 0
+		};
+
+		// Act
+		string json = JsonConvert.SerializeObject(record, settings);
+
+		// Assert
+		json.Should().Contain("\"assetCount\":0");
 	}
 
 	#endregion

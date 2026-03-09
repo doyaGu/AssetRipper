@@ -94,7 +94,7 @@ public class GRISEndToEndTests : IDisposable
 		// Verify key tables
 		Assert.Contains("\"facts/assets\"", manifestContent);
 		Assert.Contains("\"relations/asset_dependencies\"", manifestContent);
-		Assert.Contains("\"facts/scripts\"", manifestContent);
+		Assert.Contains("\"facts/script_metadata\"", manifestContent);
 		Assert.Contains("\"facts/scenes\"", manifestContent);
 
 		// Verify metrics tables

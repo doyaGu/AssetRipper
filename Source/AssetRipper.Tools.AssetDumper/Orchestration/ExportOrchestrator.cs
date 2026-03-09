@@ -9,6 +9,7 @@ using AssetRipper.Tools.AssetDumper.Models.Common;
 using AssetRipper.Tools.AssetDumper.Generators;
 using AssetRipper.Tools.AssetDumper.Exporters.Facts;
 using AssetRipper.Tools.AssetDumper.Exporters.Relations;
+using AssetRipper.Tools.AssetDumper.Writers;
 
 namespace AssetRipper.Tools.AssetDumper.Orchestration;
 
@@ -63,7 +64,7 @@ public sealed class ExportOrchestrator
 			// Scripts must be decompiled before we can export script source links or AST-dependent metadata.
 			ProcessScripts(gameData);
 			ExecuteScriptCodeExport(context, existingManifest);
-			GenerateManifest(context);
+			GenerateManifest(context, existingManifest);
 
 			totalStopwatch.Stop();
 
@@ -79,6 +80,108 @@ public sealed class ExportOrchestrator
 			LogCompletionSummary(totalStopwatch.Elapsed, context);
 			_validationService.LogProcessingSummary(totalStopwatch.Elapsed);
 
+			return 0;
+		}
+		catch (DirectoryNotFoundException ex)
+		{
+			Logger.Error($"Directory not found: {ex.Message}");
+			return 2;
+		}
+		catch (UnauthorizedAccessException ex)
+		{
+			Logger.Error($"Access denied: {ex.Message}");
+			return 3;
+		}
+		catch (Exception ex)
+		{
+			Logger.Error("Processing failed", ex);
+			return 1;
+		}
+		finally
+		{
+			totalStopwatch.Stop();
+		}
+	}
+
+	internal async Task<int> ExecuteDumpBackedAsync(DumpBackedExportPlan plan)
+	{
+		if (plan is null)
+		{
+			throw new ArgumentNullException(nameof(plan));
+		}
+
+		var totalStopwatch = Stopwatch.StartNew();
+		CompressionKind compressionKind = ResolveCompressionKind();
+		bool enableIndex = ResolveIndexingSetting(compressionKind);
+		KeyIndexGenerator? indexGenerator = enableIndex ? new KeyIndexGenerator(_options) : null;
+		Manifest? existingManifest = _incrementalManager.TryLoadExistingManifest();
+		TableResultLoader tableLoader = new TableResultLoader(_options, _incrementalManager);
+		List<DomainExportResult> domainResults = new();
+		Dictionary<string, ManifestIndex> indexRefs = new(StringComparer.OrdinalIgnoreCase);
+
+		if (existingManifest != null && enableIndex)
+		{
+			foreach ((string domain, ManifestIndex index) in existingManifest.Indexes ?? new Dictionary<string, ManifestIndex>())
+			{
+				indexRefs[domain] = index;
+			}
+		}
+
+		try
+		{
+			EnsureExportScaffolding();
+
+			if (plan.TableSelection.IsTableSelected("facts/assemblies"))
+			{
+				domainResults.Add(tableLoader.LoadRequiredTable(
+					domain: "assemblies",
+					tableId: "facts/assemblies",
+					schemaPath: "Schemas/v2/facts/assemblies.schema.json",
+					existingManifest));
+			}
+
+			if (plan.TableSelection.IsTableSelected("facts/script_sources"))
+			{
+				ScriptSourceIndexBuilder builder = new ScriptSourceIndexBuilder(_options);
+				ScriptSourceIndexBuildResult buildResult = builder.Build();
+
+				ScriptSourceExporter exporter = new ScriptSourceExporter(
+					_options,
+					compressionKind,
+					enableIndex);
+				DomainExportResult result = exporter.ExportSources(buildResult);
+				domainResults.Add(result);
+
+				if (enableIndex && indexGenerator != null && result.HasIndex)
+				{
+					ManifestIndex? reference = indexGenerator.Write(result.Domain, result.IndexEntries, compressionKind);
+					if (reference != null)
+					{
+						indexRefs[result.Domain] = reference;
+					}
+				}
+			}
+
+			if (_options.ExportManifest)
+			{
+				ManifestGenerator generator = new ManifestGenerator(_options);
+				generator.GenerateManifest(
+					ResolveDumpProducer(existingManifest),
+					domainResults,
+					indexRefs.Count > 0 ? indexRefs : null,
+					existingManifest);
+			}
+
+			_validationService.LogExportDiagnostics(domainResults);
+			_validationService.ValidateShardOutputs(domainResults);
+
+			if (!await _validationService.ValidateSchemasAsync(domainResults))
+			{
+				return 4;
+			}
+
+			LogCompletionSummary(totalStopwatch.Elapsed, domainResults.SelectMany(static result => result.Shards).ToList(), domainResults);
+			_validationService.LogProcessingSummary(totalStopwatch.Elapsed);
 			return 0;
 		}
 		catch (DirectoryNotFoundException ex)
@@ -185,7 +288,8 @@ public sealed class ExportOrchestrator
 			&& existingManifest != null
 			&& _incrementalManager.ManifestContainsTables(existingManifest, "facts/scenes");
 
-		bool canReuseScriptMetadata = _options.ExportScriptMetadata
+		bool needsScriptMetadataForSourceLinking = _options.LinkSourceFiles;
+		bool canReuseScriptMetadata = (_options.ExportScriptMetadata || needsScriptMetadataForSourceLinking)
 			&& existingManifest != null
 			&& (_incrementalManager.ManifestContainsTables(existingManifest, "facts/script_metadata")
 				|| _incrementalManager.ManifestContainsTables(existingManifest, "facts/scripts"));
@@ -224,7 +328,7 @@ public sealed class ExportOrchestrator
 		// Export what needs to be regenerated
 		bool needsBundleMetadata = _options.ExportBundleMetadata && !canReuseBundleMetadata;
 		bool needsScenes = _options.ExportScenes && !canReuseScenes;
-		bool needsScriptMetadata = _options.ExportScriptMetadata && !canReuseScriptMetadata;
+		bool needsScriptMetadata = (_options.ExportScriptMetadata || needsScriptMetadataForSourceLinking) && !canReuseScriptMetadata;
 		bool needsMetrics = _options.ExportMetrics;
 
 		if (needsBundleMetadata || needsScenes || needsScriptMetadata || needsMetrics)
@@ -419,15 +523,18 @@ public sealed class ExportOrchestrator
 	/// </summary>
 	private void ExportSourceLinking(ExportContext context)
 	{
+		ScriptSourceIndexBuilder builder = new ScriptSourceIndexBuilder(_options);
+		ScriptSourceIndexBuildResult buildResult = builder.Build();
+
 		ScriptSourceExporter exporter = new ScriptSourceExporter(
 			_options,
 			context.CompressionKind,
 			context.EnableIndex);
-		DomainExportResult result = exporter.ExportSources(context.GameData);
+		DomainExportResult result = exporter.ExportSources(buildResult);
 		context.AddResult(result, ExportPipelineOwner.ScriptCode);
 	}
 
-	private void GenerateManifest(ExportContext context)
+	private void GenerateManifest(ExportContext context, Manifest? existingManifest)
 	{
 		if (!_options.ExportManifest)
 		{
@@ -443,7 +550,8 @@ public sealed class ExportOrchestrator
 		generator.GenerateManifest(
 			context.GameData,
 			context.DomainResults,
-			context.IndexRefs.Count > 0 ? context.IndexRefs : null);
+			context.IndexRefs.Count > 0 ? context.IndexRefs : null,
+			existingManifest);
 	}
 
 	private void ProcessScripts(GameData gameData)
@@ -549,6 +657,8 @@ public sealed class ExportOrchestrator
 		{
 			OutputPathHelper.EnsureSubdirectory(_options.OutputPath, OutputPathHelper.MetricsDirectoryName);
 		}
+
+		OutputPathHelper.MaterializeSchemas(_options.OutputPath);
 	}
 
 	/// <summary>
@@ -590,7 +700,35 @@ public sealed class ExportOrchestrator
 		}
 	}
 
+	private ManifestProducer ResolveDumpProducer(Manifest? existingManifest)
+	{
+		if (existingManifest?.Producer != null)
+		{
+			return new ManifestProducer
+			{
+				Name = existingManifest.Producer.Name,
+				Version = existingManifest.Producer.Version,
+				Commit = existingManifest.Producer.Commit,
+				AssetRipperVersion = existingManifest.Producer.AssetRipperVersion,
+				UnityVersion = existingManifest.Producer.UnityVersion,
+				ProjectName = existingManifest.Producer.ProjectName
+			};
+		}
+
+		return new ManifestProducer
+		{
+			Name = "AssetDumper",
+			Version = typeof(ExportOrchestrator).Assembly.GetName().Version?.ToString() ?? "unknown",
+			ProjectName = Path.GetFileName(_options.InputPath)
+		};
+	}
+
 	private void LogCompletionSummary(TimeSpan elapsed, ExportContext context)
+	{
+		LogCompletionSummary(elapsed, context.AllShards, context.DomainResults);
+	}
+
+	private void LogCompletionSummary(TimeSpan elapsed, IReadOnlyCollection<ShardDescriptor> allShards, IReadOnlyCollection<DomainExportResult> domainResults)
 	{
 		if (_options.Silent)
 		{
@@ -598,6 +736,6 @@ public sealed class ExportOrchestrator
 		}
 
 		Logger.Info($"Processing completed successfully in {elapsed:mm\\:ss\\.fff}");
-		Logger.Info($"Generated {context.AllShards.Count} shards with {context.AllShards.Sum(s => s.Records)} total records");
+		Logger.Info($"Generated {allShards.Count} shards with {allShards.Sum(static s => s.Records)} total records");
 	}
 }

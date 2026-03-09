@@ -137,6 +137,23 @@ public class ComprehensiveSchemaValidatorTests : IDisposable
     }
 
     [Fact]
+    public async Task ValidateAllAsync_WithInvalidSceneData_UsesFullTableIdInErrorsAndSummary()
+    {
+        // Arrange
+        CreateSceneDataWithInvalidGuid();
+        var domainResults = CreateDomainResults();
+
+        // Act
+        var report = await _validator.ValidateAllAsync(domainResults);
+
+        // Assert
+        report.Errors.Should().Contain(e => e.TableId == "facts/scenes", DescribeReport(report));
+        report.Errors.Where(e => e.TableId == "facts/scenes").Should().OnlyContain(e =>
+            e.FilePath.Contains("facts/scenes", StringComparison.OrdinalIgnoreCase), DescribeReport(report));
+        report.DomainSummaries.Should().Contain(s => s.TableId == "facts/scenes" && s.ErrorCount > 0, DescribeReport(report));
+    }
+
+    [Fact]
     public async Task ValidateAllAsync_WithCorrectDataFieldStructure_Passes()
     {
         // Arrange: Create asset data with raw payload in data field (not wrapped in container)
