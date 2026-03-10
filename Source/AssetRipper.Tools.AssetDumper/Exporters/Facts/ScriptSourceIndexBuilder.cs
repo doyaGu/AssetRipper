@@ -102,6 +102,7 @@ internal sealed class ScriptSourceIndexBuilder
 	{
 		Dictionary<string, ScriptInfo> map = new(StringComparer.Ordinal);
 		List<string> duplicates = new();
+		int mergedDuplicates = 0;
 		foreach (string shardPath in Directory
 			.EnumerateFiles(scriptMetadataDir, "*.ndjson*", SearchOption.AllDirectories)
 			.OrderBy(static path => path, StringComparer.OrdinalIgnoreCase))
@@ -132,6 +133,13 @@ internal sealed class ScriptSourceIndexBuilder
 				ScriptInfo incoming = new ScriptInfo(scriptGuid, scriptPk, assemblyGuid);
 				if (map.TryGetValue(fullName, out ScriptInfo? existing))
 				{
+					if (existing.IsSameLogicalIdentity(incoming))
+					{
+						map[fullName] = ScriptInfo.ChooseCanonical(existing, incoming);
+						mergedDuplicates++;
+						continue;
+					}
+
 					if (!existing.IsSameIdentity(incoming))
 					{
 						duplicates.Add(
@@ -144,6 +152,11 @@ internal sealed class ScriptSourceIndexBuilder
 
 				map[fullName] = incoming;
 			}
+		}
+
+		if (mergedDuplicates > 0)
+		{
+			Logger.Info(LogCategory.Export, $"Collapsed {mergedDuplicates} duplicate script_metadata row(s) with shared logical identity.");
 		}
 
 		if (duplicates.Count > 0)
@@ -385,6 +398,31 @@ internal sealed class ScriptInfo
 		return string.Equals(ScriptGuid, other.ScriptGuid, StringComparison.Ordinal) &&
 			string.Equals(ScriptPk, other.ScriptPk, StringComparison.Ordinal) &&
 			string.Equals(AssemblyGuid, other.AssemblyGuid, StringComparison.Ordinal);
+	}
+
+	public bool IsSameLogicalIdentity(ScriptInfo other)
+	{
+		if (other is null)
+		{
+			return false;
+		}
+
+		return string.Equals(ScriptGuid, other.ScriptGuid, StringComparison.Ordinal) &&
+			string.Equals(AssemblyGuid, other.AssemblyGuid, StringComparison.Ordinal);
+	}
+
+	public static ScriptInfo ChooseCanonical(ScriptInfo left, ScriptInfo right)
+	{
+		if (left is null)
+		{
+			return right ?? throw new ArgumentNullException(nameof(right));
+		}
+		if (right is null)
+		{
+			return left;
+		}
+
+		return StringComparer.Ordinal.Compare(left.ScriptPk, right.ScriptPk) <= 0 ? left : right;
 	}
 }
 
